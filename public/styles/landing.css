@@ -1,0 +1,646 @@
+/* ============================================================================
+   ContextLock additions to the landing page
+   ----------------------------------------------------------------------------
+   Kept in its own file rather than edited into the scraped Webflow stylesheets,
+   so what belongs to this product is always separable from what came with the
+   template. Loaded last, so it wins on equal specificity without !important.
+
+   Everything here uses the site's own tokens (--color, --soft, --white) and its
+   own faces (var(--medium), var(--serif)) — the landing's look is the source of
+   truth for the whole product, not the other way round.
+   ========================================================================== */
+
+/* --- hero wordmark --------------------------------------------------------
+   The template set this at a fixed 5.1rem, which left most of the hero empty
+   on a desktop screen. Sized against the viewport instead so it fills the space
+   it has, with the letter-spacing scaling alongside — spacing kept at a fixed
+   3rem would shred the word on a phone. */
+.hero__title__h1 {
+  font-size: clamp(3rem, 15vw, 19rem);
+  letter-spacing: clamp(0.5rem, 2.6vw, 2.6rem);
+  line-height: 1;
+}
+
+/* The eyebrow was left at the template's fixed 1.9rem while the wordmark
+   beneath it grew, which made it look like a caption rather than a claim. */
+.hero__subt__text {
+  font-size: clamp(1.5rem, 2.3vw, 3rem);
+  letter-spacing: 0.01em;
+}
+
+.hero__title {
+  grid-column-gap: clamp(1rem, 3.4vw, 4.4rem);
+  grid-row-gap: clamp(0.4rem, 2vw, 1.6rem);
+  flex-wrap: wrap;
+  margin-top: clamp(1rem, 3vh, 2.5rem);
+}
+
+/* The trailing letter-space pushes the word visually off-centre; pulling it
+   back by half keeps the pair optically centred at every size. */
+.hero__title__h1 { margin-right: calc(clamp(0.7rem, 3vw, 3rem) * -0.5); }
+
+
+/* ============================================================================
+   Word spacing in split headings
+   ----------------------------------------------------------------------------
+   Every animated heading is exploded one <div> per letter, grouped one
+   .js-words per word. In JSX, whitespace between elements on separate lines is
+   stripped, so the scrape lost every word break and the page rendered
+   "SLEEPISNTALUXURY". The original CSS never spaced them because in the live
+   site the split happened at runtime, where the text nodes still carried their
+   spaces.
+
+   A margin on each word after the first restores the gap, scales with the type
+   because it is in em, and does not disturb the per-letter animation.
+   ========================================================================== */
+.js-words + .js-words { margin-left: 0.3em; }
+
+/* Uppercase eyebrows already carry wide letter-spacing, so the same em gap
+   reads as too tight against it. */
+.subtitle__text .js-words + .js-words { margin-left: 0.55em; }
+
+/* ============================================================================
+   Display face for the hero wordmark
+   ========================================================================== */
+@font-face {
+  font-family: "Security Company";
+  src: url("/fonts/Security%20Company.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  /* swap: the wordmark is the first thing painted, so showing it in the
+     fallback beats holding the hero blank while a 735KB face downloads. */
+  font-display: swap;
+}
+
+.hero__title__h1 {
+  font-family: "Security Company", Editorial, Georgia, serif;
+}
+
+/* --- hero call to action -------------------------------------------------- */
+/* Held back until the hero moves — see revealCtaWithTheHero() in SiteScripts.
+   The transition lives on the revealed state only, so the hidden state is not
+   animated into on first paint. */
+.cl-hero-cta {
+  opacity: 0;
+  translate: 0 1.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 1.6vw, 24px);
+  margin-top: clamp(2.6rem, 6vh, 5.5rem);
+}
+
+.cl-entered .cl-hero-cta {
+  opacity: 1;
+  translate: 0 0;
+  transition: opacity 0.9s ease-out, translate 1.1s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cl-hero-cta { opacity: 1; translate: none; }
+}
+
+.cl-hero-cta__primary,
+.cl-hero-cta__secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.05em 2.9em;
+  border-radius: 999px;
+  font-size: clamp(1.15rem, 1.7vw, 1.85rem);
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+
+/* The hero sits on the deep blue 3D scene, not on the cream ground, so these
+   take the cream treatment the wordmark above them already uses. Styled blue
+   they were blue-on-blue: the primary barely separated and the secondary was
+   very nearly invisible. */
+.cl-hero-cta__primary {
+  background: var(--soft, #fef1d0);
+  color: #002e77;
+  border: 1px solid var(--soft, #fef1d0);
+  font-family: var(--medium), system-ui, sans-serif;
+}
+.cl-hero-cta__primary:hover {
+  transform: translateY(-2px);
+  background: #fff;
+  border-color: #fff;
+}
+
+.cl-hero-cta__secondary {
+  background: transparent;
+  color: var(--soft, #fef1d0);
+  border: 1px solid color-mix(in srgb, var(--soft, #fef1d0) 55%, transparent);
+}
+.cl-hero-cta__secondary:hover {
+  transform: translateY(-2px);
+  border-color: var(--soft, #fef1d0);
+  background: color-mix(in srgb, var(--soft, #fef1d0) 12%, transparent);
+}
+
+.cl-hero-cta__primary:focus-visible,
+.cl-hero-cta__secondary:focus-visible {
+  outline: 2px solid var(--soft, #fef1d0);
+  outline-offset: 3px;
+}
+
+/* The hero is centred and vertically tight on short screens; the CTA gives up
+   its top margin first rather than pushing the scroll cue off-screen. */
+@media (max-height: 760px) {
+  .cl-hero-cta { margin-top: 1.8rem; }
+}
+
+@media (max-width: 600px) {
+  .cl-hero-cta { gap: 10px; width: 100%; }
+  .cl-hero-cta__primary,
+  .cl-hero-cta__secondary {
+    flex: 1 1 auto;
+    padding: 0.9em 1.4em;
+    font-size: 0.95rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cl-hero-cta__primary,
+  .cl-hero-cta__secondary { transition: none; }
+  .cl-hero-cta__primary:hover,
+  .cl-hero-cta__secondary:hover { transform: none; }
+}
+
+/* --- Chainlink mark inside the stats ring ---------------------------------
+   The label this replaces was dragged into the ring by two negative offsets
+   tuned to a single line of 1.9rem text (margin-top -4.5rem on the wrapper,
+   top -5.3rem on the paragraph). A block with different dimensions inherits
+   that maths and lands nowhere near the centre — which is exactly what
+   happened: the mark rendered roughly 10rem below the ring.
+
+   .stats__stats is the ring container and is already position:relative, so the
+   wrapper is centred against it directly and the mark's own height stops
+   mattering. */
+.stats__stats__minimum {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.cl-stats-mark {
+  display: block;
+  width: clamp(110px, 15vw, 250px);
+  height: auto;
+}
+
+/* --- retired audio affordances --------------------------------------------
+   The background loop and the six narration clips are gone, and no element is
+   registered as an insight trigger any more, so the sound toggle and the
+   "Play insight" cursor have nothing left to control.
+
+   Hidden rather than deleted: the engine holds both by querySelector and calls
+   into them, so the nodes have to stay in the DOM. display:none also takes
+   them out of the accessibility tree, so they are not announced either. */
+.trg-sound,
+.cursor-insight,
+/* The floating "THE NOTE" trigger. It opened the template author's personal
+   letter; the panel itself stays in the DOM because the engine binds to it,
+   but nothing reaches it any more. */
+.trg-note {
+  display: none !important;
+}
+
+/* The rotating duration picker that used to sit under "Minimum duration:".
+   With the Chainlink mark in the centre the two overlap, and the ring only
+   needs to say one thing.
+
+   Hidden rather than removed: the engine holds .stats__stats__ul and
+   .stats__stats__number by query and animates them, so the nodes must stay.
+   The ring keeps its size from .stats_stats__pattern, which carries its own
+   width and aspect-ratio, so nothing collapses. */
+.stats__stats__ul {
+  display: none;
+}
+
+
+/* ============================================================================
+   Retired scenes
+   ----------------------------------------------------------------------------
+   display:none rather than removing the node: the engine reads
+   querySelector(".scene-tunnel").previousElementSibling, and a null there
+   throws and takes the whole 3D runtime with it. Hiding also collapses the
+   spacer's scroll height, so the section no longer occupies the page.
+   ========================================================================== */
+.scene-tunnel,
+.scene-woman,
+/* Everything between the pendulum and the closing CTA. The page now runs
+   hero -> the four argument sections -> pendulum -> build -> footer.
+
+   Hidden, never removed: the engine holds most of these by querySelector and
+   dereferences the result immediately (.the-balance, .cycle__wrapper,
+   .solution__hero, .drop-cans__svg, .typog__words), so a null throws and takes
+   the whole 3D runtime with it. Hiding also drops their scroll height, so they
+   no longer lengthen the page. */
+.drop-cans,
+.scene-phone-before,
+.scene-phone,
+.the-balance,
+.scene-lamp,
+.cycle,
+.solution,
+/* The closing block and the footer. Both were still the template's: a sign-off
+   telling you to go and sleep, a link to the author's animation course, his
+   socials, and the challenge credit. None of it belongs to this product.
+
+   The page now simply ends on the pendulum. */
+.ender,
+.footer,
+.footer-decor-solid {
+  display: none;
+}
+
+/* ============================================================================
+   Body copy scale
+   ----------------------------------------------------------------------------
+   The template set these in fixed rem against its own longer paragraphs. With
+   the copy cut back there is room to read them at a size that matches the
+   display type around them, instead of a dense block in a narrow column.
+   ========================================================================== */
+.parag {
+  font-size: clamp(1.9rem, 1.55vw, 3.1rem);
+  line-height: 1.45;
+}
+
+.small-parag {
+  font-size: clamp(1.8rem, 1.45vw, 2.9rem);
+  line-height: 1.45;
+}
+
+/* ============================================================================
+   Ledger mark at the centre of the clock
+   ----------------------------------------------------------------------------
+   The slot was a 5.2rem circle with a border and overflow:hidden, built to clip
+   a round texture. A wordmark is 3:1, so the circle has to be undone entirely —
+   clipping it to a disc would crop the word.
+   ========================================================================== */
+.onclock__spiral__center.cl-ledger-center {
+  width: clamp(150px, 20vw, 330px);
+  aspect-ratio: auto;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+  display: grid;
+  place-items: center;
+  /* The ring's radiating lines converge here, so the mark needs to sit above
+     them rather than be threaded through. */
+  z-index: 3;
+}
+
+.cl-ledger {
+  width: 100%;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 0 26px rgba(8, 18, 74, 0.55));
+}
+
+/* ============================================================================
+   Marks inside the pendulum balls
+   ----------------------------------------------------------------------------
+   The balls are bordered discs with their texture sized to fill edge to edge.
+   A logo cannot fill a circle the same way — square it off and it gets clipped
+   at the curve — so each mark is inset and centred instead.
+
+   The wrappers keep their classes untouched: the engine collects
+   .pendulum__ball__img with querySelectorAll and animates opacity on them, so
+   the swing and fade are unchanged.
+   ========================================================================== */
+.pendulum__ball__img {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.cl-pend-mark {
+  display: block;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Sized per mark: the Chainlink hexagon is near-square, Ledger is a 3:1
+   wordmark, and ENS sits between the two. Each gets the width that leaves a
+   comfortable margin inside the disc rather than one shared value. */
+.cl-pend-mark--chain  { width: 46%; }
+.cl-pend-mark--ens    { width: 58%; }
+.cl-pend-mark--ledger { width: 66%; }
+
+/* All three pendulum balls take the white ground the middle one had, so the
+   marks sit on a consistent disc rather than one floating on the page colour. */
+.pendulum__ball__img {
+  background-color: var(--white);
+}
+
+/* The mark has to sit above the loop. .preloader__hold is static, and static
+   content paints below positioned content whatever the source order says, so
+   the cream disc covering the crossing was covering the fingerprint with it. */
+.preloader__hold {
+  position: relative;
+  z-index: 2;
+  /* It is raised so the mark paints above the loop, but it is also the size of
+     the whole screen — left hit-testable it swallows every hover meant for the
+     badges underneath it. Events pass through; the entry column takes its own
+     back, because the click guard identifies the way in by .preloader__content
+     and a click landing on .preloader instead would be treated as a stray. */
+  pointer-events: none;
+}
+
+.preloader__content {
+  pointer-events: auto;
+}
+
+/* --- the entry mark ------------------------------------------------------
+   The template set this at a fixed 6rem wide. Its artboard is 60x84, so it is
+   sized on HEIGHT and the width derived from it (60/84 = 0.714), which keeps
+   it in proportion with the badges on the loop. */
+.preloader__svg {
+  width: clamp(37px, 3.3vw, 61px);
+}
+
+/* --- the infinity --------------------------------------------------------
+   Six separate wires converging read as six separate claims. One closed loop
+   reads as one system: a lemniscate crossing itself exactly once, at the
+   centre, where the entry mark sits — so both chains meet ON the lock rather
+   than beside it, and the crossing is covered by the mark itself.
+
+   Each chain sits inside its own lobe with its protocols placed around that
+   lobe, so membership is shown by enclosure and needs no labelling. The SVG
+   is centred on the mark with the same padding trick the chips used, so
+   viewBox point (500,310) lands on the fingerprint at any size. */
+.cl-mesh {
+  --cl-enter-label: 3rem;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  margin-top: -6rem;
+  padding-bottom: calc(2.1rem + var(--cl-enter-label));
+  padding-inline: clamp(2.5rem, 5vw, 6rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.cl-mesh__svg {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  overflow: visible;
+}
+
+/* pathLength="1" lets one dash pattern draw a path of any length. */
+.cl-lobe {
+  fill: none;
+  stroke: var(--color, #0042af);
+  stroke-opacity: 0.22;
+  stroke-width: 1.6;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  animation-name: cl-inf-draw;
+  animation-duration: 2.6s;
+  animation-timing-function: cubic-bezier(0.3, 0.7, 0.2, 1);
+  animation-delay: 0.3s;
+  animation-fill-mode: forwards;
+  transition: stroke-opacity 0.5s ease, filter 0.5s ease;
+}
+
+.cl-lobe--sui { animation-delay: 0.55s; }
+
+@keyframes cl-inf-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Hovering a chain or any of its protocols lights that chain's own half of the
+   loop and eases the other half back. The lobes are separate paths for exactly
+   this: membership is already shown by enclosure, and this makes it answer. */
+.cl-mesh__svg:has(.cl-side--evm:hover) .cl-lobe--evm,
+.cl-mesh__svg:has(.cl-side--sui:hover) .cl-lobe--sui {
+  stroke-opacity: 0.6;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--color, #0042af) 45%, transparent));
+}
+
+.cl-mesh__svg:has(.cl-side--evm:hover) .cl-lobe--sui,
+.cl-mesh__svg:has(.cl-side--sui:hover) .cl-lobe--evm {
+  stroke-opacity: 0.08;
+}
+
+.cl-side {
+  transition: opacity 0.5s ease;
+}
+
+.cl-mesh__svg:has(.cl-side--evm:hover) .cl-side--sui,
+.cl-mesh__svg:has(.cl-side--sui:hover) .cl-side--evm {
+  opacity: 0.3;
+}
+
+/* The float owns transform on .cl-node and .cl-chain, so the hover lift rides
+   on an inner group. Two elements, two transforms, no fight. */
+.cl-lift {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.cl-node:hover .cl-lift { transform: scale(1.2); }
+.cl-chain:hover .cl-lift { transform: scale(1.06); }
+
+/* Flat cream discs, the same colour as the canvas, so the curve passes behind
+   the badges and behind the mark without being drawn over. */
+.cl-cross,
+.cl-node__disc {
+  fill: var(--soft, #fef1d0);
+}
+
+/* Protocol badges get a ring in the same blue as the outer frame, so they read
+   as struck from the page rather than floating on it. The chain marks stay
+   unringed: they are the parents here, and giving both the same treatment
+   would flatten the hierarchy the lobes are drawing. The crossing disc stays
+   unringed too, or it would draw a circle around the entry mark. */
+.cl-node__disc {
+  stroke: var(--color, #0042af);
+  stroke-width: 2;
+}
+
+/* A slow drift, each badge on its own phase so the ring never moves as a
+   block. Four points round a small ellipse rather than a straight bob: a pure
+   up-down at this speed reads as a glitch, a circuit reads as floating.
+
+   `transform` rather than the newer `translate` property, which is patchier on
+   SVG elements. The travel is 9 user units, about 9px on screen — a disc of
+   radius 30 that far off the curve still covers it across a chord of ~57, so
+   the loop never shows through under a badge at the end of its travel. */
+.cl-node {
+  pointer-events: auto;
+  animation-name: cl-float;
+  animation-duration: 6s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes cl-float {
+  0%   { transform: translate(0, -9px); }
+  25%  { transform: translate(5px, 0); }
+  50%  { transform: translate(0, 9px); }
+  75%  { transform: translate(-5px, 0); }
+  100% { transform: translate(0, -9px); }
+}
+
+/* The chains are heavier things, so they ride slower and shallower. */
+.cl-chain {
+  pointer-events: auto;
+  animation-name: cl-float-slow;
+  animation-duration: 8.5s;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes cl-float-slow {
+  0%   { transform: translate(0, -5px); }
+  25%  { transform: translate(3px, 0); }
+  50%  { transform: translate(0, 5px); }
+  75%  { transform: translate(-3px, 0); }
+  100% { transform: translate(0, -5px); }
+}
+
+.cl-chain__logo {
+  color: var(--color, #0042af);
+  opacity: 0.9;
+}
+
+.cl-chain__name {
+  font-family: var(--serif), Georgia, serif;
+  font-size: 40px;
+  fill: var(--color, #0042af);
+}
+
+/* Below this the canvas is too narrow to hold a loop this wide. */
+@media (max-width: 1000px) {
+  .cl-mesh { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cl-lobe { animation: none; stroke-dashoffset: 0; }
+  .cl-inf__trail { display: none; }
+  .cl-node__logo,
+  .cl-node,
+  .cl-chain { animation: none; }
+}
+
+/* --- a clean entry screen ------------------------------------------------
+   .pattern (inline.css) is a fixed 512px noise tile over the WHOLE page at
+   z-index 30, and the preloader sits at 20 — so the paper grain was being
+   painted on top of the entry screen, at native size, one tile pixel per
+   screen pixel. That is the speckle. The texture belongs on the site below,
+   not on this screen, so the preloader is lifted over it instead of the grain
+   being weakened everywhere. Opaque cream, nothing on top of it. */
+.preloader {
+  z-index: 40;
+  /* The blue is the ground now, not a wash at the edges. One gradient trying to
+     carry cream all the way out to blue could only ever land somewhere between
+     the two, which is what read as dull — cream alone is plain, cream-toward-
+     blue is muddy. A hard edge is neither. */
+  background-color: var(--color, #0042af);
+  background-image: none;
+}
+
+/* The canvas: flat cream, rounded, inset, with everything composed inside it.
+   z-index -1 puts it above .preloader's own blue and below every descendant,
+   which a positioned pseudo-element at z-index 0 would not do — it would paint
+   over the static .preloader__hold and bury the mark. */
+.preloader::before {
+  content: "";
+  position: absolute;
+  inset: clamp(2rem, 6vh, 6rem) clamp(2rem, 4.6vw, 7rem);
+  border-radius: clamp(26px, 2.9vw, 56px);
+  z-index: -1;
+  /* Dead flat. The knockout discs behind the badges and behind the mark are
+     filled with this exact colour so the loop passes behind them invisibly —
+     any gradient here and those discs read as circles sitting on the canvas.
+     The blue frame carries the contrast now, so nothing is lost. */
+  background-color: var(--soft, #fef1d0);
+}
+
+
+
+/* Only the mark and its label enter the site. The engine binds its click to
+   the whole .preloader overlay, so the cursor has to say which part is live —
+   see restrictEnterToTheMark() in SiteScripts. */
+.preloader { cursor: default; }
+.preloader__content { cursor: pointer; }
+
+/* --- the thesis, stated before the site loads ----------------------------
+   A judge should read the screen without scrolling: the line says what the
+   product claims, and the picture underneath demonstrates it — every protocol
+   on either chain wired into one mark, which is also the way in. The entry
+   label is the same verb the product runs on, pressed on a fingerprint. */
+.cl-slogan {
+  position: absolute;
+  bottom: clamp(5rem, 14vh, 13rem);
+  left: 50%;
+  translate: -50% 0;
+  width: min(94vw, 78rem);
+  text-align: center;
+  z-index: 2;
+  pointer-events: none;
+  animation: cl-slogan-in 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 0.35s both;
+}
+
+@keyframes cl-slogan-in {
+  from { opacity: 0; translate: -50% 1.2rem; }
+  to   { opacity: 1; translate: -50% 0; }
+}
+
+/* The category, at the head of the screen. It answers "what is this" before
+   the diagram argues anything, so the two lines bracket the picture instead of
+   stacking under it. */
+.cl-eyebrow {
+  position: absolute;
+  top: clamp(5rem, 12.5vh, 11rem);
+  left: 50%;
+  translate: -50% 0;
+  margin: 0;
+  width: min(96vw, 92rem);
+  text-align: center;
+  text-wrap: balance;
+  z-index: 2;
+  pointer-events: none;
+  font-family: var(--sans), Arial, sans-serif;
+  font-size: clamp(1.05rem, 1.6vw, 2rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color, #0042af);
+  animation: cl-slogan-in 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 0.35s both;
+}
+
+@media (max-width: 1000px) {
+  .cl-eyebrow { top: clamp(2rem, 5vh, 4rem); }
+}
+
+.cl-slogan__line {
+  margin: 0;
+  font-family: var(--serif), Georgia, serif;
+  font-size: clamp(2rem, 3.7vw, 4.6rem);
+  line-height: 1.08;
+  text-wrap: balance;
+  letter-spacing: -0.02em;
+  color: var(--color, #0042af);
+}
+
+@media (max-width: 1000px) {
+  .cl-slogan { bottom: clamp(3rem, 8vh, 6rem); }
+}
