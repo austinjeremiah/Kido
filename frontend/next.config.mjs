@@ -1,6 +1,22 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: false,
+
+  /*
+   * Pin the workspace root to this directory.
+   *
+   * Next infers the root by walking UP for a lockfile, and this app can sit
+   * inside a checkout that has one of its own. Left to infer, it adopts that
+   * outer repository as its root and traces the whole tree, every sibling app
+   * and every node_modules with it. This app is self-contained, so its root is
+   * its own directory wherever it happens to be checked out.
+   */
+  outputFileTracingRoot: here,
 
   /*
    * The Studio API. Every `/api/*` request the browser makes is proxied to it on the server side, so
@@ -25,16 +41,20 @@ const nextConfig = {
     // lot for per-route dev compile time.
     optimizePackageImports: ['lucide-react', '@xyflow/react', '@tanstack/react-query'],
 
+    /*
+     * Turbopack options live under experimental.turbo on this version of Next;
+     * the top-level `turbopack` key only exists from 15.3, where it would be
+     * read and here would be silently ignored.
+     *
+     * resolveAlias matches EXACT specifiers - there is no prefix matching - so
+     * every subpath has to be listed. These are optional micropayment SDKs
+     * reached through
+     *   RainbowKit -> wagmi connectors -> Coinbase baseAccount
+     *   -> @base-org/account -> @coinbase/cdp-sdk -> @x402/*
+     * No payment path is ever executed here, so they resolve to empty rather
+     * than being installed.
+     */
     turbo: {
-      /*
-       * Turbopack's resolveAlias matches EXACT specifiers — there is no prefix
-       * matching — so every subpath has to be listed. These are optional
-       * micropayment SDKs reached through
-       *   RainbowKit -> wagmi connectors -> Coinbase baseAccount
-       *   -> @base-org/account -> @coinbase/cdp-sdk -> @x402/*
-       * ContextLock never executes a payment path, so they resolve to empty
-       * rather than being installed.
-       */
       resolveAlias: {
         '@react-native-async-storage/async-storage': './lib/studio/empty-module.ts',
         'pino-pretty': './lib/studio/empty-module.ts',
@@ -64,10 +84,10 @@ const nextConfig = {
 
   webpack: (config, { isServer, webpack }) => {
     // RainbowKit's index imports wagmi's full connector set, which pulls in
-    // @coinbase/cdp-sdk and its optional @x402/* payment modules. ContextLock
-    // uses the wallet only to connect and sign on a testnet — no payment path
-    // is ever executed — so the whole namespace is ignored rather than adding
-    // payment SDKs as dependencies.
+    // @coinbase/cdp-sdk and its optional @x402/* payment modules. The wallet is
+    // used only to connect and sign on a testnet — no payment path is ever
+    // executed — so the whole namespace is ignored rather than adding payment
+    // SDKs as dependencies.
     config.plugins.push(
       new webpack.IgnorePlugin({
         resourceRegExp: /^@x402\//,
