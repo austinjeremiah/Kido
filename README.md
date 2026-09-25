@@ -1,10 +1,15 @@
-# Frontend
+# Kido
 
-The web client: a landing page and the workbench behind it.
+## Layout
 
-## Running it
+| Path | What lives there |
+| --- | --- |
+| `frontend/` | The web client: the landing page and the workbench behind it. |
+
+## Running the frontend
 
 ```bash
+cd frontend
 npm install
 cp .env.example .env.local   # fill in the WalletConnect project id
 npm run dev                  # http://localhost:3000
@@ -21,7 +26,7 @@ npm run build        # production build
 npm run typecheck    # tsc --noEmit
 ```
 
-## Layout
+### Inside `frontend/`
 
 | Path | What lives there |
 | --- | --- |
@@ -32,7 +37,7 @@ npm run typecheck    # tsc --noEmit
 | `public/styles/` | Stylesheets in load order; `landing.css` is last and carries every change to the base sheets. |
 | `public/assets`, `public/models` | The landing's scene engine and its models. |
 
-## Two things worth knowing before editing
+## Two things worth knowing before editing the frontend
 
 **The scene engine holds direct DOM references.** It resolves its nodes by
 selector when it constructs and keeps them, so destroying or remounting those
