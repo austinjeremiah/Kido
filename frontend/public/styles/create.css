@@ -43,6 +43,100 @@
 }
 
 .kc-half--right {
+  min-height: 0;
+}
+
+/* --- the build rail ------------------------------------------------------
+   Across the top of the pane it drives. Not tabs: you cannot click ahead to a
+   stage that has not happened, so it reports rather than navigates.
+
+   The connector is drawn on the dot's ::before rather than as its own element,
+   so the line lives in the same row as the number it joins and cannot drift
+   out of alignment with it. */
+.kc-rail {
+  flex: 0 0 auto;
+  padding: clamp(1.1rem, 2.4vh, 1.7rem) clamp(1.4rem, 2.4vw, 2.2rem);
+  border-bottom: 1px solid var(--cl-line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.kc-rail::-webkit-scrollbar { display: none; }
+
+.kc-rail__list {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: max-content;
+}
+
+.kc-rail__step {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  padding-right: clamp(12px, 1.6vw, 26px);
+  white-space: nowrap;
+  font-size: 12.5px;
+  letter-spacing: 0.03em;
+  color: var(--cl-ink-3);
+  transition: color 0.35s ease;
+}
+
+/* the line that joins this step to the one before it */
+.kc-rail__step + .kc-rail__step::before {
+  content: '';
+  width: clamp(12px, 1.6vw, 26px);
+  height: 1px;
+  margin-right: 8px;
+  background: var(--cl-line-strong);
+}
+
+.kc-rail__dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1px solid var(--cl-line-strong);
+  font-family: var(--medium), Arial, sans-serif;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.35s ease, border-color 0.35s ease, color 0.35s ease;
+}
+
+/* Done keeps full ink: fading finished work makes progress read as decay. */
+.kc-rail__step[data-state="done"] { color: var(--cl-ink-2); }
+.kc-rail__step[data-state="done"] .kc-rail__dot {
+  background: var(--cl-pass-bg);
+  border-color: var(--cl-pass);
+  color: var(--cl-pass);
+}
+
+/* Current is the only inversion, which is what makes it findable without
+   being bigger than anything beside it. */
+.kc-rail__step[data-state="current"] {
+  color: var(--cl-ink-heading);
+  font-family: var(--medium), Arial, sans-serif;
+}
+.kc-rail__step[data-state="current"] .kc-rail__dot {
+  background: var(--cl-ink);
+  border-color: var(--cl-ink);
+  color: var(--cl-ink-inv);
+}
+
+.kc-rail__step[data-state="todo"] { opacity: 0.55; }
+
+/* --- the pane the rail drives -------------------------------------------- */
+.kc-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: clamp(1.5rem, 4vw, 3rem);

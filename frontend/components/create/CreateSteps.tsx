@@ -1,21 +1,23 @@
 'use client';
 
 /**
- * The pipeline, named in the top bar.
+ * The pipeline, across the top of the pane it drives.
  *
  * These are the backend's real stages, not a decorative progress bar: INTAKE
  * through EXPORT_READY, collapsed to the seven a person cares about. REPAIR is
  * folded into Build because it is a loop back into it rather than a step
  * forward, and SIMULATE and FINAL_VERIFY sit under Tests for the same reason.
  *
- * Approve is listed as its own step deliberately. It is the one place the build
- * stops and waits for a human, and burying it inside Build would hide the only
+ * Approve is listed on its own deliberately. It is the one place the build
+ * stops and waits for a human, and folding it into Build would hide the only
  * gate in the pipeline.
  *
- * Sized like the workbench's own .cl-badge (21px tall, 10.5px text) rather than
- * as hero-scale pills — this rides inside a 44px chrome bar next to the mark,
- * the same bar the product uses everywhere else.
+ * Not tabs: you cannot click ahead to a stage that has not happened. It reports
+ * where the build is, which is why it renders as a rail rather than as a
+ * TabStrip.
  */
+import { Check } from 'lucide-react';
+
 export const CREATE_STEPS = [
   { id: 'DESCRIBE', label: 'Describe' },
   { id: 'REQUIREMENTS', label: 'Requirements' },
@@ -32,23 +34,20 @@ export function CreateSteps({ current }: { current: CreateStepId }) {
   const index = CREATE_STEPS.findIndex((s) => s.id === current);
 
   return (
-    <nav className="kc-steps" aria-label="Agent creation progress">
-      <ol className="kc-steps__list">
+    <nav className="kc-rail" aria-label="Build progress">
+      <ol className="kc-rail__list">
         {CREATE_STEPS.map((step, i) => {
           const state = i < index ? 'done' : i === index ? 'current' : 'todo';
           return (
-            <li key={step.id} className="kc-steps__item" data-state={state}>
-              <span className="kc-steps__num" aria-hidden>
-                {i + 1}
+            <li key={step.id} className="kc-rail__step" data-state={state} aria-current={state === 'current' ? 'step' : undefined}>
+              <span className="kc-rail__dot" aria-hidden>
+                {state === 'done' ? <Check size={12} strokeWidth={3} /> : i + 1}
               </span>
-              <span className="kc-steps__label">{step.label}</span>
+              <span className="kc-rail__label">{step.label}</span>
             </li>
           );
         })}
       </ol>
-      <p className="kc-steps__compact">
-        {index + 1}/{CREATE_STEPS.length} · {CREATE_STEPS[index]?.label}
-      </p>
     </nav>
   );
 }

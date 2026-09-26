@@ -14,10 +14,12 @@
  */
 import { useState } from 'react';
 import { PromptComposer } from '@/components/create/PromptComposer';
+import { CreateSteps, type CreateStepId } from '@/components/create/CreateSteps';
 import { EmptyState } from '@/components/studio/primitives';
 
 export default function CreatePage() {
   const [prompt, setPrompt] = useState<string | null>(null);
+  const step: CreateStepId = prompt ? 'REQUIREMENTS' : 'DESCRIBE';
 
   return (
     <div className="kc">
@@ -40,17 +42,20 @@ export default function CreatePage() {
         </section>
 
         <section className="kc-half kc-half--right">
-          {prompt ? (
-            <EmptyState
-              title="Reading the description"
-              body="Requirements, blueprint and policy will appear here as they are derived."
-            />
-          ) : (
-            <EmptyState
-              title="Nothing built yet"
-              body="Describe the agent on the left and it takes shape here."
-            />
-          )}
+          <CreateSteps current={step} />
+          <div className="kc-stage">
+            {prompt ? (
+              <EmptyState
+                title="Reading the description"
+                body="Requirements, blueprint and policy will appear here as they are derived."
+              />
+            ) : (
+              <EmptyState
+                title="Nothing built yet"
+                body="Describe the agent on the left and it takes shape here."
+              />
+            )}
+          </div>
         </section>
       </div>
     </div>
