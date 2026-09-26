@@ -1,0 +1,5 @@
+[package]
+name = "enclave"
+edition = "2024"
+
+[dependencies]
