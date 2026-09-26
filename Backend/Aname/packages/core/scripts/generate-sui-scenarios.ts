@@ -235,6 +235,24 @@ add('withdraw_recovery', 'Withdraw', withdraw(recovery), both);
 add('withdraw_attacker_dest', 'Withdraw', withdraw(merchant), both);
 add('withdraw_by_agent', 'Withdraw', withdraw(recovery), [agent]);
 
+// ---------------------------------------------------------------- BREAK fixtures
+const breakAdapter = suiAdapterId({ chainRef, actionKind: ActionKind.SWAP, adapterVersion: 1, adapterName: 'Break Swap', witnessType: `${PKG}::break_adapters::BreakSwapV1` });
+const breakLeaseId = keccak256(toHex('sui.lease.break'));
+add(
+  'policy_v1_break',
+  'RootPolicy',
+  policy(1n, (p) => p.endpoints[0]!.adapters.push({ adapterId: breakAdapter, adapterName: 'Break Swap', adapterVersion: 1 })),
+  both,
+);
+add('lease_break', 'AgentLease', lease(controllerA, breakLeaseId, (l) => (l.endpoints[0]!.adapters = [breakAdapter])), [controllerA]);
+add('swap_break', 'ActionIntent', swap(40n, 1_000000n, 0n, { leaseId: breakLeaseId, adapterId: breakAdapter, adapterName: 'Break Swap' }), [agent]);
+add(
+  'policy_v1_huge_epoch',
+  'RootPolicy',
+  policy(1n, (p) => (p.endpoints[0]!.assets[0]!.maxPerEpoch = 2n ** 256n - 1n)),
+  both,
+);
+
 const fns: string[] = [];
 for (const e of entries) {
   const sigs = await Promise.all(e.signers.map((s) => s.signTypedData(typedData(e.pt, e.msg as never) as never)));
@@ -260,6 +278,7 @@ public fun pay_adapter(): vector<u8> { ${hexBytes(payAdapter)} }
 public fun swap_adapter(): vector<u8> { ${hexBytes(swapAdapter)} }
 public fun lease_id(): vector<u8> { ${hexBytes(leaseId)} }
 public fun issuer_lease_id(): vector<u8> { ${hexBytes(issuerLeaseId)} }
+public fun break_lease_id(): vector<u8> { ${hexBytes(breakLeaseId)} }
 public fun merchant(): address { @${merchant} }
 public fun recovery(): address { @${recovery} }
 
