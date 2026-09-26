@@ -40,6 +40,8 @@ export interface ProjectRecord {
   build: BuildArtifact | null;
   /** Wallet-driven deployment state (JSON-safe: bigints stored as { $big }). */
   deployment?: unknown;
+  /** Earlier deployments, kept for the record after the owner retired them to redeploy. */
+  retiredDeployments?: unknown[];
   /** Lifecycle and on-chain events, newest last. */
   events?: ProjectEvent[];
 }

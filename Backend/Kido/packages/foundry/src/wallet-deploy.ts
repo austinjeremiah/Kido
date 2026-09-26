@@ -1,4 +1,4 @@
-import { encodeDeployData, encodeFunctionData, erc20Abi, keccak256, toHex, verifyTypedData, type Address, type Hex, type PublicClient } from "viem";
+import { encodeDeployData, encodeFunctionData, erc20Abi, keccak256, parseAbi, toHex, verifyTypedData, type Address, type Hex, type PublicClient } from "viem";
 import type { ChainId, KidoAgentBlueprint } from "@kido/blueprint";
 import {
   AmaneEvmEndpoint,
@@ -6,6 +6,7 @@ import {
   addressToBytes32,
   amaneAccountAbi,
   amaneAccountBytecode,
+  evmAssetId,
   signAmane,
   suiObjectToBytes32,
   typedData,
@@ -17,9 +18,9 @@ import {
   type TypedDataSigner,
 } from "@kido/amane-bridge";
 import { CHAINS } from "@kido/registry";
-import { compileAmaneAuthority } from "@kido/runtime";
+import { compileAmaneAuthority, readAavePosition } from "@kido/runtime";
 import { isStale } from "@kido/blueprint";
-import { authorityEndpoints } from "./endpoints.js";
+import { authorityEndpoints, suiCoreFor } from "./endpoints.js";
 import { LifecycleError, type Foundry, type ProjectEvent, type ProjectRecord } from "./service.js";
 
 type SuiClient = ConstructorParameters<typeof AmaneSuiEndpoint>[0];
@@ -44,7 +45,7 @@ export interface WalletDeployDeps {
   now?: () => bigint;
 }
 
-type ChainState = { account?: string; deployTx?: string; install?: string; activate?: string };
+type ChainState = { account?: string; deployTx?: string; install?: string; activate?: string; /** Sui: the Amane core package the account was created on. */ corePackage?: string };
 export interface DeploymentState {
   status: "STARTED" | "ACCOUNTS_READY" | "POLICY_SIGNED" | "ACTIVE";
   owner: Address;
@@ -120,8 +121,9 @@ export class WalletDeployments {
     for (const chain of bp.chains) {
       if (family(chain) === "sui") {
         const sui = this.need(this.d.sui, "a Sui relayer (KIDO_SUI_RELAYER_KEY)");
-        const { endpoint, tx } = await AmaneSuiEndpoint.create({ client: sui.client, packageId: m.sui.packageId, relayer: sui.relayer, accountId, chainRef: m.sui.chainRef as Bytes32, controllers: [owner], threshold: 1 });
-        dep.chains[chain] = { account: endpoint.objectId, deployTx: tx };
+        const corePackage = suiCoreFor(bp, m, chain);
+        const { endpoint, tx } = await AmaneSuiEndpoint.create({ client: sui.client, packageId: corePackage, relayer: sui.relayer, accountId, chainRef: m.sui.chainRef as Bytes32, controllers: [owner], threshold: 1 });
+        dep.chains[chain] = { account: endpoint.objectId, deployTx: tx, corePackage };
         events.push({ type: "deploy.account", chain, detail: `Amane account object ${endpoint.objectId} (controller: owner)`, tx });
       } else {
         const ext = m.evm.accountExt ?? fail("the Amane manifest has no evm.accountExt");
@@ -196,7 +198,7 @@ export class WalletDeployments {
     for (const [chain, s] of Object.entries(dep.chains) as [ChainId, ChainState][]) {
       if (family(chain) === "sui") {
         const sui = this.need(this.d.sui, "a Sui relayer");
-        const ep = new AmaneSuiEndpoint(sui.client, this.d.foundry.manifest.sui.packageId, s.account!, sui.relayer);
+        const ep = new AmaneSuiEndpoint(sui.client, s.corePackage ?? this.d.foundry.manifest.sui.packageId, s.account!, sui.relayer);
         const install = await ep.installPolicy(dep.policy, [signature]);
         if (install.kind !== "EXECUTED") throw new LifecycleError("KIDO_DEPLOY_INSTALL_REFUSED", `Sui refused the policy: ${install.kind === "REJECTED_BY_AMANE" ? install.code : install.kind}`);
         const activate = await ep.activateLease(lease, leaseSig);
@@ -242,7 +244,7 @@ export class WalletDeployments {
         const assets = (bp?.assets ?? []).filter((x) => x.chain === chain);
         if (family(chain) === "sui") {
           const sui = this.need(this.d.sui, "a Sui client");
-          const ep = new AmaneSuiEndpoint(sui.client, this.d.foundry.manifest.sui.packageId, s.account, sui.relayer);
+          const ep = new AmaneSuiEndpoint(sui.client, s.corePackage ?? this.d.foundry.manifest.sui.packageId, s.account, sui.relayer);
           const tokens = (this.d.foundry.manifest.sui.tokens ?? {}) as unknown as Record<string, { coinType?: string }>;
           chains.push({
             ...base,
@@ -346,6 +348,104 @@ export class WalletDeployments {
     return { heads, probes: probes.sort((a, b) => a.chain.localeCompare(b.chain) || a.label.localeCompare(b.label)), refusals, deployed: Boolean(dep), accounts: dep ? Object.fromEntries(Object.entries(dep.chains).map(([c, s]) => [c, s?.account ?? null])) : {} };
   }
 
+  /**
+   * Retires the current deployment so the agent can be deployed again (a new blueprint revision, a
+   * new Amane core). Only once its lease is revoked on every chain, so a retired account can never
+   * be acted on by this agent. The record keeps it under retiredDeployments.
+   */
+  async retire(id: string) {
+    const { p, dep } = this.load(id);
+    if (!dep) throw new LifecycleError("KIDO_DEPLOY_NOT_STARTED", "there is no deployment to retire");
+    if (dep.leaseId) {
+      const rt = await this.runtime(id);
+      const live = rt.chains.filter((c) => c.account && c.leaseStatus === 1);
+      if (live.length) throw new LifecycleError("KIDO_DEPLOY_LEASE_LIVE", `revoke the agent lease first; it is still active on ${live.map((c) => c.chain).join(", ")}`);
+    }
+    p.retiredDeployments = [...(p.retiredDeployments ?? []), p.deployment];
+    delete p.deployment;
+    p.events = [...(p.events ?? []), { at: Date.now(), type: "deploy.retired", detail: `deployment ${dep.accountId} retired (${Object.entries(dep.chains).map(([c, s]) => `${c}: ${s?.account ?? "—"}`).join("; ")})` }];
+    this.d.foundry.saveRecord(p);
+    return { retired: dep.accountId };
+  }
+
+  /**
+   * Where the agent's money is, read live from the chains: every registry asset each Amane account
+   * holds (with funds reserved for a cross-chain arrival or quarantined for owner recovery), the
+   * lease budget used so far (EVM), the owner wallet, and the lending positions the agent protects.
+   * USD figures are given only where a price exists: Aave's oracle for positions, and nominal 1:1
+   * for USD-stable test tokens (labelled as such); other tokens are reported in units.
+   */
+  async portfolio(id: string) {
+    const { p, dep } = this.load(id);
+    const bp = p.revisions.at(-1);
+    const reg = this.d.foundry.registry;
+    const usdStable = (cls: string) => cls.startsWith("USD_STABLE");
+    const holding = (a: { symbol: string; decimals: number; economicClass: string; ref: string }, amount: bigint, reserved = 0n, quarantined = 0n) => ({ symbol: a.symbol, ref: a.ref, decimals: a.decimals, economicClass: a.economicClass, amount: amount.toString(), reserved: reserved.toString(), quarantined: quarantined.toString(), usdNominal: usdStable(a.economicClass) ? Number(amount) / 10 ** a.decimals : null });
+    const chains: unknown[] = [];
+    if (dep) {
+      for (const [chain, s] of Object.entries(dep.chains) as [ChainId, ChainState][]) {
+        if (!s.account) continue;
+        const assets = reg.assetsOn(chain);
+        try {
+          if (family(chain) === "sui") {
+            const sui = this.need(this.d.sui, "a Sui client");
+            const ep = new AmaneSuiEndpoint(sui.client, s.corePackage ?? this.d.foundry.manifest.sui.packageId, s.account, sui.relayer);
+            const holdings = await Promise.all(assets.map(async (a) => holding(a, await ep.vaultBalance(a.ref), await ep.reservedOf(a.ref).catch(() => 0n), await ep.quarantinedOf(a.ref).catch(() => 0n))));
+            chains.push({ chain, account: s.account, holdings, budget: [], error: null });
+          } else {
+            const client = this.need(this.d.evm, "an Ethereum RPC").publicClient;
+            const ep = new AmaneEvmEndpoint(client as never, null as never, s.account as Address);
+            const holdings = await Promise.all(assets.map(async (a) => {
+              const bal = (await client.readContract({ address: a.ref as Address, abi: erc20Abi, functionName: "balanceOf", args: [s.account as Address] })) as bigint;
+              const l = await ep.locked(a.ref as Address).catch(() => ({ reserved: 0n, quarantined: 0n }));
+              return holding(a, bal, l.reserved, l.quarantined);
+            }));
+            const budgetAbi = parseAbi(["function leaseBudget(bytes32 leaseId, bytes32 assetId) view returns ((bool allowed, uint256 maxPerAction, uint256 maxPerEpoch, uint256 maxTotal) limit, (bool initialized, uint64 updatedAt, uint256 level, uint256 totalSpent) spent)"]);
+            const budget = dep.leaseId
+              ? await Promise.all((bp?.authority.limits ?? []).filter((l) => l.chain === chain).map(async (l) => {
+                  const a = assets.find((x) => x.symbol === l.asset);
+                  if (!a) return null;
+                  const [lim, sp] = (await client.readContract({ address: s.account as Address, abi: budgetAbi, functionName: "leaseBudget", args: [dep.leaseId as Hex, evmAssetId(a.ref as Address)] })) as readonly [{ maxTotal: bigint; maxPerAction: bigint }, { totalSpent: bigint }];
+                  return { symbol: l.asset, decimals: a.decimals, total: lim.maxTotal.toString(), perAction: lim.maxPerAction.toString(), spent: sp.totalSpent.toString() };
+                }))
+              : [];
+            chains.push({ chain, account: s.account, holdings, budget: budget.filter(Boolean), error: null });
+          }
+        } catch (e) {
+          chains.push({ chain, account: s.account, holdings: [], budget: [], error: (e as Error).message.split("\n")[0] ?? "read failed" });
+        }
+      }
+    }
+    // The owner's own wallet on its chain family (the owner key is an EVM key on every endpoint).
+    let owner: unknown = null;
+    if (dep && this.d.evm) {
+      const client = this.d.evm.publicClient;
+      const chain = (bp?.chains ?? []).find((c) => family(c) === "evm");
+      if (chain) {
+        const native = await client.getBalance({ address: dep.owner }).catch(() => null);
+        const holdings = await Promise.all(reg.assetsOn(chain).map(async (a) => holding(a, ((await client.readContract({ address: a.ref as Address, abi: erc20Abi, functionName: "balanceOf", args: [dep.owner] }).catch(() => 0n)) as bigint))));
+        owner = { chain, address: dep.owner, native: native === null ? null : { symbol: CHAINS.find((c) => c.chainId === chain)!.nativeSymbol, amount: native.toString(), decimals: CHAINS.find((c) => c.chainId === chain)!.nativeDecimals }, holdings };
+      }
+    }
+    // Lending positions the agent protects: each REPAY beneficiary on a chain an Aave executor serves.
+    const positions: unknown[] = [];
+    if (bp && this.d.evm) {
+      for (const b of bp.authority.beneficiaries) {
+        const aave = reg.get("aave-v3")?.deployments[b.chain] as Record<string, Address> | undefined;
+        const debtAsset = reg.assetsOn(b.chain).find((a) => a.debtTokens?.["aave-v3"]);
+        if (!aave?.pool || !aave.oracle || !debtAsset || family(b.chain) !== "evm") continue;
+        try {
+          const r = await readAavePosition({ client: this.d.evm.publicClient as never, pool: aave.pool, oracle: aave.oracle, user: b.address as Address, asset: debtAsset.ref as Address });
+          const monitor = bp.monitors.find((m) => m.action === "REPAY");
+          positions.push({ protocol: "aave-v3", chain: b.chain, label: b.label, address: b.address, collateralUsd: Number(r.position.collateralBase) / 1e8, debtUsd: Number(r.position.debtBase) / 1e8, healthFactor: Number.isFinite(r.position.healthFactor) ? r.position.healthFactor : null, liquidationThresholdPct: Number(r.position.liquidationThreshold) / 100, debtAsset: debtAsset.symbol, monitor: monitor ? { id: monitor.id, metric: monitor.metric, op: monitor.op, threshold: monitor.threshold, private: Boolean(monitor.thresholdPrivateRef) } : null, block: r.blockNumber.toString() });
+        } catch (e) {
+          positions.push({ protocol: "aave-v3", chain: b.chain, label: b.label, address: b.address, error: (e as Error).message.split("\n")[0] });
+        }
+      }
+    }
+    return { deployed: Boolean(dep), status: dep?.status ?? null, accountId: dep?.accountId ?? null, leaseId: dep?.leaseId ?? null, leaseExpiresAt: dep?.lease ? Number(dep.lease.expiresAt) * 1000 : null, chains, owner, positions, readAt: Date.now() };
+  }
+
   /** Owner controls: typed data for pause (one controller), unpause (threshold) or revoke (the lease). */
   async controlPrepare(id: string, op: "pause" | "revoke") {
     const { dep } = this.load(id);
@@ -380,7 +480,7 @@ export class WalletDeployments {
       if (!ok) throw new LifecycleError("KIDO_CONTROL_BAD_SIGNATURE", `the ${op} signature is not the owner's`);
       if (family(chain) === "sui") {
         const sui = this.need(this.d.sui, "a Sui relayer");
-        const ep = new AmaneSuiEndpoint(sui.client, this.d.foundry.manifest.sui.packageId, s.account, sui.relayer);
+        const ep = new AmaneSuiEndpoint(sui.client, s.corePackage ?? this.d.foundry.manifest.sui.packageId, s.account, sui.relayer);
         const out = op === "pause" ? await ep.pause(msg as unknown as PauseAccount, item.signature) : await ep.revokeLease(msg as unknown as RevokeLease, item.signature);
         results.push({ ...out, chain });
         events.push({ type: `control.${op}`, chain, detail: out.kind === "EXECUTED" ? `${op} executed` : `${op} refused: ${JSON.stringify(out)}`, ...(out.kind === "EXECUTED" ? { tx: out.tx } : {}) });

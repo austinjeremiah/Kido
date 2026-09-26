@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { authorityEndpoints, suiCoreFor } from "@kido/foundry";
 import { createFoundry, loadConfig } from "../src/index.js";
 
 /** A two-chain agent that may bridge: BRIDGE is a granted Amane action that only reaches the agent's own endpoints. */
@@ -45,5 +46,12 @@ describe("cross-chain agent with BRIDGE", () => {
     expect(bridge("sui-testnet", "AMUSD", "1000000", bp.authority.payees.find((p) => p.chain === "sui-testnet")!.label)).toMatchObject({ verdict: "REJECT", code: "KIDO_PLAN_BRIDGE_NOT_TO_OWN_ENDPOINT" });
     expect(bridge("sui-testnet", "AMUSD", (BigInt(sui.perAction) + 1n).toString(), "amane-ethereum-sepolia")).toMatchObject({ verdict: "REJECT", layer: "AMANE_RULES" });
     expect(bridge("sui-testnet", "AMUSD", "1000000", `0x${"ef".repeat(32)}`)).toMatchObject({ verdict: "REJECT" });
+
+    // BRIDGE on Sui needs the core release that enforces it; every Sui adapter must be that core's.
+    const m = f.manifest as unknown as { sui: { packageId: string; releases: Record<string, { packageId: string; actions: string[] }>; adapters: { name: string; core?: string; witnessType: string }[] } };
+    const [, release] = Object.entries(m.sui.releases).find(([, r]) => r.actions.includes("BRIDGE"))!;
+    expect(suiCoreFor(bp, f.manifest, "sui-testnet")).toBe(release.packageId);
+    const suiEndpoint = authorityEndpoints(bp, f.manifest, f.registry).find((e) => e.chain === "sui-testnet")!;
+    expect(Object.keys(suiEndpoint.adapters)).toEqual(expect.arrayContaining(["BRIDGE", "PAY"]));
   });
 });

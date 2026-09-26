@@ -13,6 +13,7 @@ export const keys = {
   runtime: (id: string) => ['kido', 'runtime', id] as const,
   activity: (id: string) => ['kido', 'activity', id] as const,
   reality: (id: string) => ['kido', 'reality', id] as const,
+  portfolio: (id: string) => ['kido', 'portfolio', id] as const,
   context: (id: string, role: string) => ['kido', 'context', id, role] as const,
 };
 
@@ -49,3 +50,4 @@ export const useActivity = (id: string | null) => useQuery({ queryKey: keys.acti
 export const useReality = (id: string | null) => useQuery({ queryKey: keys.reality(id ?? ''), queryFn: () => kido.reality(id ?? undefined), staleTime: 30_000, retry: false });
 export const useAgentContext = (id: string | null, role: string | null) =>
   useQuery({ queryKey: keys.context(id ?? '', role ?? ''), queryFn: () => kido.context(id!, role!), enabled: Boolean(id && role), retry: false });
+export const usePortfolio = (id: string | null) => useQuery({ queryKey: keys.portfolio(id ?? ''), queryFn: () => kido.portfolio(id!), enabled: Boolean(id), refetchInterval: 20_000, retry: false });

@@ -110,6 +110,7 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
     return dep().record(p.id!, b.chain, b.label, b.tx as `0x${string}`);
   });
   route("GET", "/projects/:id/runtime", (_r, p) => dep().runtime(p.id!));
+  route("GET", "/projects/:id/portfolio", (_r, p) => dep().portfolio(p.id!));
   route("GET", "/reality", () => dep().reality());
   route("GET", "/projects/:id/reality", (_r, p) => dep().reality(p.id!));
   route("GET", "/projects/:id/activity", (_r, p) => ({ events: foundry.loadRecord(p.id!).events ?? [] }));
@@ -117,6 +118,7 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
     if (p.op !== "pause" && p.op !== "revoke") throw new HttpError(404, "KIDO_API_NOT_FOUND", `unknown control ${p.op}`);
     return dep().controlPrepare(p.id!, p.op);
   });
+  route("POST", "/projects/:id/deploy/retire", (_r, p) => dep().retire(p.id!));
   route("POST", "/projects/:id/control/:op", async (req, p) => {
     if (p.op !== "pause" && p.op !== "revoke") throw new HttpError(404, "KIDO_API_NOT_FOUND", `unknown control ${p.op}`);
     const b = await body(req, Signed);

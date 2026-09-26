@@ -150,3 +150,18 @@ export interface Reality {
   deployed: boolean;
   accounts: Record<string, string | null>;
 }
+
+export interface Holding { symbol: string; ref: string; decimals: number; economicClass: string; amount: string; reserved: string; quarantined: string; usdNominal: number | null }
+export interface PortfolioChain { chain: ChainId; account: string; holdings: Holding[]; budget: { symbol: string; decimals: number; total: string; perAction: string; spent: string }[]; error: string | null }
+export interface LendingPosition { protocol: string; chain: ChainId; label: string; address: string; collateralUsd?: number; debtUsd?: number; healthFactor?: number | null; liquidationThresholdPct?: number; debtAsset?: string; monitor?: { id: string; metric: string; op: string; threshold: string | null; private: boolean } | null; block?: string; error?: string }
+export interface Portfolio {
+  deployed: boolean;
+  status: DeploymentWire['status'] | null;
+  accountId: string | null;
+  leaseId: string | null;
+  leaseExpiresAt: number | null;
+  chains: PortfolioChain[];
+  owner: { chain: ChainId; address: string; native: { symbol: string; amount: string; decimals: number } | null; holdings: Holding[] } | null;
+  positions: LendingPosition[];
+  readAt: number;
+}

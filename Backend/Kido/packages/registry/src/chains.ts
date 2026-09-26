@@ -14,12 +14,15 @@ export interface ChainProfile {
   rpcEnv: string;
   /** Public testnet endpoint used when the variable is unset. */
   publicRpc: string;
+  /** Gas token symbol and decimals. */
+  nativeSymbol: string;
+  nativeDecimals: number;
 }
 
 /** The chains Kido targets and which address family each belongs to. */
 export const CHAINS: ChainProfile[] = [
-  { chainId: "ethereum-sepolia", family: "evm", label: "Ethereum", aliases: ["ethereum", "eth", "sepolia", "evm"], rpcEnv: "SEPOLIA_RPC_URL", publicRpc: "https://ethereum-sepolia-rpc.publicnode.com" },
-  { chainId: "sui-testnet", family: "sui", label: "Sui", aliases: ["sui"], rpcEnv: "SUI_GRPC_URL", publicRpc: "https://fullnode.testnet.sui.io:443" },
+  { chainId: "ethereum-sepolia", family: "evm", label: "Ethereum", aliases: ["ethereum", "eth", "sepolia", "evm"], rpcEnv: "SEPOLIA_RPC_URL", publicRpc: "https://ethereum-sepolia-rpc.publicnode.com", nativeSymbol: "ETH", nativeDecimals: 18 },
+  { chainId: "sui-testnet", family: "sui", label: "Sui", aliases: ["sui"], rpcEnv: "SUI_GRPC_URL", publicRpc: "https://fullnode.testnet.sui.io:443", nativeSymbol: "SUI", nativeDecimals: 9 },
 ];
 
 /** Address validity comes from each chain's own SDK, not from local patterns. */

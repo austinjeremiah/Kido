@@ -14,8 +14,8 @@ import { useParams } from 'next/navigation';
 import type { Agent, ProblemItem, Project, Severity, TestResult } from '../types';
 import type { LogLine } from '../log';
 import type { StudioEvent } from './events';
-import { useProject } from '@/lib/kido/hooks';
-import type { ProjectSummary } from '@/lib/kido/types';
+import { useDeployment, useProject } from '@/lib/kido/hooks';
+import type { DeploymentWire, ProjectSummary } from '@/lib/kido/types';
 import { chainLabel } from '@/lib/kido/format';
 
 export const DRAFT_PROJECT_ID = 'new';
@@ -58,7 +58,7 @@ export function useStudioProject(): StudioProjectValue {
 
 const LIFECYCLE: Record<ProjectSummary['stage'], Project['lifecycle']> = { INTERVIEW: 'DRAFT', BLUEPRINT: 'BUILDING', REVIEWED: 'BUILDING', SIMULATED: 'BUILDING', BUILT: 'BUILT' };
 
-function projectOf(s: ProjectSummary): Project {
+function projectOf(s: ProjectSummary, dep: DeploymentWire | null = null): Project {
   const bp = s.blueprint;
   const network = bp?.chains.map(chainLabel).join(' + ') || 'Not chosen yet';
   const agents: Agent[] = (bp?.agents.length ? bp.agents : [{ role: 'agent', owns: [], mayRequest: [], knowledgePacks: [] }]).map((a, i) => ({
@@ -94,7 +94,7 @@ function projectOf(s: ProjectSummary): Project {
     alerts: 0,
     organization: null,
     agents,
-    revisions: { requirements: s.interview.questionsAsked, blueprint: s.revision, blueprintDraft: null, strategy: null, build: s.build?.buildRevision ?? null, deployment: null, runtime: null, policy: null, creArtifactHash: null },
+    revisions: { requirements: s.interview.questionsAsked, blueprint: s.revision, blueprintDraft: null, strategy: null, build: s.build?.buildRevision ?? null, deployment: dep?.blueprintRevision ?? null, runtime: dep?.status === 'ACTIVE' ? dep.blueprintRevision : null, policy: null, creArtifactHash: null },
     environment: { executionNetwork: network, executionChainId: 11155111, realitySource: 'Testnet', realityMode: 'LIVE_MAINNET_MIRROR' as Project['environment']['realityMode'], mainnetWrites: 'PROHIBITED', creMode: 'NONE', label: 'TESTNET LAB' },
     blockers: s.blockers.map((b, i) => ({ id: `${b.code}-${i}`, title: b.code, detail: b.detail, severity: 'HIGH' as Severity, surface: 'blueprint' as Project['blockers'][number]['surface'], actionLabel: 'Open the composer', actionHref: `/projects/${s.projectId}/build` })),
   };
@@ -125,10 +125,11 @@ export function StudioProjectProvider({ children }: { children: ReactNode }) {
   const routeProjectId = params.projectId;
   const isDraft = routeProjectId === DRAFT_PROJECT_ID;
   const q = useProject(isDraft ? null : routeProjectId);
+  const d = useDeployment(isDraft ? null : routeProjectId);
 
   const value = useMemo<StudioProjectValue>(() => {
     const s = q.data ?? null;
-    const project = s ? projectOf(s) : null;
+    const project = s ? projectOf(s, d.data?.deployment ?? null) : null;
     return {
       routeProjectId,
       isDraft,
@@ -155,7 +156,7 @@ export function StudioProjectProvider({ children }: { children: ReactNode }) {
       error: q.error ? (q.error as Error).message : null,
       refetchProject: () => void q.refetch(),
     };
-  }, [q.data, q.isLoading, q.error, routeProjectId, isDraft, q]);
+  }, [q.data, d.data, q.isLoading, q.error, routeProjectId, isDraft, q]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

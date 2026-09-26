@@ -3,7 +3,7 @@ import type { KidoAgentBlueprint } from "@kido/blueprint";
 import { AmaneSuiEndpoint, signAmane, suiObjectToBytes32, type AgentLease, type AmaneDeploymentManifest, type AmaneOutcome, type Bytes32, type RootPolicy, type TypedDataSigner } from "@kido/amane-bridge";
 import type { ProviderRegistry } from "@kido/registry";
 import { AgentRuntime, MonitorEngine, allocationMonitor, compileAmaneAuthority, rebalanceResponder, type ActionExecutor, type AuthorityResult, type CompileContext, type EventLog, type MonitorSpec, type RebalanceWorld, type RecoveryPolicy, type Specialist, type SuiSwapRoute } from "@kido/runtime";
-import { authorityEndpoints } from "./endpoints.js";
+import { authorityEndpoints, suiCoreFor } from "./endpoints.js";
 
 type SuiClient = ConstructorParameters<typeof AmaneSuiEndpoint>[0];
 type SuiSigner = Parameters<typeof AmaneSuiEndpoint.create>[0]["relayer"];
@@ -32,7 +32,7 @@ export async function deploySuiAuthority(a: {
 }): Promise<SuiDeployment> {
   const chain = "sui-testnet" as const;
   const accountId = keccak256(toHex(`kido:${a.bp.kidoAgentId}:r${a.bp.revision}:${a.now}`));
-  const { endpoint, tx } = await AmaneSuiEndpoint.create({ client: a.client, packageId: a.manifest.sui.packageId, relayer: a.relayer, accountId, chainRef: a.manifest.sui.chainRef as Bytes32, controllers: a.controllers, threshold: a.threshold });
+  const { endpoint, tx } = await AmaneSuiEndpoint.create({ client: a.client, packageId: suiCoreFor(a.bp, a.manifest, chain), relayer: a.relayer, accountId, chainRef: a.manifest.sui.chainRef as Bytes32, controllers: a.controllers, threshold: a.threshold });
   const endpoints = authorityEndpoints(a.bp, a.manifest, a.registry, { [chain]: endpoint.account32 }, undefined, { [chain]: suiObjectToBytes32(a.ownerRecovery) }).filter((e) => e.chain === chain);
   const authority = compileAmaneAuthority({ ...a.bp, chains: [chain] }, endpoints, { controllers: a.controllers, issuer: a.issuer, agent: a.agent, now: a.now, accountId });
   if (!authority.ok) throw new Error(`authority does not compile: ${authority.blockers.join("; ")}`);
