@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "amane.deployment/v1",
+  "environment": "testnet",
+  "status": "TESTNET PROTOTYPE - NOT AUDITED",
+  "sourceCommit": "5af66130e31b010d50bd2468b2e0783e335b92d5",
+  "signingDomain": { "name": "Amane", "version": "1", "chainId": 11155111 },
+  "evm": {
+    "network": "ethereum-sepolia",
+    "chainId": 11155111,
+    "chainRef": "0xafa90c317deacd3d68f330a30f96e4fa7736e35e8d1426b2e1b2c04bce1c2fb7",
+    "adapterRegistry": "0xE268eB1B45efFf327509c65d7CBc0ec9e26Eee02",
+    "accountDeployment": "per-account constructor (non-upgradeable); see packages/sdk",
+    "upgradeAuthority": "NONE",
+    "assets": {
+      "AMUSD": { "address": "0x7C4C9876af08676fCE8cfeCF1129Dc2F5D7d0828", "decimals": 6, "testnetOnly": true, "mint": "open" }
+    },
+    "adapters": [
+      {
+        "name": "Transfer Pay",
+        "version": 1,
+        "actionKind": "PAY",
+        "address": "0xEAcCFbdE3c36558a4C9551a82356D8c9Ada96947",
+        "adapterId": "0x054af67c914525329d954e6605df3b9dded90f1ed4832599252f40612ae62d13"
+      }
+    ]
+  },
+  "sui": {
+    "network": "sui-testnet",
+    "chainIdentifier": "4c78adac",
+    "chainRef": "0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe",
+    "packageId": "0xb4e65840df2bb53172fa6ccdf12d3a7f0470d6c72f6b25afcb2070001f8a4665",
+    "publishDigest": "81Yfxjqfv2dtgu7y5WiKbMdCaXFiyLUG2Vf8DmmN2b7E",
+    "upgradeAuthority": "FROZEN",
+    "freezeDigest": "JDwmfzMjeWyL5XwYotobqA1zxcdkG9nSmHWedTy97orQ",
+    "toolchain": "sui 1.80.1",
+    "tokens": {
+      "packageId": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6",
+      "AMUSD": { "coinType": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amusd::AMUSD", "decimals": 6, "faucet": "0x232ad349f9b1907f13f65a1eda95890f21d90e84d4ee9f97ea919b5589e2fd3f", "testnetOnly": true },
+      "AMSUI": { "coinType": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amsui::AMSUI", "decimals": 9, "faucet": "0xbabc71a3e1e56fe4e694b8d38543530c2988415328987b117f24d3d109880895", "testnetOnly": true }
+    },
+    "adapters": [
+      { "name": "Transfer Pay", "version": 1, "actionKind": "PAY", "witnessType": "0xb4e65840df2bb53172fa6ccdf12d3a7f0470d6c72f6b25afcb2070001f8a4665::account::TransferPayV1", "native": true }
+    ],
+    "superseded": [
+      { "packageId": "0x3930d65cf4b2732d902d0463e2d19735648d988e5e273093805ff64722cf3cae", "reason": "pre-fix pause/policy lineage semantics (findings F-0200..F-0208); frozen, do not use" }
+    ]
+  }
+}

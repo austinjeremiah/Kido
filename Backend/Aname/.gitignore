@@ -9,3 +9,4 @@ evm/cache/
 evm/broadcast/*/31337/
 sui/*/build/
 coverage/
+sui/amane/Published.toml
