@@ -65,6 +65,10 @@ export const KidoPublicAgentManifestSchema = z
     sourceRepository: z.string().url().optional(),
     blueprintCommitment: z.string().regex(/^0x[0-9a-f]{64}$/).optional(),
     amaneAccountId: z.string().optional(),
+    /** Every chain-native name bound to this KidoAgentId; none of them is the root identity. */
+    bindings: z.array(z.object({ provider: z.string(), chain: z.string(), name: z.string() }).strict()).optional(),
+    /** Public addresses of the agent's account endpoints, per chain. */
+    accounts: z.record(z.string(), z.string()).optional(),
     authorityNote: z.literal("Advertised capabilities are not financial authority; authority is enforced on-chain by the account's own policy."),
   })
   .strict();
@@ -95,7 +99,7 @@ export function assertPublicSafe(records: PublicRecords, bp: KidoAgentBlueprint)
   for (const v of bp.privacy.values) if (text.toLowerCase().includes(`"${v.id}":`)) throw new UnsafePublicRecordError(`private value ${v.id}`);
 }
 
-export function buildPublicManifest(bp: KidoAgentBlueprint, blueprintHash: string, opts: { amaneAccountId?: string; endpoints?: { web?: string; api?: string; mcp?: string } } = {}): KidoPublicAgentManifest {
+export function buildPublicManifest(bp: KidoAgentBlueprint, blueprintHash: string, opts: { amaneAccountId?: string; endpoints?: { web?: string; api?: string; mcp?: string }; bindings?: { provider: string; chain: string; name: string }[]; accounts?: Record<string, string> } = {}): KidoPublicAgentManifest {
   const m: KidoPublicAgentManifest = {
     kidoAgentId: bp.kidoAgentId,
     agentVersion: String(bp.revision),
@@ -107,6 +111,8 @@ export function buildPublicManifest(bp: KidoAgentBlueprint, blueprintHash: strin
     ...(opts.endpoints?.mcp ? { mcpEndpoint: opts.endpoints.mcp } : {}),
     blueprintCommitment: blueprintHash,
     ...(opts.amaneAccountId ? { amaneAccountId: opts.amaneAccountId } : {}),
+    ...(opts.bindings?.length ? { bindings: opts.bindings } : {}),
+    ...(opts.accounts && Object.keys(opts.accounts).length ? { accounts: opts.accounts } : {}),
     authorityNote: "Advertised capabilities are not financial authority; authority is enforced on-chain by the account's own policy.",
   };
   if (m.description === undefined) delete m.description;

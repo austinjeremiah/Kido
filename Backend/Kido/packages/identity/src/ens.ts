@@ -120,7 +120,19 @@ export class EnsIdentityAdapter implements AgentIdentityProvider {
         /* unregistered */
       }
     }
-    return { providerId: this.providerId, name, registered: r.found || expiresAt !== null, records: r.records, expiresAt, revoked: r.found && !r.records["agent-context"] };
+    // For subnames, a resolver found at a non-zero offset belongs to a parent (wildcard fallback):
+    // the name itself is not registered.
+    let ownResolver = false;
+    if (labels.length > 2) {
+      try {
+        const [resolver, , offset] = (await this.publicClient.readContract({ address: this.d.universalResolver, abi: UniversalResolverV2.abi, functionName: "findResolver", args: [dnsEncode(name)] })) as [Address, Hex, bigint];
+        ownResolver = resolver !== zeroAddress && offset === 0n;
+      } catch {
+        /* no resolver */
+      }
+    }
+    const registered = labels.length > 2 ? ownResolver : r.found || expiresAt !== null;
+    return { providerId: this.providerId, name, registered, records: registered ? r.records : {}, expiresAt, revoked: registered && !r.records["agent-context"] };
   }
 
   /** Deploys a dedicated resolver for `name`, optionally writing records in the same transaction. */
