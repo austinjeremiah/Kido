@@ -6,3 +6,4 @@ export * from "./compile.js";
 export * from "./negation.js";
 export * from "./registry.js";
 export * from "./defaults.js";
+export * from "./sensitive.js";

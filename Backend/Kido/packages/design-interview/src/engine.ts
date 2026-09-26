@@ -1,6 +1,8 @@
 import { applyResolutions, emptyBlueprint, nextRevision, type KidoAgentBlueprint, type RequirementResolution } from "@kido/blueprint";
 import { CATALOG, byKey, type Choice, type Ctx, type RequirementDef } from "./catalog.js";
-import type { InterviewModel } from "./model.js";
+import { RuleBasedInterviewModel, ruleBasedCandidates, type InterviewModel } from "./model.js";
+import { parseThreshold } from "./parse.js";
+import { privateThresholdDeclared, redactNumbers, redactSecrets } from "./sensitive.js";
 
 export interface Question {
   key: string;
@@ -48,9 +50,14 @@ export class DesignInterview {
   private constructor(readonly state: InterviewState, private readonly model: InterviewModel, private readonly opts: InterviewOptions) {}
 
   static async start(projectId: string, salt: string, objective: string, model: InterviewModel, opts: Partial<InterviewOptions> = {}): Promise<DesignInterview> {
-    const s: InterviewState = { projectId, salt, objective, resolutions: {}, asked: {}, questionsAsked: 0, pending: null, transcript: [{ role: "user", text: objective }], warnings: [], finalized: false };
+    const sec = redactSecrets(objective);
+    objective = sec.text;
+    const s: InterviewState = { projectId, salt, objective, resolutions: {}, asked: {}, questionsAsked: 0, pending: null, transcript: [{ role: "user", text: objective }], warnings: sec.found ? ["a credential-like value in the request was discarded; it was never stored or sent to a model"] : [], finalized: false };
     const iv = new DesignInterview(s, model, { ...DEFAULTS, ...opts });
-    for (const c of await model.extract(objective)) {
+    // A request that itself asks for privacy is read deterministically only: its details may be private.
+    const privateRequest = ruleBasedCandidates(objective).some((c) => c.key === "privacy.required" && c.value === true);
+    const extractor = privateRequest ? new RuleBasedInterviewModel() : model;
+    for (const c of await extractor.extract(objective)) {
       const def = byKey(c.key);
       if (!def) continue;
       // An unclassifiable request is not a purpose: leave it for the objective question.
@@ -95,16 +102,32 @@ export class DesignInterview {
     if (!key) throw new Error("no pending question");
     const def = byKey(key)!;
     const q = def.question(this.ctx);
-    this.state.transcript.push({ role: "kido", text: q.text, key }, { role: "user", text, key });
+    // Pasted credentials are dropped before anything is stored or sent to a model.
+    const sec = redactSecrets(text);
+    if (sec.found) this.state.warnings.push(`${key}: a credential-like value was typed and discarded; provide it to the secret provider directly`);
+    text = sec.text;
+    // A private threshold is read locally and never kept: only the metric and direction survive.
+    const privateLevel = key === "monitor.condition" && privateThresholdDeclared(this.ctx);
+    this.state.transcript.push({ role: "kido", text: q.text, key }, { role: "user", text: privateLevel ? redactNumbers(text) : text, key });
     this.state.asked[key] = (this.state.asked[key] ?? 0) + 1;
     if (this.state.asked[key] === 1) this.state.questionsAsked++;
     this.state.pending = null;
+    if (privateLevel) {
+      const p = parseThreshold(/\d/.test(text) ? text : `${text} 0`, this.ctx["objective.kind"] as never);
+      if (!p.ok) return { accepted: false, note: p.reason, next: this.next() };
+      if (/\d/.test(text)) this.state.warnings.push("monitor.condition: the private level was typed into the interview; it was not stored — enter it into the private provider");
+      this.resolve(def, { ...(p.value as object), threshold: "PRIVATE" }, { kind: "USER_ANSWER", quote: redactNumbers(text), turn: this.state.questionsAsked });
+      this.redactPrivateLevel();
+      this.runInference();
+      return { accepted: true, next: this.next() };
+    }
     const reading = await this.model.readAnswer(def, q, text, this.ctx);
     if (reading.kind === "UNCLEAR") {
       if (this.state.asked[key]! >= 2) this.markUnknown(def, `unclear after re-ask: ${reading.reason}`);
       return { accepted: false, note: reading.reason, next: this.next() };
     }
     const note = this.resolve(def, reading.value, { kind: "USER_ANSWER", quote: reading.quote, turn: this.state.questionsAsked });
+    this.redactPrivateLevel();
     this.runInference();
     return { accepted: true, note, next: this.next() };
   }
@@ -113,7 +136,17 @@ export class DesignInterview {
   async edit(key: string, text: string): Promise<{ accepted: boolean; note?: string | undefined }> {
     const def = byKey(key);
     if (!def) throw new Error(`unknown requirement ${key}`);
-    const reading = await this.model.readAnswer(def, def.question(this.ctx), text, this.ctx);
+    const sec = redactSecrets(text);
+    if (sec.found) this.state.warnings.push(`${key}: a credential-like value was typed and discarded; provide it to the secret provider directly`);
+    text = sec.text;
+    // Same rule as answers: a private level is parsed locally and never kept or shown to the model.
+    const privateLevel = key === "monitor.condition" && privateThresholdDeclared(this.ctx);
+    const parsed = privateLevel ? parseThreshold(/\d/.test(text) ? text : `${text} 0`, this.ctx["objective.kind"] as never) : null;
+    const reading = parsed
+      ? parsed.ok
+        ? ({ kind: "ANSWERED", value: { ...(parsed.value as object), threshold: "PRIVATE" }, quote: redactNumbers(text) } as const)
+        : ({ kind: "UNCLEAR", reason: parsed.reason } as const)
+      : await this.model.readAnswer(def, def.question(this.ctx), text, this.ctx);
     if (reading.kind === "UNCLEAR") return { accepted: false, note: reading.reason };
     this.state.prior = this.resolutionsBlueprint();
     this.state.edited = [key];
@@ -125,7 +158,8 @@ export class DesignInterview {
     }
     this.state.finalized = false;
     const note = this.resolve(def, reading.value, { kind: "USER_ANSWER", quote: reading.quote, turn: this.state.questionsAsked });
-    this.state.transcript.push({ role: "user", text: `edit ${key}: ${text}`, key });
+    this.state.transcript.push({ role: "user", text: `edit ${key}: ${privateLevel ? redactNumbers(text) : text}`, key });
+    this.redactPrivateLevel();
     this.runInference();
     return { accepted: true, note };
   }
@@ -176,6 +210,22 @@ export class DesignInterview {
     };
     if (why) this.state.warnings.push(`${def.key}: ${why}`);
     return why;
+  }
+
+  /** Declaring a private threshold after the condition was answered removes the level retroactively. */
+  private redactPrivateLevel() {
+    if (!privateThresholdDeclared(this.ctx)) return;
+    const r = this.state.resolutions["monitor.condition"];
+    if (r?.status === "RESOLVED" && (r.value as { threshold?: string }).threshold !== "PRIVATE") {
+      this.state.resolutions["monitor.condition"] = { ...r, value: { ...(r.value as object), threshold: "PRIVATE" } as never, provenance: r.provenance?.kind === "USER_ANSWER" ? { ...r.provenance, quote: redactNumbers(r.provenance.quote) } : r.provenance };
+      this.state.warnings.push("monitor.condition: the level became private after it was given; it was removed from the interview record");
+    }
+    // The request itself may state the level ("keep my 1.37 threshold private"): numbers leave it too.
+    if (/\d/.test(this.state.objective)) {
+      this.state.objective = redactNumbers(this.state.objective);
+      this.state.warnings.push("objective: numbers were removed from the request because a private level is declared");
+    }
+    for (const t of this.state.transcript) if (t.key === "monitor.condition" || t.key === undefined) t.text = redactNumbers(t.text);
   }
 
   private markUnknown(def: RequirementDef, reason: string) {

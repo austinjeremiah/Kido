@@ -1,6 +1,7 @@
 import type { Action, ChainId, RequirementClass, Topic } from "@kido/blueprint";
 import { interviewChains, interviewRegistry } from "./registry.js";
 import { KIDO_DEFAULTS } from "./defaults.js";
+import { privateThresholdDeclared } from "./sensitive.js";
 
 const humanDuration = (secs: number) => (secs % 3600 === 0 ? (secs === 3600 ? "one hour" : `${secs / 3600} hours`) : secs % 60 === 0 ? `${secs / 60} minutes` : `${secs} seconds`);
 
@@ -309,7 +310,7 @@ export const CATALOG: RequirementDef[] = [
     bucket: 7,
     answerType: "threshold",
     appliesWhen: watches,
-    question: (c) => ({
+    question: (c) => (privateThresholdDeclared(c) ? { text: "Which measure should trigger it, and in which direction (for example: health factor falling below your level)? Do not type your private level here; you will enter it directly into the private provider." } : {
       text: kind(c) === "LENDING_PROTECTION" ? "At what health factor should it act?" : kind(c) === "REBALANCE" || kind(c) === "TRADING" ? "How far may your allocation drift before it trades (in percent)?" : "What condition should it watch for?",
     }),
   },
