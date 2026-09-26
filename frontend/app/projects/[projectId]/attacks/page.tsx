@@ -178,7 +178,11 @@ export default function AttackLabPage() {
 
       <div className="cl-split" style={{ borderTop: '1px solid var(--cl-line)' }}>
         {/* catalog */}
-        <div className="cl-split-side" data-lenis-prevent style={{ flex: '0 0 330px' }}>
+        {/* Roughly 40/60 rather than 30/70. The list carries a name, a
+            severity and a verdict per row, and at 330px the names wrapped while
+            the detail pane had width it was not using. Capped so it cannot eat
+            the detail on a narrow window. */}
+        <div className="cl-split-side" data-lenis-prevent style={{ flex: '0 0 40%', minWidth: 300, maxWidth: 520 }}>
           {grouped.map((category) => (
             <div key={category.id}>
               <div className="cl-explorer-group" style={{ paddingTop: 12 }}>
@@ -197,16 +201,23 @@ export default function AttackLabPage() {
                       >
                         <span style={{ flex: '1 1 auto', minWidth: 0 }}>
                           <span style={{ display: 'block' }}>{attack.name}</span>
-                          <span className="cl-meta" style={{ display: 'block', marginTop: 3 }}>
-                            {attack.applicable ? (
-                              <>
-                                {attack.lastRun ? <TimeAgo iso={attack.lastRun} /> : 'never run'}
-                                {attack.stoppingLayer ? ` · stopped by ${attack.stoppingLayer}` : ''}
-                              </>
-                            ) : (
-                              'Not applicable'
-                            )}
-                          </span>
+                          {/* "never run" sat under every applicable row, beside
+                              an UNKNOWN badge already saying exactly that. The
+                              line now appears only when it has something the
+                              badge does not: when it ran, or what stopped it,
+                              or that the attack does not apply here. */}
+                          {!attack.applicable || attack.lastRun || attack.stoppingLayer ? (
+                            <span className="cl-meta" style={{ display: 'block', marginTop: 3 }}>
+                              {!attack.applicable ? (
+                                'Not applicable'
+                              ) : (
+                                <>
+                                  {attack.lastRun ? <TimeAgo iso={attack.lastRun} /> : null}
+                                  {attack.stoppingLayer ? `${attack.lastRun ? ' · ' : ''}stopped by ${attack.stoppingLayer}` : ''}
+                                </>
+                              )}
+                            </span>
+                          ) : null}
                         </span>
                         <span className="cl-col" style={{ gap: 3, alignItems: 'flex-end' }}>
                           <SeverityBadge severity={attack.severity} />

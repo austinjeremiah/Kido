@@ -106,7 +106,7 @@ export default function RealityLabPage() {
               <Badge tone="data" large>
                 READ ONLY
               </Badge>
-              <span className="cl-meta">Used for context. No write path exists to this chain.</span>
+              <span className="cl-meta">Read only. There is no write path to this chain.</span>
             </div>
           </Card>
 
@@ -121,7 +121,7 @@ export default function RealityLabPage() {
               <Badge tone="sim" large>
                 {project.environment.realityMode === 'LOCAL_MAINNET_FORK' ? 'LOCAL FORK' : 'TESTNET'}
               </Badge>
-              <span className="cl-meta">Chain id {project.environment.executionChainId}. Every transaction lands here.</span>
+              <span className="cl-meta">Chain {project.environment.executionChainId}. Every transaction lands here.</span>
             </div>
           </Card>
         </div>

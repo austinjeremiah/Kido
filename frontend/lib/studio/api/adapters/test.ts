@@ -166,10 +166,10 @@ export function toAttacks(cat: AttackCatalogue, runs: Record<string, AttackRun |
 
 export function toRealityModes(r: RealityView): RealityModeOption[] {
   const desc: Record<RealityModeOption['mode'], string> = {
-    LIVE_MAINNET_MIRROR: 'Read current mainnet state through a read-only RPC; nothing is executed there.',
-    HISTORICAL_REPLAY: 'Replay a past mainnet block. Needs an archive-capable RPC for evidence-grade replay.',
-    LOCAL_MAINNET_FORK: 'Fork mainnet into a local Anvil chain and let the agent act on real protocol state.',
-    SYNTHETIC: 'Apply a synthetic shock over the sealed snapshot to compare decisions.',
+    LIVE_MAINNET_MIRROR: 'Read mainnet as it is right now. Nothing is executed.',
+    HISTORICAL_REPLAY: 'Replay a past block. Needs an archive RPC.',
+    LOCAL_MAINNET_FORK: 'Copy mainnet to a local chain and let the agent act on it.',
+    SYNTHETIC: 'Shock the snapshot and compare what the agent decides.',
   };
   return r.modes.map((m) => ({
     mode: m.mode,

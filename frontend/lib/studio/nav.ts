@@ -231,7 +231,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'organization',
     title: 'Organization / Agents',
     tabTitle: 'Organization',
-    purpose: 'Manage multi-agent organizations as distinct principals rather than one super-agent.',
+    purpose: 'Each agent is its own principal, with its own identity, policy and budget.',
     pageKind: 'organization',
     quickPrompts: [
       'Compare Guardian and Rebalancer authority.',
@@ -281,9 +281,9 @@ export const PAGE_META: Record<string, PageMeta> = {
   },
   simulation: {
     segment: 'simulation',
-    title: 'Simulation Center',
+    title: 'Simulation',
     tabTitle: 'Simulation',
-    purpose: 'Run deterministic Kido simulations and official CRE workflow simulations with exact reason codes.',
+    purpose: 'Run every declared scenario and see the exact reason code for each verdict.',
     pageKind: 'simulation',
     quickPrompts: [
       'Explain why this scenario denied.',
@@ -296,7 +296,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'reality',
     title: 'Reality Lab',
     tabTitle: 'Reality Lab',
-    purpose: 'Real mainnet read-only context, local forks, snapshots and synthetic overlays — never an execution path.',
+    purpose: 'Test against real mainnet state, read-only. Nothing is ever executed here.',
     pageKind: 'reality',
     quickPrompts: [
       'Explain why this source is VERIFIED_ORACLE.',
@@ -310,7 +310,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'attacks',
     title: 'Attack Lab',
     tabTitle: 'Attack Lab',
-    purpose: "Run adversarial scenarios against the agent and see exactly which layer stops them.",
+    purpose: 'Attack the agent and see which layer stops it.',
     pageKind: 'attacks',
     quickPrompts: [
       'Explain why this attack failed.',
@@ -323,7 +323,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'code',
     title: 'Code',
     tabTitle: 'Code',
-    purpose: 'The generated sandbox files behind this agent. Generated code is read-only after a successful build.',
+    purpose: 'The code Kido generated for this agent. Read-only once the build succeeds.',
     pageKind: 'code',
     quickPrompts: [
       'Explain this file.',
@@ -337,7 +337,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'integrations',
     title: 'Integrations & Data Sources',
     tabTitle: 'Integrations',
-    purpose: 'Registered adapters, data trust classes, credentials and source health.',
+    purpose: 'Where the agent gets its data, how much each source is trusted, and whether it is healthy.',
     pageKind: 'integrations',
     quickPrompts: [
       'Which source satisfies my verified-price requirement?',
@@ -350,7 +350,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'deploy',
     title: 'Deploy / Preflight',
     tabTitle: 'Preflight',
-    purpose: 'Turn a verified build into a safe Testnet Lab deployment with explicit costs, artifacts and blockers.',
+    purpose: 'What has to be true before this agent can be deployed, and what it will cost.',
     pageKind: 'deploy',
     quickPrompts: [
       'Explain this gas estimate.',
@@ -363,7 +363,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'deployments',
     title: 'Deployments',
     tabTitle: 'Deployments',
-    purpose: 'Every deployment of this agent, its artifacts and its receipts.',
+    purpose: 'Every deployment of this agent, with its artifacts and receipts.',
     pageKind: 'deployment',
     quickPrompts: [
       'What changed between deployment 2 and 3?',
@@ -375,7 +375,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'overview',
     title: 'Overview',
     tabTitle: 'Overview',
-    purpose: 'Observed state of the deployed agent: authority, health, decisions and market context.',
+    purpose: 'What the deployed agent is doing right now, and what it is allowed to do.',
     pageKind: 'overview',
     quickPrompts: [
       'Summarize what this agent has done today.',
@@ -388,7 +388,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'activity',
     title: 'Activity',
     tabTitle: 'Activity',
-    purpose: 'Queryable audit timeline across agent, CRE, policy, chain, adapters and runtime.',
+    purpose: 'Everything the agent, the policy and the chain did, in order.',
     pageKind: 'activity',
     quickPrompts: [
       'Summarize this run.',
@@ -401,7 +401,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'policies',
     title: 'Policies',
     tabTitle: 'Policies',
-    purpose: 'View and safely revise the current Kido financial authority state.',
+    purpose: 'The live financial authority, and the only place it can be changed.',
     pageKind: 'policies',
     quickPrompts: [
       'Explain this policy.',
@@ -414,7 +414,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'runtime',
     title: 'Runtime',
     tabTitle: 'Runtime',
-    purpose: 'Operate the containerized agent process without confusing process state with financial authority.',
+    purpose: 'Start and stop the agent process. Running is not the same as having authority.',
     pageKind: 'runtime',
     quickPrompts: [
       'Why is runtime degraded?',
@@ -427,7 +427,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'control-plane',
     title: 'Control Plane',
     tabTitle: 'Control Plane',
-    purpose: 'Operator view of live components, reconciliation, alerts and emergency controls.',
+    purpose: 'Live components, alerts, and the controls for stopping the agent.',
     pageKind: 'control-plane',
     quickPrompts: [
       'Explain the current system health.',
@@ -440,7 +440,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'cre',
     title: 'Chainlink CRE',
     tabTitle: 'Chainlink CRE',
-    purpose: 'Simulator, user simulator and real DON state — stated separately and only with evidence.',
+    purpose: 'Which CRE you are really talking to — simulator or live DON — and the evidence for it.',
     pageKind: 'cre',
     quickPrompts: [
       'Explain simulator vs DON.',
@@ -453,7 +453,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'identity',
     title: 'Identity / ENS',
     tabTitle: 'Identity',
-    purpose: 'Agent identity, namespace, lifecycle and revocation — separate from financial permissions.',
+    purpose: 'Who the agent is on-chain, and how to revoke it. Not what it may spend.',
     pageKind: 'identity',
     quickPrompts: [
       'Explain what ENS does here.',
@@ -465,7 +465,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'reports',
     title: 'Safety Reports & Evidence',
     tabTitle: 'Reports',
-    purpose: 'Shareable, secret-free evidence of what the agent was built to do and what was actually tested.',
+    purpose: 'Evidence you can share: what the agent was built to do, and what was actually tested.',
     pageKind: 'reports',
     quickPrompts: [
       'Summarize this report for a judge.',

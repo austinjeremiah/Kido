@@ -14,7 +14,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Copy, GitCompare, Plus, RotateCcw, Play, Radio, Square } from 'lucide-react';
+import { GitCompare, Play, Radio, Square } from 'lucide-react';
 import { StudioPage, useStudioPage } from '@/components/studio/PageScaffold';
 import {
   Badge,
@@ -24,11 +24,12 @@ import {
   ReasonCode,
   SecurityPath,
   Section,
+  Spec,
   StaleBanner,
   StatusBadge,
   TimeAgo,
 } from '@/components/studio/primitives';
-import { Modal, StandardConfirmation } from '@/components/studio/dialogs';
+import { Modal } from '@/components/studio/dialogs';
 import { useWorkbench } from '@/lib/studio/workbench';
 import { SCENARIO_GROUPS } from '@/lib/studio/content/test';
 import { toScenarios } from '@/lib/studio/api/adapters/test';
@@ -62,8 +63,6 @@ export default function SimulationPage() {
   const [checked, setChecked] = useState<string[]>([]);
   const [running, setRunning] = useState<string[]>([]);
   const [runResults, setRunResults] = useState<RunState>({});
-  const [createOpen, setCreateOpen] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timers = useRef<number[]>([]);
@@ -89,6 +88,9 @@ export default function SimulationPage() {
   );
 
   const failing = SCENARIOS.filter((s) => (runResults[s.id] ?? s.result) === 'FAIL');
+  /* Whether anything has run at all. Without it the page claimed "All passing"
+     over a set of seventeen scenarios none of which had ever been executed. */
+  const ranAny = SCENARIOS.some((s) => (runResults[s.id] ?? s.result) !== undefined && (runResults[s.id] ?? s.result) !== null);
   const mandatoryCount = SCENARIOS.filter((s) => s.mandatory).length;
 
   /**
@@ -154,20 +156,28 @@ export default function SimulationPage() {
             ))}
           </div>
         ) : null}
+        {/* "Simulation Center" — the nav, the tab and the route all call this
+            Simulation; "Center" was a word for the page to have a grander name
+            than the thing it does.
+
+            The counts were three neutral badges in a row: agent, scenario
+            count, mandatory count. None of them is a status, so none of them is
+            a badge — they read as one line of meta beside the title. */}
         <div className="cl-row cl-row-wrap" style={{ marginBottom: 12, gap: 8 }}>
           <span className="cl-page-title" style={{ fontSize: 22, marginRight: 8 }}>
-            Simulation Center
+            Simulation
           </span>
-          <Badge tone="neutral">{agent.name}</Badge>
-          <Badge tone="neutral">{SCENARIOS.length} scenarios</Badge>
-          <Badge tone="neutral">{mandatoryCount} mandatory</Badge>
+          <span className="cl-meta">
+            {agent.name} · {SCENARIOS.length} scenarios
+            {mandatoryCount < SCENARIOS.length ? ` · ${mandatoryCount} mandatory` : ' · all mandatory'}
+          </span>
+          {/* A verdict only when there is one. "All passing" over a set where
+              nothing has run yet is a claim the page cannot make. */}
           {failing.length > 0 ? (
-            <Badge tone="deny">
-              {failing.length} failing
-            </Badge>
-          ) : (
+            <Badge tone="deny">{failing.length} failing</Badge>
+          ) : ranAny ? (
             <Badge tone="pass">All passing</Badge>
-          )}
+          ) : null}
           <span className="cl-spacer" />
 
           <div className="cl-btn-group">
@@ -202,10 +212,12 @@ export default function SimulationPage() {
               <GitCompare size={11} aria-hidden />
               Compare Runs
             </button>
-            <button type="button" className="cl-btn cl-btn-sm" onClick={() => setCreateOpen(true)} disabled title="Scenarios are declared by the Blueprint and its bound adapters; a custom scenario needs a Blueprint field the schema does not have yet.">
-              <Plus size={11} aria-hidden />
-              Create Scenario
-            </button>
+            {/* "Create Scenario", "Duplicate" and "Reset to Template" were
+                permanently disabled with a tooltip explaining why. A control
+                that can never be pressed is worse than no control: it occupies
+                the eye on every visit and pays nothing back. Scenarios come
+                from the Blueprint, and the Blueprint page is where that is
+                said. */}
           </div>
         </div>
         </>
@@ -246,11 +258,24 @@ export default function SimulationPage() {
                         />
                         <span style={{ flex: '1 1 auto', minWidth: 0 }}>
                           <span style={{ display: 'block' }}>{scenario.name}</span>
-                          <span className="cl-meta" style={{ display: 'block', marginTop: 3 }}>
-                            {scenario.lastRun ? <TimeAgo iso={scenario.lastRun} /> : 'never run'} · r
-                            {scenario.builtAgainstBlueprint ?? '—'}
-                            {scenario.mandatory ? ' · mandatory' : ''}
-                          </span>
+                          {/*
+                            Was "never run · r— · mandatory" under every one of
+                            seventeen rows — three facts that were identical
+                            down the whole list, next to an UNKNOWN badge
+                            already saying the first of them.
+
+                            Only what distinguishes this row from its
+                            neighbours: when it last ran and against which
+                            revision, once it has run, and "optional" only where
+                            that is the exception.
+                          */}
+                          {scenario.lastRun || !scenario.mandatory ? (
+                            <span className="cl-meta" style={{ display: 'block', marginTop: 3 }}>
+                              {scenario.lastRun ? <TimeAgo iso={scenario.lastRun} /> : null}
+                              {scenario.lastRun && scenario.builtAgainstBlueprint !== null ? ` · r${scenario.builtAgainstBlueprint}` : ''}
+                              {!scenario.mandatory ? `${scenario.lastRun ? ' · ' : ''}optional` : ''}
+                            </span>
+                          ) : null}
                         </span>
                         <span className="cl-col" style={{ gap: 3, alignItems: 'flex-end' }}>
                           {result ? <StatusBadge status={result} /> : <StatusBadge status="UNKNOWN" />}
@@ -291,7 +316,10 @@ export default function SimulationPage() {
                   ) : (
                     <StatusBadge status="UNKNOWN" large />
                   )}
-                  <Badge tone="neutral">{selected.id}</Badge>
+                  {/* The id is the name in caps — NORMAL under "Normal". */}
+                  {selected.id.toLowerCase() !== selected.name.toLowerCase().replace(/\s+/g, '_') ? (
+                    <Badge tone="neutral">{selected.id}</Badge>
+                  ) : null}
                   {selected.mandatory ? <Badge tone="neutral">Mandatory</Badge> : null}
                   {selected.isCre ? <Badge tone="sim">CRE</Badge> : null}
                 </div>
@@ -311,20 +339,15 @@ export default function SimulationPage() {
                     Run CRE Simulation
                   </button>
                 ) : null}
-                <button type="button" className="cl-btn cl-btn-sm" disabled title="Scenarios come from the Blueprint's declaration; there is nothing page-local to duplicate.">
-                  <Copy size={11} aria-hidden />
-                  Duplicate
-                </button>
-                <button type="button" className="cl-btn cl-btn-sm" onClick={() => setResetOpen(true)} disabled title="The expected result is fixed by the scenario's declaration and cannot be edited here.">
-                  <RotateCcw size={11} aria-hidden />
-                  Reset to Template
-                </button>
               </div>
             </header>
 
             <Section label="Deterministic inputs">
-              <Card>
-                <KeyValue rows={selected.inputs.map((i) => ({ label: i.key, value: i.value, mono: true }))} />
+              <div>
+                {/* Spec, not KeyValue in a Card — same ruled rows as every
+                    other derived-value list in the studio, and no card border
+                    immediately under a section rule. */}
+                <Spec rows={selected.inputs.map((i) => ({ key: i.key, label: i.key, value: <span className="cl-mono">{i.value}</span> }))} />
                 {selected.mutation ? (
                   <div style={{ marginTop: 14, border: '1px solid var(--cl-line-strong)', background: 'var(--cl-raised)' }}>
                     <div className="cl-card-head" style={{ background: 'var(--cl-warn-bg)' }}>
@@ -342,7 +365,7 @@ export default function SimulationPage() {
                     </div>
                   </div>
                 ) : null}
-              </Card>
+              </div>
             </Section>
 
             <Section label="Expected vs actual">
@@ -435,74 +458,10 @@ export default function SimulationPage() {
         </div>
       </div>
 
-      {/* create scenario */}
-      <Modal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        title="Create scenario"
-        subtitle="A scenario fixes its inputs and its expected result up front."
-        wide
-        footer={
-          <>
-            <button type="button" className="cl-btn" onClick={() => setCreateOpen(false)}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="cl-btn cl-btn-primary"
-              onClick={() => {
-                setCreateOpen(false);
-                pushToast('Scenario created as a draft');
-              }}
-            >
-              Create Scenario
-            </button>
-          </>
-        }
-      >
-        <div className="cl-field">
-          <label className="cl-field-label" htmlFor="sc-name">
-            Name
-          </label>
-          <input id="sc-name" className="cl-input" placeholder="Amount just above the escalation band" autoComplete="off" />
-        </div>
-        <div className="cl-field">
-          <label className="cl-field-label" htmlFor="sc-group">
-            Group
-          </label>
-          <select id="sc-group" className="cl-select" defaultValue="policy-boundaries">
-            {SCENARIO_GROUPS.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="cl-field">
-          <label className="cl-field-label" htmlFor="sc-expected">
-            Expected result
-          </label>
-          <input id="sc-expected" className="cl-input" placeholder="DENY · AMOUNT_ABOVE_CEILING" autoComplete="off" />
-          <span className="cl-field-hint">
-            The expected result is fixed when the scenario is written. It is never edited afterwards to make a failing
-            run pass.
-          </span>
-        </div>
-      </Modal>
-
-      {/* reset to template */}
-      <StandardConfirmation
-        open={resetOpen}
-        onClose={() => setResetOpen(false)}
-        onConfirm={() => {
-          setResetOpen(false);
-          pushToast('Scenario reset to its template');
-        }}
-        title="Reset scenario to template"
-        consequence="Inputs, mutation and expected result return to the values this scenario shipped with. Recorded run history is not removed."
-        resource={selected.name}
-        actionLabel="Reset to Template"
-      />
+      {/* The "Create scenario" and "Reset to template" dialogs stood here.
+          Both were reachable only from buttons that were permanently disabled,
+          so neither had ever opened: scenarios are declared by the Blueprint,
+          and the expected result is fixed when the scenario is written. */}
 
       {/* compare runs */}
       <Modal

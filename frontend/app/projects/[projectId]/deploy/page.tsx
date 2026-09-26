@@ -20,7 +20,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Fingerprint, Play, RefreshCw, Rocket, ScrollText, Square, Wallet } from 'lucide-react';
 import { StudioPage, useStudioPage } from '@/components/studio/PageScaffold';
-import { Badge, BlockchainRef, BlockerBanner, Card, EmptyState, KeyValue, Section, StatusBadge, TimeAgo } from '@/components/studio/primitives';
+import { Badge, BlockchainRef, BlockerBanner, Card, EmptyState, KeyValue, Section, Spec, StatusBadge, TimeAgo } from '@/components/studio/primitives';
 import { Modal } from '@/components/studio/dialogs';
 import { DeployWalletPanel } from '@/components/studio/wallet/DeployWalletPanel';
 import { LedgerApproverPicker } from '@/components/studio/wallet/LedgerApproverPicker';
@@ -196,9 +196,12 @@ export default function DeployPage() {
       segment="deploy"
       badges={
         <>
-          <Badge tone="neutral">{agent.name}</Badge>
+          <span className="cl-meta">{agent.name}</span>
           <Badge tone="sim">{live ? project.environment.executionNetwork : targetName}</Badge>
-          <Badge tone="deny">Production-chain execution: DISABLED</Badge>
+          {/* Was "Production-chain execution: DISABLED" — eleven letterspaced
+              syllables for a fact the TESTNET LAB badge in the title bar and the
+              statusbar both already carry. */}
+          <Badge tone="deny">No production chain</Badge>
           {live ? <Badge tone={deployment!.state === 'READY_TO_ACTIVATE' ? 'pass' : 'sim'}>{deployment!.state.replace(/_/g, ' ')}</Badge> : canDeploy ? <Badge tone="pass">Ready to deploy</Badge> : <Badge tone="blocked">Blocked</Badge>}
         </>
       }
@@ -206,18 +209,18 @@ export default function DeployPage() {
         <>
           <button type="button" className="cl-btn" onClick={() => { void readiness.refetch(); void activation.refetch(); pushToast('Preflight re-read from the server'); }}>
             <Play size={13} aria-hidden />
-            Run Preflight
+            Preflight
           </button>
           <button type="button" className="cl-btn" onClick={() => void runCre()} disabled={creRunning || latestCre?.status === 'RUNNING'}>
-            {creRunning || latestCre?.status === 'RUNNING' ? 'CRE simulation running…' : 'Run CRE Simulation'}
+            {creRunning || latestCre?.status === 'RUNNING' ? 'CRE running…' : 'Run CRE'}
           </button>
           <button type="button" className="cl-btn" onClick={() => setHashesOpen(true)}>
             <Fingerprint size={13} aria-hidden />
-            View artifact hashes
+            Hashes
           </button>
           <button type="button" className="cl-btn" onClick={() => setPlanOpen(true)}>
             <ScrollText size={13} aria-hidden />
-            Review Deployment Plan
+            Plan
           </button>
           {live ? (
             <button type="button" className="cl-btn cl-btn-danger" onClick={() => void stop()} disabled={!!busy}>
@@ -233,7 +236,7 @@ export default function DeployPage() {
               title={canDeploy ? undefined : `Blocked: ${target === 'ETHEREUM_SEPOLIA' ? 'Sepolia deployment is not offered from this screen' : (readiness.data?.blockedBy.join(', ') || (built ? 'preflight not read' : 'the build is not complete'))}`}
             >
               <Rocket size={13} aria-hidden />
-              {busy ?? 'Deploy to Testnet Lab'}
+              {busy ?? 'Deploy'}
             </button>
           )}
         </>
@@ -259,13 +262,13 @@ export default function DeployPage() {
       <Section label="Execution target">
         <div className="cl-grid cl-grid-2">
           {([
-            { id: 'LOCAL_MAINNET_FORK' as Target, title: 'Local mainnet fork', availability: 'AVAILABLE', body: 'Forks Ethereum mainnet at the head block into a local Anvil chain, deploys the Kido core there and lets the agent act on real protocol state. Nothing reaches a public chain.' },
-            { id: 'ETHEREUM_SEPOLIA' as Target, title: 'Ethereum Sepolia', availability: 'BLOCKED', body: 'A wallet-signed Sepolia deployment is not offered by the Studio API yet. The testnet orchestrator runs from the operator’s machine (npm run studio:deploy:testnet) with a disposable deployer key; its console is the same one this workbench reads.' },
+            { id: 'LOCAL_MAINNET_FORK' as Target, title: 'Local mainnet fork', availability: 'AVAILABLE', body: 'Real protocol state on a private chain. Nothing reaches a public network.' },
+            { id: 'ETHEREUM_SEPOLIA' as Target, title: 'Ethereum Sepolia', availability: 'BLOCKED', body: 'Not offered from this screen yet. Sepolia deploys run from the operator’s machine.' },
           ]).map((opt) => {
             const selectable = opt.availability === 'AVAILABLE';
             const active = target === opt.id;
             return (
-              <button key={opt.id} type="button" className="cl-card" onClick={() => setTarget(opt.id)} style={{ textAlign: 'left', padding: 0, cursor: 'pointer', borderColor: active ? 'var(--cl-ink)' : 'var(--cl-line)', background: active ? 'rgba(0, 66, 175, 0.06)' : 'var(--cl-panel)', opacity: selectable ? 1 : 0.8 }}>
+              <button key={opt.id} type="button" className="cl-card" onClick={() => setTarget(opt.id)} style={{ textAlign: 'left', padding: 0, cursor: 'pointer', borderColor: active ? 'var(--cl-brand)' : 'var(--cl-line)', background: active ? 'var(--cl-wash)' : 'var(--cl-panel)', opacity: selectable ? 1 : 0.8 }}>
                 <div className="cl-card-head"><div className="cl-card-title">{opt.title}</div><StatusBadge status={selectable ? 'READY' : 'BLOCKED'} label={opt.availability} /></div>
                 <div className="cl-card-body"><p className="cl-meta" style={{ whiteSpace: 'normal' }}>{opt.body}</p></div>
               </button>
@@ -291,95 +294,131 @@ export default function DeployPage() {
 
       {/* CRE */}
       <Section label="Chainlink CRE" actions={<button type="button" className="cl-btn cl-btn-sm" onClick={() => router.push(`/projects/${ctx.routeProjectId}/cre?agent=${agentSlug}`)}>Open CRE page</button>}>
-        <Card>
-          <KeyValue
+        <div>
+          {/* "Real DON: NO" and "Hardware TEE: NO" were two rows to say one
+              thing — this is a simulator, not a decentralised oracle network
+              with hardware attestation. One row states it, once. */}
+          <Spec
             rows={[
-              { label: 'Mode', value: creStatus ? `${creStatus.mode} · ${creStatus.executionMode}` : 'reading…' },
-              { label: 'Official CLI simulation', value: latestCre ? <span className="cl-row" style={{ gap: 8 }}><StatusBadge status={latestCre.status === 'RUNNING' ? 'RUNNING' : latestCre.status === 'PASSED' ? 'PASS' : 'FAIL'} /><span className="cl-meta">{latestCre.result.verdict ?? ''}{latestCre.result.productionLimits ? ' · production limits' : ''} · <TimeAgo iso={latestCre.startedAt} /></span></span> : <span className="cl-meta">not run for this project — required before deploying</span> },
-              { label: 'Workflow binary', value: creStatus?.workflowBinary ? <BlockchainRef value={creStatus.workflowBinary} kind="hash" /> : '—' },
-              { label: 'Real DON', value: <Badge tone="blocked">NO</Badge> },
-              { label: 'Hardware TEE', value: <Badge tone="blocked">NO</Badge> },
-              { label: 'Deploy Access', value: creStatus?.deployAccess ?? '—' },
+              { key: 'mode', label: 'Mode', value: creStatus ? `${creStatus.mode} · ${creStatus.executionMode}` : 'reading…' },
+              {
+                key: 'sim',
+                label: 'CLI simulation',
+                value: latestCre ? (
+                  <span className="cl-row" style={{ gap: 10 }}>
+                    <StatusBadge status={latestCre.status === 'RUNNING' ? 'RUNNING' : latestCre.status === 'PASSED' ? 'PASS' : 'FAIL'} />
+                    <span className="cl-meta">{latestCre.result.verdict ?? ''}{latestCre.result.productionLimits ? ' · production limits' : ''} · <TimeAgo iso={latestCre.startedAt} /></span>
+                  </span>
+                ) : (
+                  <span className="cl-meta">Not run. Required before deploying.</span>
+                ),
+              },
+              { key: 'evidence', label: 'Evidence', value: <Badge tone="blocked">Simulator only</Badge>, note: 'No real DON, no hardware attestation.' },
+              { key: 'binary', label: 'Workflow binary', value: creStatus?.workflowBinary ? <BlockchainRef value={creStatus.workflowBinary} kind="hash" /> : '—' },
+              { key: 'access', label: 'Deploy access', value: creStatus?.deployAccess ?? '—' },
             ]}
           />
           {latestCre?.status === 'FAILED' ? <div style={{ marginTop: 10 }}><BlockerBanner tone="deny" title="The last CRE simulation failed">{latestCre.result.failure ?? latestCre.result.outputTail?.slice(-3).join(' · ') ?? ''}</BlockerBanner></div> : null}
-        </Card>
+        </div>
       </Section>
 
       {/* deployment summary */}
       <Section label="Deployment summary">
-        <Card>
-          <KeyValue
-            rows={[
-              { label: 'Execution target', value: targetName },
-              { label: 'Market source', value: `${summary.data?.networks.marketSource.name ?? project.environment.realitySource} · READ ONLY` },
-              { label: 'Production-chain writes', value: <Badge tone="deny">PROHIBITED</Badge> },
-              { label: 'Blueprint revision', value: `r${view.blueprint?.revision ?? view.build.blueprintRevision ?? '—'}` },
-              { label: 'Build revision', value: `r${view.build.buildRevision}` },
-              { label: 'Protocols', value: summary.data?.summary.protocols.join(' · ') ?? '—' },
-              { label: 'Autonomous / approval / deny', value: summary.data ? `${summary.data.summary.autonomous} · ${summary.data.summary.humanApproval} · ${summary.data.summary.hardDeny}` : '—' },
-              { label: 'Contracts', value: 'Kido core deployed fresh on the fork from contracts/out (executor, policy registry, authorization registry, approval registry, identity verifier, CRE consumer)' },
-              { label: 'Runtime', value: 'in-process fork runtime started by the Studio server · no container image' },
-              { label: 'CRE mode', value: 'Official CLI simulator · no DON, no TEE evidence' },
-              { label: 'Escalation approver', value: walletAddress ? <span>{approverKind} <span className="cl-mono">{walletAddress}</span> — Key Ring not attached (BLK-002)</span> : 'stand-in key generated for the fork — not a Ledger device (BLK-002)' },
-              { label: 'Security status', value: <StatusBadge status={ctx.labState?.computedFrom.deterministicSimulationsPassed ? 'PASS' : 'FAIL'} label={ctx.labState?.computedFrom.deterministicSimulationsPassed ? 'mandatory simulations passed' : 'mandatory simulations not passing'} /> },
-              { label: 'Policy at deployment', value: <Badge tone="blocked">DISABLED</Badge> },
-            ]}
-          />
-        </Card>
+        {/* Two revision rows became one, the three authority figures stopped
+            hiding behind a label that was three labels, and the sentences that
+            had been stuffed into value cells — a six-contract list, a note
+            about container images, the CRE mode already stated above — moved to
+            notes or left entirely. */}
+        <Spec
+          rows={[
+            { key: 'target', label: 'Target', value: targetName },
+            { key: 'market', label: 'Market source', value: `${summary.data?.networks.marketSource.name ?? project.environment.realitySource}`, note: 'Read only. Production-chain writes are prohibited.' },
+            { key: 'rev', label: 'Revision', value: `Blueprint r${view.blueprint?.revision ?? view.build.blueprintRevision ?? '—'} · build r${view.build.buildRevision}` },
+            { key: 'protocols', label: 'Protocols', value: summary.data?.summary.protocols.join(' · ') ?? '—' },
+            { key: 'autonomous', label: 'Autonomous', value: summary.data?.summary.autonomous ?? '—' },
+            { key: 'approval', label: 'Needs approval', value: summary.data?.summary.humanApproval ?? '—' },
+            { key: 'deny', label: 'Hard deny', value: summary.data?.summary.hardDeny ?? '—' },
+            { key: 'contracts', label: 'Contracts', value: 'Kido core, deployed fresh on the fork', note: 'Executor, policy registry, authorization registry, approval registry, identity verifier, CRE consumer.' },
+            {
+              key: 'approver',
+              label: 'Escalation approver',
+              value: walletAddress ? <span>{approverKind} <span className="cl-mono">{walletAddress}</span></span> : 'Stand-in key generated for the fork',
+              note: 'Not a Ledger device (BLK-002).',
+            },
+            {
+              key: 'security',
+              label: 'Security',
+              value: <StatusBadge status={ctx.labState?.computedFrom.deterministicSimulationsPassed ? 'PASS' : 'FAIL'} label={ctx.labState?.computedFrom.deterministicSimulationsPassed ? 'simulations passed' : 'simulations not passing'} />,
+            },
+            { key: 'policy', label: 'Policy at deployment', value: <Badge tone="blocked">DISABLED</Badge>, note: 'The agent deploys with no financial authority. You enable it on the Policies page.' },
+          ]}
+        />
       </Section>
 
       {/* wallet */}
       <Section label="Approver wallet">
-        <Card>
-          <p className="cl-meta" style={{ whiteSpace: 'normal', marginBottom: 10 }}>
-            On the fork the wallet pays no gas — every role is a fresh key funded by Anvil. What the wallet does is sign ESCALATE approvals: its address becomes the approval registry's approver at deployment, and the executor only runs an escalated action once its EIP-712 signature is on record.
+        <div>
+          <p className="cl-lead" style={{ marginBottom: 12 }}>
+            The wallet pays no gas on the fork. Its job is to sign ESCALATE approvals — the executor will not run an
+            escalated action until this address&rsquo;s signature is on record.
           </p>
           {ledgerApprover ? null : <DeployWalletPanel recommendedEth={0} onStateChange={setWallet} role="approver" />}
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--cl-line)' }}>
             <LedgerApproverPicker chosen={ledgerApprover} onChoose={setLedgerApprover} />
           </div>
-          {wallet.connected && !wallet.onExecutionChain ? <p className="cl-meta" style={{ marginTop: 8, whiteSpace: 'normal' }}>The network the wallet is on does not matter for signing approvals on the fork; it matters for a Sepolia deployment, which is not offered here.</p> : null}
-        </Card>
+          {wallet.connected && !wallet.onExecutionChain ? <p className="cl-meta" style={{ marginTop: 8, whiteSpace: 'normal' }}>The wallet&rsquo;s own network does not matter for signing approvals on the fork.</p> : null}
+        </div>
       </Section>
 
-      {/* cost — deliberately not one total */}
-      <Section label="Cost estimate" actions={<button type="button" className="cl-btn cl-btn-sm" onClick={() => { void tokens.refetch(); pushToast('Re-read'); }}><RefreshCw size={11} aria-hidden />Refresh Estimate</button>}>
-        <div className="cl-grid cl-grid-2">
-          <Card title="One-time deployment gas">
-            <p className="cl-meta" style={{ whiteSpace: 'normal', marginBottom: 10 }}>{target === 'LOCAL_MAINNET_FORK' ? 'The fork funds its own roles with anvil_setBalance. Nothing is paid by you.' : 'Paid by the deployer wallet on Sepolia in test ETH, which has no real-world value.'}</p>
-            <dl className="cl-kv">
-              <div style={{ display: 'contents' }}><dt>Paid by you</dt><dd>{target === 'LOCAL_MAINNET_FORK' ? <Badge tone="pass">nothing</Badge> : <Badge tone="warn">test ETH · not offered here</Badge>}</dd></div>
-              {record?.setupTransactions.length ? <div style={{ display: 'contents' }}><dt>Gas used on the fork</dt><dd className="cl-mono">{record.setupTransactions.reduce((n, t) => n + Number(t.gasUsed), 0).toLocaleString()} across {record.setupTransactions.length} tx</dd></div> : null}
-            </dl>
-          </Card>
-          <Card title="Expected execution costs">
-            <p className="cl-meta" style={{ whiteSpace: 'normal', marginBottom: 10 }}>Per action, paid by the relayer role. On the fork this is Anvil-funded; on a testnet it would be test ETH.</p>
-            <dl className="cl-kv">
-              {(tokens.data?.requirements ?? []).map((t) => (
-                <div key={t.symbol + t.purpose} style={{ display: 'contents' }}><dt>{t.symbol}</dt><dd>{t.purpose} · {t.source} · real-world value {t.realWorldValue}</dd></div>
-              ))}
-            </dl>
-            {tokens.data ? <p className="cl-meta" style={{ marginTop: 8, whiteSpace: 'normal' }}>{tokens.data.note}</p> : null}
-          </Card>
-          <Card title="Model usage">
-            <p className="cl-meta" style={{ whiteSpace: 'normal', marginBottom: 10 }}>Billed separately, not paid in any chain asset. Measured by the SDK's own accounting, never estimated from text.</p>
-            <dl className="cl-kv">
-              <div style={{ display: 'contents' }}><dt>This build</dt><dd>{usage.requests} calls · {(usage.inputTokens + usage.outputTokens).toLocaleString()} tokens{usage.estimatedCostUsd !== null ? ` · ~$${usage.estimatedCostUsd.toFixed(3)} (estimate)` : ''}</dd></div>
-              <div style={{ display: 'contents' }}><dt>Runtime</dt><dd>the fork runtime uses no model calls — decisions come from the deterministic policy engine</dd></div>
-            </dl>
-          </Card>
-          <Card title="Hosting and CRE">
-            <p className="cl-meta" style={{ whiteSpace: 'normal', marginBottom: 10 }}>The official CRE simulator runs locally and costs no gas and no credits. No container is hosted.</p>
-            <dl className="cl-kv">
-              <div style={{ display: 'contents' }}><dt>CRE</dt><dd>official CLI simulator · private registry not used (no Deploy Access)</dd></div>
-              <div style={{ display: 'contents' }}><dt>Runtime hosting</dt><dd>none — the runtime lives in the Studio server process for the fork's lifetime</dd></div>
-            </dl>
-          </Card>
-        </div>
-        <p className="cl-meta" style={{ marginTop: 10 }}>
-          These are not added together. They are paid in different currencies, at different times, by different parties — a single combined figure would not correspond to anything you actually pay.
-        </p>
+      {/*
+        Four cards, each opening with a paragraph of qualification before the
+        figure it qualifies. The answer on a fork is "nothing", and the
+        qualifications are notes on the rows they qualify.
+
+        Still deliberately not summed: gas, model spend and hosting are paid in
+        different things, at different times, by different parties, and adding
+        them would invent a number nobody pays.
+      */}
+      <Section label="Cost" actions={<button type="button" className="cl-btn cl-btn-sm" onClick={() => { void tokens.refetch(); pushToast('Re-read'); }}><RefreshCw size={11} aria-hidden />Refresh</button>}>
+        <Spec
+          rows={[
+            {
+              key: 'gas',
+              label: 'Deployment gas',
+              value: target === 'LOCAL_MAINNET_FORK' ? <Badge tone="pass">Nothing</Badge> : <Badge tone="warn">Test ETH</Badge>,
+              note:
+                target === 'LOCAL_MAINNET_FORK'
+                  ? `The fork funds its own roles.${record?.setupTransactions.length ? ` ${record.setupTransactions.reduce((n, t) => n + Number(t.gasUsed), 0).toLocaleString()} gas across ${record.setupTransactions.length} transactions.` : ''}`
+                  : 'Paid by the deployer wallet in test ETH, which has no real-world value.',
+            },
+            {
+              key: 'exec',
+              label: 'Per action',
+              value:
+                (tokens.data?.requirements ?? []).length > 0
+                  ? (tokens.data?.requirements ?? []).map((t) => `${t.symbol} · ${t.purpose}`).join(' · ')
+                  : <span className="cl-meta">reading…</span>,
+              note: `Paid by the relayer role — Anvil-funded on the fork.${tokens.data?.note ? ` ${tokens.data.note}` : ''}`,
+            },
+            {
+              key: 'model',
+              label: 'Model usage',
+              value: (
+                <span className="cl-num">
+                  {usage.requests} calls · {(usage.inputTokens + usage.outputTokens).toLocaleString()} tokens
+                  {usage.estimatedCostUsd !== null ? ` · ~$${usage.estimatedCostUsd.toFixed(3)}` : ''}
+                </span>
+              ),
+              note: 'This build, from the SDK’s own accounting. The runtime makes no model calls — decisions come from the deterministic policy engine.',
+            },
+            {
+              key: 'hosting',
+              label: 'Hosting and CRE',
+              value: <Badge tone="pass">Nothing</Badge>,
+              note: 'The CRE simulator runs locally. No container is hosted; the runtime lives in the Studio server process for the fork’s lifetime.',
+            },
+          ]}
+        />
       </Section>
 
       {/* progress */}
