@@ -10,6 +10,18 @@ export interface RuntimeSnapshot {
   observedAt?: number;
 }
 
+/** What has been proven for a provider the agent uses (from the registry's implementation record). */
+export interface ProviderState {
+  providerId: string;
+  role: string;
+  status: string;
+  live: boolean;
+  proven: string[];
+  notProven: string[];
+  doesNotProvide: string[];
+  blocker: string | null;
+}
+
 export interface AgentSelfModel {
   kidoAgentId: string;
   objective: string;
@@ -21,7 +33,8 @@ export interface AgentSelfModel {
   monitors: { id: string; metric: string; op: string; threshold: string; response: string; action: string | null; health: string }[];
   allowedActions: string[];
   forbiddenActions: string[];
-  privacy: { required: boolean | null; protectedInputs: { id: string; kind: string; hiddenFrom: string[]; protectedBy: string[] }[] };
+  privacy: { required: boolean | null; protectedInputs: { id: string; kind: string; hiddenFrom: string[]; plaintextMayExistIn: string; mayLeave: string; protectedBy: string[] }[] };
+  providers: ProviderState[];
   authority: {
     mode: string | null;
     amaneActive: boolean;
@@ -37,7 +50,7 @@ export interface AgentSelfModel {
  * Deterministic self-model (bible §13.2), computed from the active blueprint and live runtime state.
  * It holds no secrets: private thresholds appear only as "private" with the providers protecting them.
  */
-export function buildSelfModel(bp: KidoAgentBlueprint, rt: RuntimeSnapshot = {}): AgentSelfModel {
+export function buildSelfModel(bp: KidoAgentBlueprint, rt: RuntimeSnapshot = {}, providers: ProviderState[] = []): AgentSelfModel {
   const a = bp.authority;
   const protectedBy = (id: string) => bp.privacy.providers.filter((p) => p.satisfies.includes(id)).map((p) => (p.chain ? `${p.providerId} (${p.chain})` : p.providerId));
   const liveIdentity = new Map((rt.identity ?? []).map((i) => [`${i.provider}:${i.chain}`, i]));
@@ -63,7 +76,8 @@ export function buildSelfModel(bp: KidoAgentBlueprint, rt: RuntimeSnapshot = {})
     })),
     allowedActions: a.allowedActions,
     forbiddenActions: a.forbiddenActions,
-    privacy: { required: bp.privacy.required, protectedInputs: bp.privacy.values.map((v) => ({ id: v.id, kind: v.kind, hiddenFrom: v.hiddenFrom, protectedBy: protectedBy(v.id) })) },
+    privacy: { required: bp.privacy.required, protectedInputs: bp.privacy.values.map((v) => ({ id: v.id, kind: v.kind, hiddenFrom: v.hiddenFrom, plaintextMayExistIn: v.plaintextBoundary, mayLeave: v.allowedDisclosure, protectedBy: protectedBy(v.id) })) },
+    providers,
     authority: {
       mode: a.mode,
       amaneActive: a.provider === "AMANE" && Boolean(rt.lease && !rt.lease.revoked && rt.lease.expiresAt * 1000 > (rt.observedAt ?? Date.now())),
@@ -90,7 +104,8 @@ const TOPICS: Topic[] = [
   { id: "protocols", re: /\b(protocols?|aave|uniswap|cetus)\b/i, answer: (m) => m.protocols },
   { id: "data", re: /\b(data|oracle|source|monitor|watch|trust)\b/i, answer: (m) => ({ dataSources: m.dataSources, monitors: m.monitors }) },
   { id: "actions", re: /\b(actions?|allowed|forbidden|can you|may you|permitted|borrow|withdraw|swap|repay|pay)\b/i, answer: (m) => ({ allowed: m.allowedActions, forbidden: m.forbiddenActions }) },
-  { id: "privacy", re: /\b(privacy|private|secret|sensitive|confidential|protect)\b/i, answer: (m) => m.privacy },
+  { id: "privacy", re: /\b(privacy|private|secret|sensitive|confidential|protect|plaintext|enclave|tee|attest\w*|seal|nautilus)\b/i, answer: (m) => ({ ...m.privacy, providers: m.providers.filter((p) => p.role === "privacy") }) },
+  { id: "providers", re: /\b(live|simulated|provider|infrastructure|proven|status)\b/i, answer: (m) => m.providers },
   { id: "authority", re: /\b(amane|lease|limit|budget|remaining|expir|spend|authority)\b/i, answer: (m) => m.authority },
   { id: "failure", re: /\b(fail|failure|timeout|revok|stale|unavailable|what happens)\b/i, answer: (m) => m.failureBehaviour },
 ];

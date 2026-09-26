@@ -7,7 +7,7 @@ import { buildPublicManifest, compileIdentityPlan, type PlannedBinding } from "@
 import { KnowledgeBase } from "@kido/knowledge";
 import { applyPrivacyPlan, compilePrivacy, type PrivacyPlan } from "@kido/privacy";
 import { ProviderRegistry } from "@kido/registry";
-import { buildAgentContext, buildSelfModel, compileAmaneAuthority, introspect, type AgentRuntimeState, type AuthorityResult, type RuntimeSnapshot } from "@kido/runtime";
+import { buildAgentContext, buildSelfModel, compileAmaneAuthority, introspect, type AgentRuntimeState, type AuthorityResult, type ProviderState, type RuntimeSnapshot } from "@kido/runtime";
 import type { AmaneDeploymentManifest } from "@kido/amane-bridge";
 import { authorityEndpoints } from "./endpoints.js";
 import { securityReview, type SecurityReport } from "./review.js";
@@ -210,12 +210,38 @@ export class Foundry {
 
   /** Deterministic answers about the agent from its self-model (bible §13.2). */
   introspect(projectId: string, question: string, runtime: RuntimeSnapshot = {}) {
-    const bp = this.requireBlueprint(this.d.store.load(projectId));
-    return introspect(buildSelfModel(bp, runtime), question);
+    return introspect(this.selfModel(projectId, runtime), question);
   }
 
   selfModel(projectId: string, runtime: RuntimeSnapshot = {}) {
-    return buildSelfModel(this.requireBlueprint(this.d.store.load(projectId)), runtime);
+    const bp = this.requireBlueprint(this.d.store.load(projectId));
+    return buildSelfModel(bp, runtime, this.providerStates(bp));
+  }
+
+  /** Implementation state of every provider the blueprint relies on, straight from the registry. */
+  private providerStates(bp: KidoAgentBlueprint): ProviderState[] {
+    const uses: [string, string][] = [
+      ...bp.protocols.map((p) => [p.providerId, "protocol"] as [string, string]),
+      ...bp.privacy.providers.map((p) => [p.providerId, "privacy"] as [string, string]),
+      ...bp.identity.bindings.map((b) => [b.provider, "identity"] as [string, string]),
+      ...(bp.authority.provider === "AMANE" ? [["amane", "authority"] as [string, string]] : []),
+      ...(bp.crossChain?.transports ?? []).map((t) => [t, "transport"] as [string, string]),
+    ];
+    const seen = new Set<string>();
+    return uses.filter(([id, role]) => !seen.has(`${id}:${role}`) && (seen.add(`${id}:${role}`), true)).map(([id, role]) => {
+      const m = this.registry.get(id);
+      const b = m?.implementation.blocker;
+      return {
+        providerId: id,
+        role,
+        status: this.registry.implementationStatus(id),
+        live: this.registry.implementationLive(id),
+        proven: m?.implementation.proven ?? [],
+        notProven: m?.implementation.notProven ?? [],
+        doesNotProvide: m?.implementation.doesNotProvide ?? [],
+        blocker: b ? `${b.type}: ${b.actionRequired}` : null,
+      };
+    });
   }
 
   /** The exact context a specialist would receive (bible §13.1). */

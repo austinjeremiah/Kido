@@ -15,6 +15,38 @@ export const CAPABILITIES = {
 /** NOT_SHIPPED: documented and planned, but the execution adapter it needs does not exist yet. */
 export type ProviderStatus = "VERIFIED_LIVE" | "VERIFIED_DOCS" | "UNVERIFIED" | "MOCK_ONLY" | "BLOCKED_ENV" | "NOT_SHIPPED";
 
+/**
+ * What has actually been proven for an integration, separate from how well its facts are researched.
+ * Never collapse SIMULATED into TESTNET_LIVE, or IMPLEMENTED_LOCAL into LIVE_ATTESTED.
+ */
+export type ImplementationStatus =
+  | "NOT_IMPLEMENTED"
+  | "IMPLEMENTED_LOCAL"
+  | "SIMULATED"
+  | "TESTNET_LIVE"
+  | "LIVE_ATTESTED"
+  | "BLOCKED_ENV"
+  | "BLOCKED_AUTH"
+  | "BLOCKED_UPSTREAM";
+
+export interface Implementation {
+  status: ImplementationStatus;
+  /** Claims backed by evidence (tests, live runs). */
+  proven: string[];
+  /** Claims that must not be made yet. */
+  notProven: string[];
+  /** Things this provider does not do at all, stated so no one infers them. */
+  doesNotProvide?: string[];
+  blocker?: { type: "BLOCKED_ENV" | "BLOCKED_AUTH" | "BLOCKED_UPSTREAM"; actionRequired: string; evidence: string };
+  /** Per-capability status where it differs (e.g. resolve live, register blocked). */
+  capabilities?: Record<string, ImplementationStatus>;
+  /** Free-form structured facts (e.g. { liveReceiver: true, liveWorkflow: false }). */
+  facts?: Record<string, boolean | string>;
+  evidence: string[];
+}
+
+export const LIVE_IMPLEMENTATION: ImplementationStatus[] = ["TESTNET_LIVE", "LIVE_ATTESTED"];
+
 export interface TrustProfile {
   providerId: string;
   protects: string[];
@@ -43,6 +75,8 @@ export interface ProviderManifest {
   limitations: string[];
   sources: { url: string; retrieved: string }[];
   status: ProviderStatus;
+  /** What Kido has proven about its own integration with this provider. */
+  implementation: Implementation;
   /** Why the status is what it is, e.g. which environment a live test needs. */
   statusNote: string;
   /** Capabilities whose live status differs from the provider's (e.g. resolve live, register blocked). */

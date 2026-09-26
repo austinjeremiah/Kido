@@ -98,6 +98,20 @@ describe("introspection", () => {
     expect(foundry.introspect(id, "What happens if the oracle is stale?").facts.failure).toMatchObject({ oracleFailure: "take no action and alert the owner" });
   });
 
+  it("reports privacy providers exactly as proven: nothing simulated or blocked is called live", async () => {
+    const id = await project("Protect my Aave position, swapping on Cetus, using liquidity on Ethereum and Sui", RESCUE);
+    const q = foundry.introspect(id, "Is the TEE currently attested, and is your privacy infrastructure live or simulated?");
+    const privacy = (q.facts.privacy as { providers: { providerId: string; status: string; live: boolean; blocker: string | null }[] }).providers;
+    expect(privacy.length).toBeGreaterThan(0);
+    for (const p of privacy) {
+      if (p.providerId === "nautilus") expect(p).toMatchObject({ live: false, status: "NOT_IMPLEMENTED", blocker: expect.stringMatching(/^BLOCKED_ENV/) });
+      if (p.providerId === "chainlink-cre") expect(p).toMatchObject({ live: false, status: "SIMULATED", blocker: expect.stringMatching(/^BLOCKED_AUTH/) });
+    }
+    expect(privacy.some((p) => p.live)).toBe(false);
+    const inputs = (q.facts.privacy as { protectedInputs: { plaintextMayExistIn: string; mayLeave: string }[] }).protectedInputs;
+    expect(inputs[0]).toMatchObject({ plaintextMayExistIn: "APPROVED_ENCLAVE", mayLeave: "DECISION_ONLY" });
+  });
+
   it("says unknown instead of guessing", async () => {
     const id = await project("Protect my Aave position, swapping on Cetus, using liquidity on Ethereum and Sui", RESCUE);
     expect(foundry.introspect(id, "What is the owner's home address?")).toMatchObject({ known: false, facts: {} });

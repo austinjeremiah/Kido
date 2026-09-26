@@ -63,7 +63,7 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
   route("POST", "/projects/:id/introspect", async (req, p) => foundry.introspect(p.id!, (await body(req, Ask)).question));
   route("GET", "/projects/:id/self-model", (_r, p) => foundry.selfModel(p.id!));
   route("GET", "/projects/:id/context/:role", (_r, p) => foundry.agentContext(p.id!, p.role!));
-  route("GET", "/registry", () => ({ providers: foundry.registry.providers.map((m) => ({ providerId: m.providerId, kind: m.kind, chains: m.chains, status: m.status, statusNote: m.statusNote, capabilityStatus: m.capabilityStatus ?? {} })) }));
+  route("GET", "/registry", () => ({ providers: foundry.registry.providers.map((m) => ({ providerId: m.providerId, kind: m.kind, chains: m.chains, status: m.status, statusNote: m.statusNote, capabilityStatus: m.capabilityStatus ?? {}, implementation: m.implementation })) }));
   route("GET", "/registry/:id", (_r, p) => {
     const m = foundry.registry.get(p.id!);
     if (!m) throw new HttpError(404, "KIDO_API_UNKNOWN_PROVIDER", `unknown provider ${p.id}`);

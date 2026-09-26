@@ -84,15 +84,16 @@ export function compilePrivacy(bp: KidoAgentBlueprint, reg: ProviderRegistry): P
     for (const chain of chains) {
       const c = chain ?? bp.chains[0]!;
       const live = reg.select({ kind: "privacy", chain: c, capabilities: caps, acceptStatus: ["VERIFIED_LIVE"], hiddenFrom: v.hiddenFrom });
-      const plan = live.uncovered.length === 0 ? live : reg.select({ kind: "privacy", chain: c, capabilities: caps, acceptStatus: PLANNING, hiddenFrom: v.hiddenFrom });
+      const provenLive = live.uncovered.length === 0 && live.selected.every((p) => caps.every((cap) => !p.capabilities.includes(cap) || reg.implementationComplete(p.providerId, cap)));
+      const plan = provenLive ? live : reg.select({ kind: "privacy", chain: c, capabilities: caps, acceptStatus: PLANNING, hiddenFrom: v.hiddenFrom });
       const reasons = plan.rejected.map((r) => `${r.providerId}: ${r.reason}`);
       let status: ValueStatus;
       if (plan.uncovered.length > 0) {
         status = "UNSATISFIABLE";
         reasons.unshift(`no provider on ${c} offers ${plan.uncovered.join(", ")}`);
-      } else if (live.uncovered.length > 0) {
+      } else if (!provenLive) {
         status = "SATISFIED_PLANNING_ONLY";
-        for (const p of plan.selected) if (p.status !== "VERIFIED_LIVE") blockers.push(`${v.id} on ${c}: ${p.providerId} ${p.status} — ${p.statusNote}`);
+        for (const p of plan.selected) if (!reg.implementationComplete(p.providerId)) blockers.push(`${v.id} on ${c}: ${p.providerId} ${p.implementation.status}${p.implementation.blocker ? ` — ${p.implementation.blocker.type}: ${p.implementation.blocker.actionRequired} (${p.implementation.blocker.evidence})` : ""}`);
       } else status = "SATISFIED";
       values.push({ valueId: v.id, chain, requiredCapabilities: caps, selected: plan.selected.map((p) => p.providerId), status, reasons, trust: plan.selected.map((p) => p.trust), plaintextBoundary: v.plaintextBoundary, allowedDisclosure: v.allowedDisclosure });
     }

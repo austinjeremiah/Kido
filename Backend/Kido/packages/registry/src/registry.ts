@@ -2,7 +2,7 @@ import type { ChainId, GateFacts } from "@kido/blueprint";
 import { isChainAddress } from "./chains.js";
 import { ASSETS } from "./assets.js";
 import { PROVIDERS } from "./providers/index.js";
-import type { AssetEntry, ProviderKind, ProviderManifest, ProviderStatus } from "./types.js";
+import { LIVE_IMPLEMENTATION, type AssetEntry, type ImplementationStatus, type ProviderKind, type ProviderManifest, type ProviderStatus } from "./types.js";
 
 export interface SelectionRequest {
   kind: ProviderKind;
@@ -80,6 +80,24 @@ export class ProviderRegistry {
       if (ids.has(p.providerId)) throw new Error(`duplicate provider ${p.providerId}`);
       ids.add(p.providerId);
     }
+  }
+
+  /** What Kido has proven for a provider, optionally for one capability. */
+  implementationStatus(providerId: string, capability?: string): ImplementationStatus {
+    const p = this.get(providerId);
+    if (!p) return "NOT_IMPLEMENTED";
+    return (capability && p.implementation.capabilities?.[capability]) || p.implementation.status;
+  }
+
+  /** Proven live on a real network (testnet or attested), not simulated or local. */
+  implementationLive(providerId: string, capability?: string): boolean {
+    return LIVE_IMPLEMENTATION.includes(this.implementationStatus(providerId, capability));
+  }
+
+  /** Proven live, or a provider that is local by design and fully implemented locally. */
+  implementationComplete(providerId: string, capability?: string): boolean {
+    if (this.implementationLive(providerId, capability)) return true;
+    return this.implementationStatus(providerId, capability) === "IMPLEMENTED_LOCAL" && this.get(providerId)?.implementation.facts?.localOnly === true;
   }
 
   /** Registry facts for the blueprint buildability gate. */

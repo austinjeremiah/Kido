@@ -1,6 +1,6 @@
 import { createPublicClient, http, parseAbi, type Hex } from "viem";
 import { sepolia } from "viem/chains";
-import { rpcUrl, type ProviderRegistry, type ProviderStatus } from "@kido/registry";
+import { rpcUrl, type ImplementationStatus, type ProviderRegistry } from "@kido/registry";
 
 /** How far a decision can be trusted. SIMULATED is never presented as confidential or verified. */
 export type DecisionTrust = "SIMULATED" | "DON_SIMULATED_FORWARDER" | "CONFIDENTIAL_VERIFIED_COMPUTE";
@@ -28,18 +28,20 @@ export class BlockedEnvError extends Error {
 
 export interface Readiness {
   providerId: string;
-  status: ProviderStatus;
+  status: ImplementationStatus;
   live: boolean;
   blockers: string[];
+  proven: string[];
+  notProven: string[];
 }
 
-/** Readiness comes from the registry's verified status for the capability, never from configuration alone. */
-export function readiness(reg: ProviderRegistry, providerId: string, capability = "DECISION_ONLY_OUTPUT"): Readiness {
+/** Readiness is what has been proven (the registry's implementation record), never configuration alone. */
+export function readiness(reg: ProviderRegistry, providerId: string, capability?: string): Readiness {
   const m = reg.get(providerId);
-  if (!m) return { providerId, status: "UNVERIFIED", live: false, blockers: [`unknown provider ${providerId}`] };
-  const cap = m.capabilityStatus?.[capability];
-  const status = cap?.status ?? m.status;
-  return { providerId, status, live: status === "VERIFIED_LIVE" && reg.isLive(providerId, capability), blockers: status === "VERIFIED_LIVE" ? [] : [cap?.note ?? m.statusNote] };
+  if (!m) return { providerId, status: "NOT_IMPLEMENTED", live: false, blockers: [`unknown provider ${providerId}`], proven: [], notProven: [] };
+  const status = reg.implementationStatus(providerId, capability);
+  const b = m.implementation.blocker;
+  return { providerId, status, live: reg.implementationLive(providerId, capability), blockers: b && !reg.implementationLive(providerId, capability) ? [`${b.type}: ${b.actionRequired} (${b.evidence})`] : [], proven: m.implementation.proven, notProven: m.implementation.notProven };
 }
 
 export interface ConfidentialDecisionAdapter {
@@ -53,7 +55,7 @@ export interface ConfidentialDecisionAdapter {
 export class SimulatedDecisionAdapter implements ConfidentialDecisionAdapter {
   constructor(readonly providerId: string, private readonly fn: (req: DecisionRequest) => boolean, private readonly now: () => number = () => Math.floor(Date.now() / 1000)) {}
   readiness(): Readiness {
-    return { providerId: this.providerId, status: "MOCK_ONLY", live: false, blockers: ["simulated adapter"] };
+    return { providerId: this.providerId, status: "SIMULATED", live: false, blockers: ["simulated adapter"], proven: [], notProven: ["everything: simulated"] };
   }
   async decide(req: DecisionRequest): Promise<DecisionResult> {
     return { providerId: this.providerId, act: this.fn(req), evaluatedAt: this.now(), trust: "SIMULATED", evidence: "simulated adapter; no confidential compute" };
