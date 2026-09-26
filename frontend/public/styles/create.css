@@ -187,6 +187,55 @@
   border-top: 1px solid var(--cl-line);
 }
 
+/* --- starters ------------------------------------------------------------
+   Title only. The tip is a sibling rather than a `title` attribute so it can
+   carry the page's own type and appear immediately — the native one waits a
+   second and renders in the OS font, which reads as a browser artefact rather
+   than part of the product. */
+.kc-starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 0.7rem;
+}
+
+.kc-starter {
+  position: relative;
+  display: inline-flex;
+}
+
+.kc-starter__btn {
+  font-size: 12.5px;
+}
+
+.kc-starter__tip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 5;
+  width: max-content;
+  max-width: min(26rem, 60vw);
+  padding: 8px 10px;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: 8px;
+  background: var(--cl-raised);
+  box-shadow: 0 6px 20px -8px rgba(8, 18, 74, 0.35);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cl-ink-2);
+  opacity: 0;
+  translate: 0 4px;
+  pointer-events: none;
+  transition: opacity 0.18s ease, translate 0.18s ease;
+}
+
+/* focus-within as well as hover, so the gist is reachable from the keyboard. */
+.kc-starter:hover .kc-starter__tip,
+.kc-starter:focus-within .kc-starter__tip {
+  opacity: 1;
+  translate: 0 0;
+}
+
 .kc-composer__input {
   width: 100%;
   resize: none;
@@ -212,4 +261,347 @@
   .kc-canvas { grid-template-columns: minmax(0, 1fr); }
   .kc-half--left { border-right: 0; }
   .kc-half--right { display: none; }
+}
+
+/* --- the transcript ------------------------------------------------------
+   The workbench's panel surfaces are all within a few points of the canvas
+   (--cl-panel #fdf6e3 against --cl-canvas #fef1d0), which works where panels
+   sit in their own regions divided by borders, and disappears completely on one
+   flat cream sheet. Both sides of the conversation are filled instead: yours in
+   the project's blue, Kido's in its near-black heading ink. */
+.kc-turn {
+  max-width: 88%;
+  padding: 0.75rem 0.95rem;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.kc-turn__text { margin: 0; white-space: pre-wrap; }
+
+/* The "why" under a question: the reason the answer matters, not a hint toward
+   one, so it is set back from the question rather than level with it. */
+.kc-turn__note {
+  margin: 0.5rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(254, 241, 208, 0.18);
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.75;
+}
+
+.kc-turn--you {
+  align-self: flex-end;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--cl-ink);
+  color: var(--cl-ink-inv);
+}
+
+.kc-turn--kido {
+  align-self: flex-start;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--cl-ink-heading);
+  color: var(--cl-ink-inv);
+}
+
+/* --- the refusal ----------------------------------------------------------
+   Stated, not implied. A question arriving with no suggestions reads as an
+   oversight unless it says the absence is deliberate. */
+.kc-refusal {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+  margin: 0 0 0.7rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: 8px;
+  background: var(--cl-warn-bg);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cl-ink-2);
+}
+
+.kc-refusal svg { flex: 0 0 auto; margin-top: 2px; }
+
+/* --- the boxes ------------------------------------------------------------
+   Shallow on purpose: the workbench has real pages for blueprint, policy and
+   architecture, and this is not a second copy of them. Raised above the canvas
+   with a border that is actually visible on it, rather than the cream-on-cream
+   panel tokens that vanish here. */
+.kc-boxes {
+  width: 100%;
+  align-self: flex-start;
+}
+
+.kc-boxes__count {
+  margin: 0 0 0.8rem;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cl-ink-3);
+}
+
+.kc-boxes__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 10px;
+}
+
+.kc-box {
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: 10px;
+  background: #fffdf6;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+/* The one being asked is the only filled box, so it is findable at a glance
+   without being larger than the five beside it. */
+.kc-box[data-state="asking"] {
+  border-color: var(--cl-ink);
+  background: var(--cl-ink);
+  box-shadow: 0 6px 18px -8px rgba(0, 66, 175, 0.5);
+}
+
+.kc-box[data-state="set"] { border-color: color-mix(in srgb, var(--cl-pass) 45%, transparent); }
+
+.kc-box__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 0.45rem;
+}
+
+.kc-box__label {
+  font-family: var(--medium), Arial, sans-serif;
+  font-size: 12.5px;
+  color: var(--cl-ink-heading);
+}
+
+.kc-box__state {
+  flex: 0 0 auto;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cl-ink-3);
+}
+
+.kc-box__value {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cl-ink);
+  overflow-wrap: anywhere;
+}
+
+/* An open box says what it wants rather than showing a bare dash, so the pane
+   is legible before a single answer exists. */
+.kc-box__wants {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--cl-ink-3);
+}
+
+/* The qualifier under a drafted value — "Proposed", "registered at build". */
+.kc-box__tag {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cl-ink-3);
+}
+
+.kc-box__note {
+  margin: 0.55rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(254, 241, 208, 0.22);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* Everything inside the asked box inverts with it. */
+.kc-box[data-state="asking"] .kc-box__label,
+.kc-box[data-state="asking"] .kc-box__wants,
+.kc-box[data-state="asking"] .kc-box__state,
+.kc-box[data-state="asking"] /* The qualifier under a drafted value — "Proposed", "registered at build". */
+.kc-box__tag {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cl-ink-3);
+}
+
+.kc-box__note {
+  color: var(--cl-ink-inv);
+}
+.kc-box[data-state="asking"] .kc-box__state,
+.kc-box[data-state="asking"] /* The qualifier under a drafted value — "Proposed", "registered at build". */
+.kc-box__tag {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cl-ink-3);
+}
+
+.kc-box__note { opacity: 0.8; }
+
+.kc-box[data-state="set"] .kc-box__state { color: var(--cl-pass); }
+
+/* The stage centres an empty state, but must not centre a full grid. */
+.kc-stage:has(.kc-boxes) {
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+/* --- findings, approvals, files and suites --------------------------------
+   One vertical list rather than the requirement grid: these are read in order
+   and each runs to a paragraph, where the requirement boxes are scanned. */
+.kc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.kc-boxes__foot {
+  margin: 0.9rem 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--cl-ink-3);
+}
+
+.kc-finding {
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: 10px;
+  background: #fffdf6;
+}
+
+.kc-finding__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 0.4rem;
+}
+
+.kc-finding__title {
+  font-family: var(--medium), Arial, sans-serif;
+  font-size: 13px;
+  color: var(--cl-ink-heading);
+}
+
+.kc-finding__body {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--cl-ink-2);
+}
+
+/* --- acknowledgement -------------------------------------------------------
+   A button rather than a checkbox and label: the whole row is the target, which
+   is both easier to hit and impossible to mis-associate. */
+.kc-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: 10px;
+  background: #fffdf6;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.kc-ack:hover { border-color: var(--cl-ink); }
+.kc-ack:focus-visible { outline: 2px solid var(--cl-ink); outline-offset: 2px; }
+.kc-ack[data-on="true"] { border-color: var(--cl-pass); background: var(--cl-pass-bg); }
+
+.kc-ack__box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1px solid var(--cl-line-strong);
+  border-radius: 5px;
+  background: #fff;
+  color: #fff;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.kc-ack[data-on="true"] .kc-ack__box {
+  background: var(--cl-pass);
+  border-color: var(--cl-pass);
+}
+
+.kc-ack__text { display: block; min-width: 0; }
+.kc-ack__text .kc-finding__head { margin-bottom: 0.35rem; }
+.kc-ack__text .kc-finding__body { display: block; }
+
+/* --- generated files ------------------------------------------------------ */
+.kc-file {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--cl-line);
+  border-radius: 8px;
+  background: #fffdf6;
+  font-size: 12.5px;
+  color: var(--cl-ink);
+  animation: kc-file-in 0.35s ease-out both;
+}
+
+@keyframes kc-file-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.kc-file__tick { margin-left: auto; color: var(--cl-pass); }
+.kc-file--working { color: var(--cl-ink-3); }
+
+.kc-spin { animation: kc-spin 1s linear infinite; }
+@keyframes kc-spin { to { rotate: 360deg; } }
+
+/* --- test suites ---------------------------------------------------------- */
+.kc-suite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--cl-line);
+  border-radius: 8px;
+  background: #fffdf6;
+  animation: kc-file-in 0.35s ease-out both;
+}
+
+.kc-suite__name { font-size: 12.5px; color: var(--cl-ink-heading); }
+
+.kc-suite__score {
+  font-family: var(--medium), Arial, sans-serif;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cl-pass);
+}
+.kc-suite__score[data-failed="true"] { color: var(--cl-deny); }
+
+/* The way out, once there is somewhere to go. */
+.kc-open { width: 100%; justify-content: center; text-decoration: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .kc-file, .kc-suite { animation: none; }
+  .kc-spin { animation: none; }
 }
