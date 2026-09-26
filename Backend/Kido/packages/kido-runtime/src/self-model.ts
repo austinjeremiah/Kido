@@ -130,6 +130,7 @@ const TOPICS: Topic[] = [
   { id: "protocols", re: /\b(protocols?|aave|uniswap|cetus)\b/i, answer: (m) => m.protocols },
   { id: "data", re: /\b(data|oracle|source|monitor|watch|trust)\b/i, answer: (m) => ({ dataSources: m.dataSources, monitors: m.monitors }) },
   { id: "actions", re: /\b(actions?|allowed|forbidden|can you|may you|permitted|borrow|withdraw|swap|repay|pay)\b/i, answer: (m) => ({ allowed: m.allowedActions, forbidden: m.forbiddenActions }) },
+  { id: "payees", re: /\b(who (can|may) you (pay|send)|payees?|recipients?|beneficiar\w*|pay whom)\b/i, answer: (m) => ({ payees: m.authority.payees, beneficiaries: m.authority.beneficiaries }) },
   { id: "privacy", re: /\b(privacy|private|secret|sensitive|confidential|protect|plaintext|enclave|tee|attest\w*|seal|nautilus)\b/i, answer: (m) => ({ ...m.privacy, providers: m.providers.filter((p) => p.role === "privacy") }) },
   { id: "execution", re: /\b(adapter|version|pool|router|minimum|min(imum)? output|slippage|floor|enforc\w*|checked|verif\w*|success|beneficiar\w*|dex|protocol|supply|withdraw|upgrade|changes?|underneath)\b/i, answer: (m) => ({ execution: m.execution, notAvailable: m.capabilitiesNotAvailable, upstreamChangePolicy: m.upstreamChangePolicy, beneficiaries: m.authority.beneficiaries }) },
   { id: "providers", re: /\b(live|simulated|provider|infrastructure|proven|status)\b/i, answer: (m) => m.providers },

@@ -36,6 +36,18 @@ export interface ProjectRecord {
   security: SecurityReport | null;
   simulation: SimulationReport | null;
   build: BuildArtifact | null;
+  /** Wallet-driven deployment state (JSON-safe: bigints stored as { $big }). */
+  deployment?: unknown;
+  /** Lifecycle and on-chain events, newest last. */
+  events?: ProjectEvent[];
+}
+
+export interface ProjectEvent {
+  at: number;
+  type: string;
+  chain?: string;
+  detail: string;
+  tx?: string;
 }
 
 export class FileProjectStore {
@@ -129,6 +141,17 @@ export class Foundry {
     const question = iv.next();
     this.d.store.save({ projectId, ...(name?.trim() ? { name: name.trim() } : {}), createdAt: Date.now(), interview: iv.state, revisions: [], privacyPlan: null, identityPlan: [], security: null, simulation: null, build: null });
     return { projectId, question };
+  }
+
+  /** Raw record access for services layered on the lifecycle (deployment, activity). */
+  loadRecord(projectId: string): ProjectRecord {
+    return this.d.store.load(projectId);
+  }
+  saveRecord(p: ProjectRecord) {
+    this.d.store.save(p);
+  }
+  get manifest(): AmaneDeploymentManifest {
+    return this.d.amaneManifest;
   }
 
   rename(projectId: string, name: string) {
