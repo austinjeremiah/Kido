@@ -1,8 +1,8 @@
 {
-  "name": "contextlock",
+  "name": "kido",
   "private": true,
   "version": "0.1.0",
-  "description": "ContextLock - capability firewall for autonomous finance (ETHOnline 2026, Sepolia only)",
+  "description": "Kido - universal agent foundry with bounded on-chain authority (testnet only)",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -19,6 +19,7 @@
     "packages/amane-bridge",
     "packages/kido-runtime",
     "packages/kido-agents",
+    "apps/kido",
     "packages/protocol",
     "packages/policy",
     "packages/studio-blueprint",
@@ -57,7 +58,9 @@
     "frontend:typecheck": "npm run typecheck -w @contextlock/frontend",
     "studio:image": "bash apps/studio/sandbox-image/build.sh",
     "test:studio": "vitest run packages/studio-blueprint packages/studio-simulation packages/studio-templates packages/studio-adapters packages/studio-strategy packages/studio-org packages/studio-plan packages/studio-openapi packages/studio-deploy packages/studio-orchestrator packages/studio-runtime packages/studio-events packages/studio-network packages/studio-cre-sim packages/studio-control-plane packages/adapter-sdk apps/studio apps/agent-runtime",
-    "runtime:image": "bash apps/agent-runtime/build-image.sh"
+    "runtime:image": "bash apps/agent-runtime/build-image.sh",
+    "kido": "tsx apps/kido/src/cli.ts",
+    "kido:api": "tsx apps/kido/src/main.ts"
   },
   "devDependencies": {
     "@types/node": "22.18.11",
