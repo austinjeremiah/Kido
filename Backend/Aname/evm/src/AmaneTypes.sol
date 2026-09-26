@@ -146,6 +146,27 @@ library ActionKinds {
     uint8 internal constant SWAP = 0;
     uint8 internal constant REPAY = 2;
     uint8 internal constant PAY = 9;
+    uint8 internal constant BRIDGE = 10;
+}
+
+/// What a cross-chain transfer may be used for at the destination. The source BRIDGE ActionIntent
+/// commits to it through planHash = DestSpecHash.hash(spec); the agent signs that ActionIntent.
+struct DestSpec {
+    uint8 actionKind;
+    bytes32 adapterId;
+    bytes32 recipient;
+    string recipientLabel;
+    bytes32 asset;
+    uint256 minArrival;
+    uint64 deadline;
+}
+
+library DestSpecHash {
+    bytes32 internal constant TAG = keccak256("AMANE_DEST_SPEC_V1");
+
+    function hash(DestSpec calldata d) internal pure returns (bytes32) {
+        return keccak256(abi.encode(TAG, d.actionKind, d.adapterId, d.recipient, keccak256(bytes(d.recipientLabel)), d.asset, d.minArrival, d.deadline));
+    }
 }
 
 /// EIP-712 hashing. Type strings must stay byte-identical with packages/core/src/eip712.ts and

@@ -4,6 +4,8 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import "../../src/AmaneTypes.sol";
 import {AmaneAccount} from "../../src/AmaneAccount.sol";
+import {AmaneAccountExt} from "../../src/AmaneAccountExt.sol";
+import {AmaneStorage} from "../../src/AmaneStorage.sol";
 import {Codes} from "../../src/AmaneCodes.sol";
 import {AdapterRegistry} from "../../src/AdapterRegistry.sol";
 import {AmaneTestToken} from "../../src/AmaneTestToken.sol";
@@ -95,7 +97,7 @@ contract BreakBase is Test {
     }
 
     function _rej(uint16 code) internal pure returns (bytes memory) {
-        return abi.encodeWithSelector(AmaneAccount.AmaneRejected.selector, code);
+        return abi.encodeWithSelector(AmaneStorage.AmaneRejected.selector, code);
     }
 
     function setUp() public virtual {
@@ -131,7 +133,7 @@ contract BreakBase is Test {
 
         registry = new AdapterRegistry();
         chainRef = registry.chainRef();
-        account = new AmaneAccount(ACCOUNT_ID, ctrls, 2, registry);
+        account = new AmaneAccount(ACCOUNT_ID, ctrls, 2, registry, address(new AmaneAccountExt()));
 
         tokA = new AmaneTestToken("A", "A", 6);
         tokB = new AmaneTestToken("B", "B", 6);
@@ -628,7 +630,7 @@ contract BreakTest is BreakBase {
 
         address[] memory ctrls = new address[](3);
         for (uint256 i; i < 3; ++i) ctrls[i] = ctrl[i];
-        AmaneAccount other = new AmaneAccount(ACCOUNT_ID, ctrls, 2, registry);
+        AmaneAccount other = new AmaneAccount(ACCOUNT_ID, ctrls, 2, registry, address(new AmaneAccountExt()));
         _install(_policy(1, address(other)), other);
         vm.expectRevert(_rej(Codes.LEASE_WRONG_ENDPOINT));
         other.activateLease(l, sig);

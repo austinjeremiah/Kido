@@ -77,4 +77,15 @@ library Codes {
     uint16 internal constant ASSET_NOT_A_TOKEN = 1705;
     uint16 internal constant ASSET_TRANSFER_FAILED = 1706;
     uint16 internal constant CHAIN_NOT_AN_ADDRESS = 1707;
+    uint16 internal constant XCHAIN_NOT_A_BRIDGE_ACTION = 1800;
+    uint16 internal constant XCHAIN_WRONG_DESTINATION = 1801;
+    uint16 internal constant XCHAIN_SPEC_MISMATCH = 1802;
+    uint16 internal constant XCHAIN_PAYLOAD_MISMATCH = 1803;
+    uint16 internal constant XCHAIN_WRONG_ASSET = 1804;
+    uint16 internal constant XCHAIN_BELOW_MINIMUM = 1805;
+    uint16 internal constant XCHAIN_INTENT_USED = 1806;
+    uint16 internal constant XCHAIN_EXPIRED = 1807;
+    uint16 internal constant XCHAIN_NO_RESERVATION = 1808;
+    uint16 internal constant XCHAIN_RESERVATION_MISMATCH = 1809;
+    uint16 internal constant XCHAIN_RESERVED_FUNDS = 1810;
 }

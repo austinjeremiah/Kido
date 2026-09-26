@@ -5,3 +5,4 @@ export * from './signature.js';
 export * from './subset.js';
 export * from './fixtures.js';
 export * from './codes.js';
+export * from './crosschain.js';

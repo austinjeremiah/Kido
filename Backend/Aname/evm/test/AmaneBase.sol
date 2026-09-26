@@ -5,6 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import "../src/AmaneTypes.sol";
 import {Codes} from "../src/AmaneCodes.sol";
 import {AmaneAccount} from "../src/AmaneAccount.sol";
+import {AmaneAccountExt} from "../src/AmaneAccountExt.sol";
+import {AmaneStorage} from "../src/AmaneStorage.sol";
 import {AdapterRegistry} from "../src/AdapterRegistry.sol";
 import {AmaneTestToken} from "../src/AmaneTestToken.sol";
 import {TransferPayAdapter} from "../src/adapters/TransferPayAdapter.sol";
@@ -50,7 +52,7 @@ abstract contract AmaneBase is Test {
         amsui = new AmaneTestToken("Amane Test SUI", "AMSUI", 9);
         payId = registry.register(address(new TransferPayAdapter()));
         swapId = registry.register(address(new FixedRateSwapAdapter(1000, 1)));
-        acct = new AmaneAccount(ACCOUNT_ID, _sorted(ctrlA, ctrlB), 2, registry);
+        acct = new AmaneAccount(ACCOUNT_ID, _sorted(ctrlA, ctrlB), 2, registry, address(new AmaneAccountExt()));
         usd.mint(address(acct), 1_000_000000);
     }
 
@@ -256,6 +258,6 @@ abstract contract AmaneBase is Test {
     }
 
     function _reject(uint16 code) internal {
-        vm.expectRevert(abi.encodeWithSelector(AmaneAccount.AmaneRejected.selector, code));
+        vm.expectRevert(abi.encodeWithSelector(AmaneStorage.AmaneRejected.selector, code));
     }
 }

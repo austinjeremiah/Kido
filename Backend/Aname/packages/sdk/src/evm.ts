@@ -9,6 +9,7 @@ import {
   type RootPolicy,
   type UnpauseAccount,
   type Withdraw,
+  type DestSpec,
 } from '@amane/core';
 import { amaneAccountAbi, amaneAccountBytecode } from './evm-artifacts.js';
 import { classifyCode, evmRejection, type AmaneOutcome } from './outcome.js';
@@ -45,12 +46,14 @@ export class AmaneEvmEndpoint {
     controllers: Address[];
     threshold: number;
     registry: Address;
+    /** Shared AmaneAccountExt for this chain (from the manifest); required by core v3 accounts. */
+    ext: Address;
   }): Promise<{ endpoint: AmaneEvmEndpoint; tx: Hex }> {
     const sorted = [...args.controllers].sort((a, b) => (BigInt(a) < BigInt(b) ? -1 : 1));
     const tx = await args.relayer.deployContract({
       abi: amaneAccountAbi,
       bytecode: amaneAccountBytecode,
-      args: [args.accountId, sorted, args.threshold, args.registry],
+      args: [args.accountId, sorted, args.threshold, args.registry, args.ext],
     });
     const receipt = await args.publicClient.waitForTransactionReceipt({ hash: tx });
     if (receipt.status !== 'success' || !receipt.contractAddress) throw new Error(`account deployment failed: ${tx}`);
@@ -104,6 +107,16 @@ export class AmaneEvmEndpoint {
 
   activateLease(lease: AgentLease, sig: Hex) {
     return this.send('activateLease', [lease, sig]);
+  }
+
+  /** Redeems a cross-chain delivery through a pinned transport adapter and reserves it for its intent. */
+  receiveCrossChain(src: ActionIntent, srcSig: Hex, dest: DestSpec, transportId: Bytes32, transportData: Hex, opts: { submitRejected?: boolean } = {}) {
+    return this.send('receiveCrossChain', [src, srcSig, dest, transportId, transportData], opts);
+  }
+
+  /** Spends a reservation with the action its intent pinned. */
+  executeReserved(intent: Bytes32, action: ActionIntent, agentSig: Hex, opts: { submitRejected?: boolean } = {}) {
+    return this.send('executeReserved', [intent, action, agentSig], opts);
   }
 
   executeAction(intent: ActionIntent, agentSig: Hex, opts: { submitRejected?: boolean } = {}) {
