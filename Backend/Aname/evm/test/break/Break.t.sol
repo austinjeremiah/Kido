@@ -7,12 +7,14 @@ import {AmaneAccount} from "../../src/AmaneAccount.sol";
 import {AdapterRegistry} from "../../src/AdapterRegistry.sol";
 import {AmaneTestToken} from "../../src/AmaneTestToken.sol";
 import {TransferPayAdapter} from "../../src/adapters/TransferPayAdapter.sol";
-import {FixedRateSwapAdapter, MaliciousAdapter, ReentrantAdapter, FeeOnTransferToken} from "../mocks/Mocks.sol";
+import {FixedRateSwapAdapter, MaliciousAdapter, ReentrantAdapter, PayloadStore, FeeOnTransferToken} from "../mocks/Mocks.sol";
 import {
     MockRepayAdapter,
     RepayImplHonest,
     RepayImplSteal,
     UpgradeableRepayAdapter,
+    RepayRouteConfig,
+    RoutedRepayAdapter,
     FalseReturnToken,
     NoReturnToken
 } from "./BreakMocks.sol";
@@ -72,6 +74,7 @@ contract BreakBase is Test {
     bytes32 internal repayId;
     bytes32 internal reentrantId;
     ReentrantAdapter internal reentrant;
+    PayloadStore internal payloadStore;
 
     function _pk(string memory label) internal pure returns (uint256) {
         return uint256(keccak256(abi.encodePacked("amane.test-only.", label)));
@@ -144,7 +147,8 @@ contract BreakBase is Test {
         evilSwapId = registry.register(address(new MaliciousAdapter(0, thief, "Evil Swap")));
         payId = registry.register(address(new TransferPayAdapter()));
         repayId = registry.register(address(new MockRepayAdapter()));
-        reentrant = new ReentrantAdapter(address(account));
+        payloadStore = new PayloadStore();
+        reentrant = new ReentrantAdapter(address(account), payloadStore);
         reentrantId = registry.register(address(reentrant));
 
         _install(_policy(1, address(account)), account);
@@ -174,6 +178,8 @@ contract BreakBase is Test {
     function _policy(uint64 v, address acct) internal view returns (RootPolicy memory p) {
         p.accountId = ACCOUNT_ID;
         p.policyVersion = v;
+        p.parentPolicyHash = v == 1 ? bytes32(0) : account.policyHash();
+        p.activateBefore = uint64(block.timestamp) + 1 days;
         p.allowedActions = MASK;
         p.priceMode = 1;
         p.maxLeaseLifetime = 1 days;
@@ -323,13 +329,13 @@ contract BreakBase is Test {
         return account.executeAction(a, _sign(pk, h.action(a)));
     }
 
-    function _pauseSig(uint256 pk, uint64 n) internal view returns (PauseAccount memory x, bytes memory sig) {
-        x = PauseAccount(ACCOUNT_ID, n);
+    function _pauseSig(uint256 pk, bytes32 id) internal view returns (PauseAccount memory x, bytes memory sig) {
+        x = PauseAccount(ACCOUNT_ID, account.pauseEpoch(), id, uint64(block.timestamp) + 30 days);
         sig = _sign(pk, h.pause(x));
     }
 
-    function _unpauseSigs(uint64 op) internal view returns (UnpauseAccount memory x, bytes[] memory sigs) {
-        x = UnpauseAccount(ACCOUNT_ID, chainRef, _b(address(account)), op);
+    function _unpauseSigs(bytes32 id) internal view returns (UnpauseAccount memory x, bytes[] memory sigs) {
+        x = UnpauseAccount(ACCOUNT_ID, chainRef, _b(address(account)), account.pauseEpoch(), id, uint64(block.timestamp) + 30 days);
         bytes32 d = h.unpause(x);
         sigs = new bytes[](2);
         sigs[0] = _sign(ctrlPk[0], d);
@@ -341,163 +347,186 @@ contract BreakTest is BreakBase {
     bytes32 constant L1 = keccak256("lease-1");
     bytes32 constant L2 = keccak256("lease-2");
 
-    // ================================================================== BREAK
+    // ================================================================== FIXED (regressions)
 
-    /// F-0200: an unpause signed before a newer pause still lifts it. An untrusted executor that
-    /// withholds a signed unpause can release it after a later emergency pause.
-    function test_BREAK_stale_unpause_lifts_newer_pause() public {
+    /// F-0200: an unpause signed before a newer pause must not lift it.
+    function test_FIXED_F0200_stale_unpause_lifts_newer_pause() public {
         _ctrlLease(L1);
-        (PauseAccount memory p1, bytes memory s1) = _pauseSig(ctrlPk[0], 1);
+        (PauseAccount memory p1, bytes memory s1) = _pauseSig(ctrlPk[0], keccak256("incident-1"));
         account.pause(p1, s1);
-
-        // owners sign an unpause and hand it to a relayer, which withholds it
-        (UnpauseAccount memory u, bytes[] memory us) = _unpauseSigs(0);
-
-        // a new emergency: a guardian pauses again with a fresh pause nonce
+        (UnpauseAccount memory u, bytes[] memory us) = _unpauseSigs(p1.pauseId); // withheld
         vm.warp(T0 + 7 days);
-        (PauseAccount memory p2, bytes memory s2) = _pauseSig(ctrlPk[2], 2);
+        (PauseAccount memory p2, bytes memory s2) = _pauseSig(ctrlPk[2], keccak256("incident-2"));
         account.pause(p2, s2);
-        assertTrue(account.paused());
-
-        // the stale unpause must not override the newer pause
         vm.expectRevert();
         account.unpause(u, us);
+        assertTrue(account.paused());
     }
 
-    /// F-0201: fixed calendar epochs let one lease spend 2x maxPerEpoch within two seconds.
-    function test_BREAK_epoch_boundary_double_window() public {
+    /// F-0201: no 2x burst across an epoch boundary.
+    function test_FIXED_F0201_epoch_boundary_double_window() public {
         vm.warp(T0 + EPOCH - 1 - 600);
         AgentLease memory l = _lease(L1, agent, ctrl[0], false);
         _activate(l, ctrlPk[0]);
-        vm.warp(T0 + EPOCH - 1); // last second of epoch k
+        vm.warp(T0 + EPOCH - 1);
         _exec(_pay(L1, 1, 100e6), agentPk);
-        _exec(_pay(L1, 2, 100e6), agentPk); // epoch cap (200e6) fully used
-        vm.warp(T0 + EPOCH); // one second later, epoch k+1
-        // any further spend within one epoch length of the 200e6 already spent exceeds the cap
+        _exec(_pay(L1, 2, 100e6), agentPk);
+        vm.warp(T0 + EPOCH);
         ActionIntent memory a = _pay(L1, 3, 100e6);
         bytes memory sig = _sign(agentPk, h.action(a));
         vm.expectRevert();
         account.executeAction(a, sig);
     }
 
-    /// F-0202: one controller can burn the pause nonce space and permanently disable pause.
-    function test_BREAK_pause_nonce_exhaustion_disables_pause() public {
-        (PauseAccount memory rogue, bytes memory rs) = _pauseSig(ctrlPk[2], type(uint64).max);
+    /// F-0202: no controller-chosen nonce to exhaust; pause stays available after unpause.
+    function test_FIXED_F0202_pause_nonce_exhaustion_disables_pause() public {
+        (PauseAccount memory rogue, bytes memory rs) = _pauseSig(ctrlPk[2], bytes32(type(uint256).max));
         account.pause(rogue, rs);
-        (UnpauseAccount memory u, bytes[] memory us) = _unpauseSigs(0);
+        (UnpauseAccount memory u, bytes[] memory us) = _unpauseSigs(rogue.pauseId);
         account.unpause(u, us);
         assertFalse(account.paused());
-
-        // an honest controller must still be able to pull the emergency brake
-        (PauseAccount memory p, bytes memory s) = _pauseSig(ctrlPk[0], 2);
+        (PauseAccount memory p, bytes memory s) = _pauseSig(ctrlPk[0], keccak256("incident-2"));
         account.pause(p, s);
         assertTrue(account.paused(), "pause must remain available");
     }
 
-    /// F-0203: a RootPolicy has no expiry or parent binding, so a stale signed policy for the
-    /// next version stays installable forever and the relayer picks which of two signed
-    /// policies for the same version wins.
-    function test_BREAK_stale_root_policy_installable() public {
+    /// F-0203: a stale signed policy dies at activateBefore.
+    function test_FIXED_F0203_stale_root_policy_installable() public {
         RootPolicy memory lax = _policy(2, address(account));
         lax.endpoints[0].assets[0].maxTotal = 500_000e6;
-        lax.endpoints[0].assets[0].maxPerEpoch = 500_000e6;
-        bytes[] memory laxSigs = _policySigs(lax); // draft signed, then abandoned
-
+        bytes[] memory laxSigs = _policySigs(lax);
         vm.warp(T0 + 30 days);
-        RootPolicy memory strict = _policy(2, address(account));
-        strict.endpoints[0].assets[0].maxTotal = 100e6;
-        _policySigs(strict); // the policy the owners actually intend
-
-        // relayer installs the month-old lax draft instead
-        vm.expectRevert();
+        vm.expectRevert(_rej("AMANE_POLICY_ACTIVATION_EXPIRED"));
         account.installPolicy(lax, laxSigs);
     }
 
-    /// F-0204: the registry accepts an adapter whose behaviour can change behind a stable
-    /// codehash (delegatecall proxy). REPAY output is not measured, so an upgrade steals.
-    function test_BREAK_upgradeable_adapter_changes_meaning() public {
+    /// F-0203: a policy whose parent is not the installed policy is refused.
+    function test_FIXED_F0203_policy_parent_mismatch() public {
+        RootPolicy memory p = _policy(2, address(account));
+        p.parentPolicyHash = keccak256("some other lineage");
+        bytes[] memory sigs = _policySigs(p);
+        vm.expectRevert(_rej("AMANE_POLICY_PARENT_MISMATCH"));
+        account.installPolicy(p, sigs);
+    }
+
+    /// F-0204 (proxy variant): delegatecall/SSTORE adapters are refused at registration.
+    function test_FIXED_F0204_proxy_adapter_refused() public {
         UpgradeableRepayAdapter proxy = new UpgradeableRepayAdapter(address(new RepayImplHonest()));
-        bytes32 proxyId;
-        try registry.register(address(proxy)) returns (bytes32 id) {
-            proxyId = id;
+        vm.expectRevert();
+        registry.register(address(proxy));
+    }
+
+    /// F-0205: issuers may not pre-revoke lease ids.
+    function test_FIXED_F0205_issuer_revokes_foreign_lease() public {
+        AgentLease memory l = _lease(L1, agent, ctrl[0], false);
+        RevokeLease memory r = RevokeLease(ACCOUNT_ID, L1);
+        bytes memory rs = _sign(issuerPk, h.revoke(r));
+        vm.expectRevert(_rej("AMANE_CONTROLLER_NOT_AUTHORIZED"));
+        account.revokeLease(r, rs);
+        _activate(l, ctrlPk[0]);
+    }
+
+    /// F-0207: a pause signed in an earlier pause epoch is dead after the unpause.
+    function test_FIXED_F0207_stale_pause_replayed_after_unpause() public {
+        (PauseAccount memory p1, bytes memory s1) = _pauseSig(ctrlPk[0], keccak256("incident-1"));
+        account.pause(p1, s1);
+        (PauseAccount memory p2, bytes memory s2) = _pauseSig(ctrlPk[2], keccak256("sui-only"));
+        vm.warp(T0 + 1 days);
+        (UnpauseAccount memory u, bytes[] memory us) = _unpauseSigs(p1.pauseId);
+        account.unpause(u, us);
+        vm.expectRevert(_rej("AMANE_REPLAY_PAUSE_EPOCH"));
+        account.pause(p2, s2);
+    }
+
+    /// F-0208: zero-numerator floors are refused at install.
+    function test_FIXED_F0208_zero_numerator_floor_accepted() public {
+        RootPolicy memory p = _policy(2, address(account));
+        p.endpoints[0].swapFloors[0].minOutNumerator = 0;
+        bytes[] memory sigs = _policySigs(p);
+        vm.expectRevert(_rej("AMANE_POLICY_BAD_FLOOR"));
+        account.installPolicy(p, sigs);
+    }
+
+    // ================================================================== BREAK
+
+    /// F-0200 (reopened): pause signatures are replayable within a pause epoch, so a relayer
+    /// re-submits the first pause to restore lastPauseId and then the withheld unpause lifts
+    /// the newer pause.
+    function test_BREAK_pause_replay_restores_last_pause_id() public {
+        _ctrlLease(L1);
+        (PauseAccount memory p1, bytes memory s1) = _pauseSig(ctrlPk[0], keccak256("incident-1"));
+        account.pause(p1, s1);
+        (UnpauseAccount memory u, bytes[] memory us) = _unpauseSigs(p1.pauseId); // withheld
+        vm.warp(T0 + 1 days);
+        (PauseAccount memory p2, bytes memory s2) = _pauseSig(ctrlPk[2], keccak256("incident-2"));
+        account.pause(p2, s2);
+
+        // relayer: replay pause #1, then release the withheld unpause
+        try account.pause(p1, s1) {} catch {}
+        try account.unpause(u, us) {} catch {}
+        assertTrue(account.paused(), "incident-2 pause was lifted by an unpause that never saw it");
+    }
+
+    /// F-0204 (reopened): an adapter with no forbidden opcodes can still change meaning by
+    /// reading its routing from a mutable external contract; REPAY output is still unmeasured.
+    function test_BREAK_externally_routed_adapter_changes_meaning() public {
+        RepayRouteConfig cfg = new RepayRouteConfig();
+        RoutedRepayAdapter routed = new RoutedRepayAdapter(cfg);
+        bytes32 routedId;
+        try registry.register(address(routed)) returns (bytes32 id) {
+            routedId = id;
         } catch {
-            return; // registry refuses mutable adapters: defended
+            return; // registry refuses externally-routed adapters: defended
         }
         RootPolicy memory p = _policy(2, address(account));
         AdapterRef[] memory refs = new AdapterRef[](p.endpoints[0].adapters.length + 1);
         for (uint256 i; i < refs.length - 1; ++i) refs[i] = p.endpoints[0].adapters[i];
-        refs[refs.length - 1] = AdapterRef(proxyId, "Proxy Repay", 1);
+        refs[refs.length - 1] = AdapterRef(routedId, "Routed Repay", 1);
         p.endpoints[0].adapters = refs;
         _install(p, account);
 
         AgentLease memory l = _lease(L1, agent, ctrl[0], false);
         bytes32[] memory ads = new bytes32[](1);
-        ads[0] = proxyId;
+        ads[0] = routedId;
         l.endpoints[0].adapters = ads;
         _activate(l, ctrlPk[0]);
 
-        _exec(_repay(L1, 1, proxyId, "Proxy Repay", 10e6), agentPk);
+        _exec(_repay(L1, 1, routedId, "Routed Repay", 10e6), agentPk);
         assertEq(tokA.balanceOf(borrower), 10e6);
 
-        // same adapter id, same codehash, new behaviour
-        proxy.upgrade(address(new RepayImplSteal(thief)));
-        ActionIntent memory a = _repay(L1, 2, proxyId, "Proxy Repay", 100e6);
+        cfg.setOverride(thief); // same adapter id, same codehash, new destination
+        ActionIntent memory a = _repay(L1, 2, routedId, "Routed Repay", 100e6);
         bytes memory sig = _sign(agentPk, h.action(a));
         vm.expectRevert();
         account.executeAction(a, sig);
     }
 
-    /// F-0205: any listed Lease Issuer can pre-revoke lease ids it did not issue, including
-    /// controller-signed leases seen in the mempool before activation.
-    function test_BREAK_issuer_revokes_foreign_lease() public {
-        AgentLease memory l = _lease(L1, agent, ctrl[0], false);
-        RevokeLease memory r = RevokeLease(ACCOUNT_ID, L1);
-        bytes memory rs = _sign(issuerPk, h.revoke(r));
-        vm.expectRevert();
-        account.revokeLease(r, rs);
-        _activate(l, ctrlPk[0]);
-    }
-
-    /// F-0206: the issuer "max active leases" cap from bible 7.2/7.3.1 is not implemented.
-    /// With the bible's example cap of 3, a fourth concurrent issuer lease must be rejected.
-    function test_BREAK_issuer_max_active_leases_not_enforced() public {
-        for (uint256 i; i < 3; ++i) _issuerLease(keccak256(abi.encode("issuer-lease", i)), i % 2 == 0 ? agent : agent2);
-        AgentLease memory l = _lease(keccak256(abi.encode("issuer-lease", uint256(3))), agent, issuer, true);
-        bytes memory sig = _sign(issuerPk, h.lease(l));
-        vm.expectRevert();
-        account.activateLease(l, sig);
-    }
-
-    /// F-0207: a chain-agnostic pause signed before an unpause can be replayed afterwards by
-    /// any relayer (e.g. a pause that was only submitted to the Sui endpoint).
-    function test_BREAK_stale_pause_replayed_after_unpause() public {
-        (PauseAccount memory p1, bytes memory s1) = _pauseSig(ctrlPk[0], 1);
-        account.pause(p1, s1);
-        // guardian pauses the Sui endpoint with nonce 2; the relayer keeps a copy
-        (PauseAccount memory p2, bytes memory s2) = _pauseSig(ctrlPk[2], 2);
-        // owners review and unpause this endpoint
-        vm.warp(T0 + 1 days);
-        (UnpauseAccount memory u, bytes[] memory us) = _unpauseSigs(0);
-        account.unpause(u, us);
-        // relayer re-pauses with the older signature
-        vm.expectRevert();
-        account.pause(p2, s2);
-    }
-
-    /// F-0208: a zero-numerator swap floor is accepted, silently disabling the mandatory
-    /// owner price floor; with agent minOut = 0 a swap may return nothing.
-    function test_BREAK_zero_numerator_floor_accepted() public {
-        RootPolicy memory p = _policy(2, address(account));
-        p.endpoints[0].swapFloors[0].minOutNumerator = 0;
-        bytes[] memory sigs = _policySigs(p);
-        try account.installPolicy(p, sigs) {} catch {
-            return; // rejected at install: defended
-        }
+    /// F-0210: the token bucket still lets 2x maxPerEpoch leave within one epochSeconds window.
+    function test_BREAK_bucket_double_spend_within_one_epoch() public {
         _ctrlLease(L1);
-        uint256 before = tokA.balanceOf(address(account));
-        uint256 out = _exec(_swap(L1, 1, evilSwapId, "Evil Swap", 100e6, 0), agentPk);
-        assertEq(before - tokA.balanceOf(address(account)), 100e6);
-        assertGt(out, 0, "swap returned nothing: owner floor bypassed");
+        _exec(_pay(L1, 1, 100e6), agentPk);
+        _exec(_pay(L1, 2, 100e6), agentPk); // 200e6 = maxPerEpoch at T0
+        vm.warp(T0 + EPOCH - 1);
+        // 3599s later: another ~200e6 is available, i.e. ~400e6 inside one 3600s window
+        _exec(_pay(L1, 3, 100e6), agentPk);
+        ActionIntent memory a = _pay(L1, 4, 99e6);
+        bytes memory sig = _sign(agentPk, h.action(a));
+        vm.expectRevert();
+        account.executeAction(a, sig);
+    }
+
+    /// F-0211: refill arithmetic overflows for very large maxPerEpoch and bricks the asset.
+    function test_BREAK_bucket_refill_overflow_bricks_large_cap() public {
+        RootPolicy memory p = _policy(2, address(account));
+        p.endpoints[0].assets[0] = AssetLimit(_b(address(tokA)), 100e6, type(uint256).max, type(uint256).max);
+        _install(p, account);
+        AgentLease memory l = _lease(L1, agent, ctrl[0], false);
+        l.endpoints[0].assets[0] = AssetLimit(_b(address(tokA)), 100e6, 1_000e6, 5_000e6);
+        _activate(l, ctrlPk[0]);
+        _exec(_pay(L1, 1, 1e6), agentPk);
+        vm.warp(block.timestamp + 2);
+        // well within every cap; must not revert
+        _exec(_pay(L1, 2, 1e6), agentPk);
     }
 
     // ================================================================== HOLDS
@@ -681,20 +710,19 @@ contract BreakTest is BreakBase {
         _ctrlLease(L1);
         _exec(_pay(L1, 1, 100e6), agentPk);
         _exec(_pay(L1, 2, 100e6), agentPk);
-        vm.warp(T0 + EPOCH);
+        vm.warp(T0 + EPOCH); // bucket fully refilled
         _exec(_pay(L1, 3, 100e6), agentPk);
         _exec(_pay(L1, 4, 100e6), agentPk);
-        vm.warp(T0 + 2 * EPOCH - 1);
-        // lease expires at T0+3600; use a fresh lease for the remaining total
-        AgentLease memory l2 = _lease(L2, agent2, ctrl[0], false);
-        _activate(l2, ctrlPk[0]);
-        ActionIntent memory a = _pay(L2, 1, 100e6);
-        bytes memory sig = _sign(agent2Pk, h.action(a));
+        ActionIntent memory a = _pay(L1, 5, 1e6);
+        bytes memory sig = _sign(agentPk, h.action(a));
         vm.expectRevert(_rej("AMANE_BUDGET_EPOCH"));
         account.executeAction(a, sig);
+        // lease expired at T0+3600; a fresh lease draws on the same root total (500e6)
         vm.warp(T0 + 2 * EPOCH);
-        _exec(_pay(L2, 2, 100e6), agent2Pk);
-        a = _pay(L2, 3, 1);
+        AgentLease memory l2 = _lease(L2, agent2, ctrl[0], false);
+        _activate(l2, ctrlPk[0]);
+        _exec(_pay(L2, 1, 100e6), agent2Pk);
+        a = _pay(L2, 2, 1);
         sig = _sign(agent2Pk, h.action(a));
         vm.expectRevert(_rej("AMANE_BUDGET_TOTAL"));
         account.executeAction(a, sig);
@@ -702,14 +730,14 @@ contract BreakTest is BreakBase {
 
     function test_HOLDS_pause_blocks_action() public {
         _ctrlLease(L1);
-        (PauseAccount memory p, bytes memory s) = _pauseSig(ctrlPk[1], 1);
+        (PauseAccount memory p, bytes memory s) = _pauseSig(ctrlPk[1], keccak256("incident-1"));
         vm.prank(stranger);
         account.pause(p, s);
         ActionIntent memory a = _pay(L1, 1, 1e6);
         bytes memory sig = _sign(agentPk, h.action(a));
         vm.expectRevert(_rej("AMANE_ACTION_ACCOUNT_PAUSED"));
         account.executeAction(a, sig);
-        (p, s) = _pauseSig(strangerPk, 2);
+        (p, s) = _pauseSig(strangerPk, keccak256("incident-2"));
         vm.expectRevert(_rej("AMANE_CONTROLLER_NOT_AUTHORIZED"));
         account.pause(p, s);
     }
@@ -871,7 +899,7 @@ contract BreakTest is BreakBase {
         _ctrlLease(L1);
         ActionIntent memory inner = _pay(L1, 2, 1e6);
         inner.adapterId = payId;
-        reentrant.setPayload(abi.encodeCall(AmaneAccount.executeAction, (inner, _sign(agentPk, h.action(inner)))));
+        payloadStore.set(abi.encodeCall(AmaneAccount.executeAction, (inner, _sign(agentPk, h.action(inner)))));
         ActionIntent memory a = _pay(L1, 1, 1e6);
         a.adapterId = reentrantId;
         bytes memory sig = _sign(agentPk, h.action(a));

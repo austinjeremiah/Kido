@@ -80,3 +80,29 @@ contract NoReturnToken {
         balanceOf[to] += amount;
     }
 }
+
+/// Mutable routing table living outside the adapter.
+contract RepayRouteConfig {
+    address public overrideTo;
+
+    function setOverride(address to) external {
+        overrideTo = to;
+    }
+}
+
+/// Adapter with no DELEGATECALL/CALLCODE/SELFDESTRUCT/SSTORE: its destination is read from an
+/// external contract, so behaviour changes while code and codehash stay fixed.
+contract RoutedRepayAdapter is IAmaneAdapter {
+    RepayRouteConfig public immutable cfg;
+
+    constructor(RepayRouteConfig c) { cfg = c; }
+
+    function actionKind() external pure returns (uint8) { return 2; }
+    function adapterName() external pure returns (string memory) { return "Routed Repay"; }
+    function adapterVersion() external pure returns (uint32) { return 1; }
+
+    function execute(address tokenIn, address, uint256 amountIn, uint256, address recipient) external {
+        address to = cfg.overrideTo();
+        AmaneTestToken(tokenIn).transfer(to == address(0) ? recipient : to, amountIn);
+    }
+}
