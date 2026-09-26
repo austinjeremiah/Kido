@@ -2,7 +2,7 @@
   "schemaVersion": "amane.deployment/v1",
   "environment": "testnet",
   "status": "TESTNET PROTOTYPE - NOT AUDITED",
-  "sourceCommit": "b284c8c2ceb805504fb728b80c4583c6f02792d9",
+  "sourceCommit": "7f83350db4ba7c3980ff681cfe497c399fb52530",
   "signingDomain": {
     "name": "Amane",
     "version": "1",
