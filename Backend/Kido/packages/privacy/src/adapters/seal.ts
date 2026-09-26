@@ -59,6 +59,25 @@ export class SealPrivacyAdapter {
     return { policyId: created.objectId, digest: done!.digest };
   }
 
+  /** Owner-only policy edits; key servers evaluate the current policy on every request. */
+  addReader(owner: Signer, policyId: string, reader: string) {
+    return this.editReaders(owner, policyId, reader, "add_reader");
+  }
+
+  removeReader(owner: Signer, policyId: string, reader: string) {
+    return this.editReaders(owner, policyId, reader, "remove_reader");
+  }
+
+  private async editReaders(owner: Signer, policyId: string, reader: string, fn: string): Promise<string> {
+    const tx = new Transaction();
+    tx.moveCall({ target: `${this.settings.packageId}::${this.settings.module}::${fn}`, arguments: [tx.object(policyId), tx.pure.address(reader)] });
+    const res = await this.client.signAndExecuteTransaction({ transaction: tx, signer: owner, include: { effects: true } });
+    const done = res.Transaction ?? res.FailedTransaction;
+    if (!res.Transaction) throw new Error(`${fn} failed: ${done?.digest}`);
+    await this.client.waitForTransaction({ digest: done!.digest });
+    return done!.digest;
+  }
+
   identity(policyId: string, label: string): string {
     return toHex(new Uint8Array([...fromHex(policyId), ...new TextEncoder().encode(label)]));
   }

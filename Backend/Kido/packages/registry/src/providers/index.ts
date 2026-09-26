@@ -224,7 +224,7 @@ export const PROVIDERS: ProviderManifest[] = [
     sources: [{ url: "https://seal-docs.wal.app/", retrieved: R }],
     status: "VERIFIED_LIVE",
     statusNote: "testnet key servers and SDK 1.4.16 over gRPC verified (TRACE 2026-09-26)",
-    implementation: { status: "TESTNET_LIVE", proven: ["encryption under a Kido reader policy", "authorized reader decrypts", "unlisted address refused by key servers", "cached keys never serve another reader (regression of F-0600)"], notProven: [], doesNotProvide: ["TEE computation", "private smart-contract execution", "private blockchain transactions", "wallet-key custody", "general-purpose hidden computation"], evidence: ["Kido scripts/seal-live.ts", ".gauntlet/evidence/seal/live-*.json"] },
+    implementation: { status: "TESTNET_LIVE", proven: ["encryption under a Kido reader policy", "authorized reader decrypts", "unlisted address refused by key servers", "cached keys never serve another reader (F-0600 exploit reproduced against naive SDK use; adapter immune)", "reader removal takes effect on the next decrypt", "added reader gains access", "wrong policy object, wrong identity namespace, tampered ciphertext, wrong package and under-threshold key servers refused", "secret absent from model context, logs and evidence"], notProven: [], doesNotProvide: ["TEE computation", "private smart-contract execution", "private blockchain transactions", "wallet-key custody", "general-purpose hidden computation"], evidence: ["Kido scripts/seal-live.ts", "Kido scripts/seal-regression.ts", ".gauntlet/evidence/seal/regression-*.json"] },
     knowledgePack: "privacy/seal",
     plaintextVisibleTo: [],
   },
