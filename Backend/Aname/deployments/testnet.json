@@ -138,6 +138,19 @@
         "actionKind": "PAY",
         "witnessType": "0x243719f94d7db75918a21103d33868a7f994fc62ffd1619a1c2458b413132755::account::TransferPayV1",
         "native": true
+      },
+      {
+        "name": "Cetus CLMM Swap",
+        "version": 1,
+        "actionKind": "SWAP",
+        "witnessType": "0x067100a0b331d6e97f8134a92b2d782af2382a2ebc7ba9e21afd93577af3b88d::cetus_swap::CetusSwapV1",
+        "package": "0x067100a0b331d6e97f8134a92b2d782af2382a2ebc7ba9e21afd93577af3b88d",
+        "publishDigest": "3nkdVQqPXJfFaXEbwh9QFRwAcU8Kr8f5qXG78GHYZZhk",
+        "upgradeAuthority": "FROZEN",
+        "freezeDigest": "3U7DK811RcspPUUDQLauxJkbwAEiV78joj9PvKLUCc53",
+        "upstream": {
+          "protocol": "cetusClmm"
+        }
       }
     ],
     "superseded": [
@@ -153,6 +166,26 @@
         "packageId": "0x3930d65cf4b2732d902d0463e2d19735648d988e5e273093805ff64722cf3cae",
         "reason": "pre-fix pause/policy lineage semantics (findings F-0200..F-0208); frozen, do not use"
       }
-    ]
+    ],
+    "protocols": {
+      "cetusClmm": {
+        "package": "0x6bbdf09f9fa0baa1524080a5b8991042e95061c4e1206217279aec51ba08edf7",
+        "typeOrigin": "0x5372d555ac734e272659136c2a0cd3227f9b92de67c80dc11250307268af2db8",
+        "globalConfig": "0xc6273f844b4bc258952c4e477697aa12c918c8e08106fac6b934811298c9820a",
+        "pools": "0x20a086e6fa0741b3ca77d033a65faf0871349b986ddbdde6fa1d85d78a5f4222",
+        "moveDependency": "CetusProtocol/cetus-contracts packages/cetus_clmm rev testnet-v0.0.2",
+        "source": "Cetus CLMM Sui testnet lineage"
+      }
+    },
+    "pools": {
+      "cetusAmusdAmsui": {
+        "pool": "0x3f0397909cce1ded2d1502dbc2ae9e2b37170026083f42bd5a85bccf55947eac",
+        "coinA": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amusd::AMUSD",
+        "coinB": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amsui::AMSUI",
+        "tickSpacing": 60,
+        "createTx": "9Euiyw2gZFPgDQr1rwMkc33JDm5iNdFV5HpSTJQsN7Xr",
+        "note": "project pool, 1:1 nominal, full range; demo liquidity only"
+      }
+    }
   }
 }

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { keccak256, toHex } from 'viem';
-import { assertActionIsSubset } from '../src/subset.js';
+import { actionMask, assertActionIsSubset } from '../src/subset.js';
 import { FIXTURE, fixtureAction, fixtureLease, fixturePolicy } from '../src/fixtures.js';
-import { ActionKind, actionMask } from '../src/types.js';
+import { ActionKind } from '../src/types.js';
 
 const borrower = keccak256(toHex('amane.fixture.beneficiary.borrower'));
 const debtToken = keccak256(toHex('amane.fixture.asset.variable-debt-usd'));
