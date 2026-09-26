@@ -207,3 +207,11 @@ describe('Sui outcome classification', () => {
     expect(out.kind).toBe('OPERATIONAL_FAILURE');
   });
 });
+
+describe('cross-copy viem errors', () => {
+  it('a revert thrown by a different viem copy is still decoded to its Amane code', async () => {
+    const { evmRejection } = await import('../src/outcome.js');
+    const foreign = { name: 'ContractFunctionExecutionError', cause: { name: 'ContractFunctionRevertedError', data: { errorName: 'AmaneRejected', args: [AMANE_CODES.AMANE_ACTION_RECIPIENT_NOT_ALLOWED] } } };
+    expect(evmRejection(foreign)).toBe('AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
+  });
+});

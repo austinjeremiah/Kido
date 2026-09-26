@@ -1,4 +1,4 @@
-import { BaseError, ContractFunctionRevertedError } from 'viem';
+import { ContractFunctionRevertedError } from 'viem';
 import { amaneCodeName } from '@amane/core';
 
 export type Chain = 'ethereum-sepolia' | 'sui-testnet';
@@ -36,10 +36,25 @@ const EVM_SIG_ERRORS: Record<string, string> = {
   RecoverFailed: 'AMANE_CONTROLLER_BAD_SIGNATURE',
 };
 
+interface RevertLike {
+  name?: string;
+  data?: { errorName?: string; args?: readonly unknown[] };
+  cause?: unknown;
+}
+
+// Matched by shape, not `instanceof`: the caller's viem clients may come from a different copy of
+// viem than this SDK's, and a class check across copies silently misclassifies every revert.
+function findRevert(err: unknown): RevertLike | undefined {
+  for (let e = err as RevertLike | undefined, depth = 0; e && depth < 12; e = e.cause as RevertLike | undefined, depth++) {
+    if (e.name === 'ContractFunctionRevertedError' || e instanceof ContractFunctionRevertedError) return e;
+  }
+  return undefined;
+}
+
 export function evmRejection(err: unknown): string | undefined {
-  if (!(err instanceof BaseError)) return undefined;
-  const revert = err.walk((e) => e instanceof ContractFunctionRevertedError);
-  if (!(revert instanceof ContractFunctionRevertedError) || !revert.data) return undefined;
+  if (!err || typeof err !== 'object') return undefined;
+  const revert = findRevert(err);
+  if (!revert?.data?.errorName) return undefined;
   if (revert.data.errorName === 'AmaneRejected') return amaneCodeName(revert.data.args?.[0] as number) ?? `AMANE_CODE_${String(revert.data.args?.[0])}`;
   return EVM_SIG_ERRORS[revert.data.errorName];
 }
