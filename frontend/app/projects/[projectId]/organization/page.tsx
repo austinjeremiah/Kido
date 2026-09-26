@@ -10,16 +10,16 @@
  */
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { CornerDownRight, Copy, Hammer, Plus, ShieldAlert, Trash2 } from 'lucide-react';
+import { Copy, Hammer, Plus, ShieldAlert, Trash2 } from 'lucide-react';
 import { StudioPage, useStudioPage } from '@/components/studio/PageScaffold';
 import {
   Badge,
   BlockchainRef,
   BlockerBanner,
   Card,
-  KeyValue,
   NetworkRoleBadge,
   Section,
+  Spec,
   StatusBadge,
   formatUsd,
 } from '@/components/studio/primitives';
@@ -131,197 +131,197 @@ export default function OrganizationPage() {
         </>
       }
     >
-      {/* auto-fit rather than a fixed two-column split: the centre pane narrows
-          as the explorer widens, and a fixed split squeezes the detail column
-          until its content cannot lay out. */}
-      <div
-        className="cl-grid"
-        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))', alignItems: 'start' }}
-      >
-        {/* organization tree */}
-        <Card title={project.organization ?? 'Agents'} flush>
-          <ul>
-            {agents.map((agent) => {
-              const agentRevoked = false;
-              return (
-                <li key={agent.id}>
-                  <button
-                    type="button"
-                    className="cl-list-row"
-                    style={{ width: '100%', textAlign: 'left' }}
-                    data-selected={agent.id === selectedId}
-                    onClick={() => {
-                      setSelectedId(agent.id);
-                      setSelection({ kind: 'agent', id: agent.id, label: agent.name });
-                    }}
-                  >
-                    <CornerDownRight size={12} aria-hidden style={{ opacity: 0.5, flex: '0 0 auto' }} />
-                    <span style={{ flex: '1 1 auto', minWidth: 0 }}>
-                      <span className="cl-strong" style={{ display: 'block' }}>
-                        {agent.name}
-                      </span>
-                      <span className="cl-meta">{agent.role}</span>
-                    </span>
-                    <StatusBadge status={agentRevoked ? 'REVOKED' : agent.unbuilt ? 'DRAFT' : agent.status} />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <div style={{ padding: 11, borderTop: '1px solid var(--cl-line)' }}>
-            <div className="cl-row" style={{ justifyContent: 'space-between' }}>
-              <span className="cl-meta">Organization aggregate budget</span>
-              <span className="cl-strong">{formatUsd(aggregate)}</span>
-            </div>
-            <p className="cl-meta" style={{ marginTop: 5, whiteSpace: 'normal' }}>
-              Worst-case combined daily authority across all principals{ctx.organization ? ` under ${ctx.organization.rootEns}` : ''}.
-            </p>
-          </div>
-        </Card>
-
-        {/* selected agent */}
-        <div>
-          <Card
-            title={
-              <span className="cl-row" style={{ gap: 8 }}>
-                {selected.name}
-                <StatusBadge status={isRevoked ? 'REVOKED' : selected.status} />
-                {selected.executionClass === 'REPORTING_ONLY' ? (
-                  <NetworkRoleBadge role="NONE" />
-                ) : (
-                  <NetworkRoleBadge role="EXECUTION_TESTNET" />
-                )}
+      {/*
+        Was a two-column split: a list of agents on the left, the selected one's
+        detail on the right. With one principal that is a list of one beside its
+        own card, and with three it halves the width available to nine rows of
+        derived values. The page stacks instead — every principal across the
+        top, then the selected one in full width below it.
+      */}
+      <Section label="Agents" actions={<span className="cl-meta">{agents.length} principal{agents.length === 1 ? '' : 's'} · aggregate {formatUsd(aggregate)}</span>}>
+        <div className="cl-principals">
+          {agents.map((agent) => (
+            <button
+              key={agent.id}
+              type="button"
+              className="cl-principal"
+              data-selected={agent.id === selectedId}
+              onClick={() => {
+                setSelectedId(agent.id);
+                setSelection({ kind: 'agent', id: agent.id, label: agent.name });
+              }}
+            >
+              <span className="cl-principal-head">
+                <span className="cl-principal-name">{agent.name}</span>
+                <StatusBadge status={agent.unbuilt ? 'DRAFT' : agent.status} />
               </span>
-            }
+              <span className="cl-principal-role">{agent.role}</span>
+              <span className="cl-principal-foot">
+                <span className="cl-num">{formatUsd(agent.orgBudgetImpact)}</span>
+                <span className="cl-meta">of the aggregate</span>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <p className="cl-aggregate">
+          <span className="cl-label">Aggregate authority</span>
+          <span className="cl-num cl-aggregate-figure">{formatUsd(aggregate)}</span>
+          <span className="cl-meta">
+            Worst-case combined daily authority across all principals{ctx.organization ? ` under ${ctx.organization.rootEns}` : ''}.
+          </span>
+        </p>
+      </Section>
+
+      <Section
+        label={selected.name}
+        actions={
+          <div className="cl-row" style={{ gap: 6 }}>
+            <StatusBadge status={isRevoked ? 'REVOKED' : selected.status} />
+            {selected.executionClass === 'REPORTING_ONLY' ? <NetworkRoleBadge role="NONE" /> : <NetworkRoleBadge role="EXECUTION_TESTNET" />}
+            <span style={{ width: 4 }} />
+            <button type="button" className="cl-btn cl-btn-sm" onClick={() => go('blueprint')}>Blueprint</button>
+            <button type="button" className="cl-btn cl-btn-sm" onClick={() => go('architecture')}>Architecture</button>
+            <button type="button" className="cl-btn cl-btn-sm" onClick={() => go('policies')}>Policy</button>
+          </div>
+        }
+      >
+        <p className="cl-lead">{selected.objective || selected.role}</p>
+
+        {selected.unbuilt ? (
+          <BlockerBanner
+            tone="warn"
+            title="Not built yet"
             actions={
-              <div className="cl-row" style={{ gap: 6 }}>
-                <button type="button" className="cl-btn cl-btn-sm" onClick={() => go('blueprint')}>
-                  Open Blueprint
-                </button>
-                <button type="button" className="cl-btn cl-btn-sm" onClick={() => go('architecture')}>
-                  Open Architecture
-                </button>
-                <button type="button" className="cl-btn cl-btn-sm" onClick={() => go('policies')}>
-                  Open Policy
-                </button>
-              </div>
+              <button type="button" className="cl-btn cl-btn-sm cl-btn-primary" disabled={building === selected.id || !ctx.orgView?.buildable} title={!ctx.orgView?.buildable ? `Not buildable: ${blockingIssues.map((i) => i.message).join(' ')}` : undefined} onClick={() => void buildMember(selected)}>
+                <Hammer size={12} aria-hidden />
+                {building === selected.id ? 'Starting…' : 'Build this member'}
+              </button>
             }
           >
-            <p style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 14 }}>{selected.objective || selected.role}</p>
+            This member is a design. Building it runs the ordinary single-agent pipeline on a prompt derived from its role and limits, and stops for your review before any code is generated.
+          </BlockerBanner>
+        ) : null}
 
-            {selected.unbuilt ? (
-              <BlockerBanner
-                tone="warn"
-                title="Not built yet"
-                actions={
-                  <button type="button" className="cl-btn cl-btn-sm cl-btn-primary" disabled={building === selected.id || !ctx.orgView?.buildable} title={!ctx.orgView?.buildable ? `Not buildable: ${blockingIssues.map((i) => i.message).join(' ')}` : undefined} onClick={() => void buildMember(selected)}>
-                    <Hammer size={12} aria-hidden />
-                    {building === selected.id ? 'Starting…' : 'Build this member'}
-                  </button>
-                }
-              >
-                This member is a design. Building it runs the ordinary single-agent pipeline on a prompt derived from its role and limits, and stops for your review before any code is generated.
-              </BlockerBanner>
-            ) : null}
+        {selected.executionClass === 'REPORTING_ONLY' ? (
+          <BlockerBanner tone="neutral" title="Reporting-only principal">
+            {selected.name} has execution class NONE. There is no capability-issuing path for it, so no policy limit
+            needs to exist — the absence of authority is structural, not a setting that could be raised in place.
+          </BlockerBanner>
+        ) : null}
 
-            <KeyValue
+        {/*
+          Nine rows in one undifferentiated list is why this read as clutter —
+          an ENS name, a dollar ceiling and a deployment revision have nothing
+          to do with each other, and reading them in sequence makes you sort
+          them yourself. Split into what the agent *is* and what it may *do*,
+          side by side, which also halves the height.
+        */}
+        <div className="cl-grid cl-grid-2" style={{ alignItems: 'start', gap: 22 }}>
+          <div>
+            <div className="cl-label cl-spec-group">Identity</div>
+            <Spec
               rows={[
                 {
+                  key: 'ens',
                   label: 'ENS identity',
                   value: selected.ensNode ? <BlockchainRef label={selected.ensName} value={selected.ensNode} kind="node" network={project.environment.executionNetwork} /> : <span className="cl-mono">{selected.ensName}</span>,
                 },
-                { label: 'Agent address', value: selected.address ? <BlockchainRef value={selected.address} network={project.environment.executionNetwork} /> : <span className="cl-meta">Not established until the agent is deployed.</span> },
-                { label: 'Role / objective', value: selected.role },
                 {
+                  key: 'address',
+                  label: 'Agent address',
+                  value: selected.address ? <BlockchainRef value={selected.address} network={project.environment.executionNetwork} /> : <span className="cl-meta">Not established until deployed.</span>,
+                },
+                {
+                  key: 'policy-hash',
+                  label: 'Policy hash',
+                  value: selected.policyHash ? <BlockchainRef value={selected.policyHash} kind="hash" /> : <span className="cl-meta">Assigned at deployment.</span>,
+                },
+                { key: 'role', label: 'Role', value: selected.role },
+                { key: 'runtime', label: 'Runtime revision', value: selected.runtimeRevision === null ? 'Never deployed' : `r${selected.runtimeRevision}` },
+              ]}
+            />
+          </div>
+
+          <div>
+            <div className="cl-label cl-spec-group">Authority</div>
+            <Spec
+              rows={[
+                {
+                  key: 'exec-class',
                   label: 'Execution class',
                   value:
-                    selected.executionClass === 'REPORTING_ONLY' ? (
-                      <span className="cl-row" style={{ gap: 8 }}>
-                        <Badge tone="blocked">EXECUTION: NONE</Badge>
-                        <span className="cl-meta">This agent can never obtain a capability or submit a transaction.</span>
-                      </span>
+                    selected.executionClass === 'REPORTING_ONLY' ? <Badge tone="blocked">EXECUTION: NONE</Badge> : selected.executionClass.replace(/_/g, ' '),
+                  note: selected.executionClass === 'REPORTING_ONLY' ? 'This agent can never obtain a capability or submit a transaction.' : undefined,
+                },
+                {
+                  key: 'adapters',
+                  label: 'Allowed adapters',
+                  value:
+                    selected.allowedAdapters.length === 0 ? (
+                      <span className="cl-meta">none bound yet</span>
                     ) : (
-                      selected.executionClass.replace(/_/g, ' ')
+                      <span className="cl-row cl-row-wrap" style={{ gap: 10 }}>
+                        {selected.allowedAdapters.map((a) => (
+                          <Badge key={a} tone="neutral">{a.replace('adp_', '')}</Badge>
+                        ))}
+                      </span>
                     ),
                 },
                 {
-                  label: 'Allowed adapters',
-                  value: (
-                    <span className="cl-row cl-row-wrap" style={{ gap: 5 }}>
-                      {selected.allowedAdapters.length === 0 ? <span className="cl-meta">none bound yet</span> : selected.allowedAdapters.map((a) => (
-                        <Badge key={a} tone="neutral">
-                          {a.replace('adp_', '')}
-                        </Badge>
-                      ))}
-                    </span>
-                  ),
-                },
-                {
+                  key: 'budget',
                   label: 'Individual budget',
                   value:
                     selected.budget.autonomousPerAction === 0 ? (
                       <span className="cl-meta">No budget — this agent holds no spending authority.</span>
                     ) : (
                       <>
-                        {formatUsd(selected.budget.autonomousPerAction)} autonomous per action ·{' '}
-                        {selected.budget.window === '24h' ? `${formatUsd(selected.budget.windowLimit)} per 24h` : `escalate up to ${formatUsd(selected.budget.windowLimit)}`}
-                        {blast ? (
-                          <div className="cl-meta" style={{ whiteSpace: 'normal' }}>
-                            Blast radius if compromised: {blast.directCapabilities.join(', ') || 'no direct capabilities'};
-                            {' '}reaches {blast.authorityReachesAgents.length === 0 ? 'no other agent' : blast.authorityReachesAgents.map((r) => `${r.agentId} via ${r.via}`).join(', ')};
-                            {' '}contained by {blast.containedBy.join(', ') || '—'}.
-                          </div>
-                        ) : null}
+                        <span className="cl-num">{formatUsd(selected.budget.autonomousPerAction)}</span> autonomous per action ·{' '}
+                        {selected.budget.window === '24h' ? <><span className="cl-num">{formatUsd(selected.budget.windowLimit)}</span> per 24h</> : <>escalate up to <span className="cl-num">{formatUsd(selected.budget.windowLimit)}</span></>}
                       </>
                     ),
+                  note: blast ? (
+                    <>
+                      Blast radius if compromised: {blast.directCapabilities.join(', ') || 'no direct capabilities'};
+                      {' '}reaches {blast.authorityReachesAgents.length === 0 ? 'no other agent' : blast.authorityReachesAgents.map((r) => `${r.agentId} via ${r.via}`).join(', ')};
+                      {' '}contained by {blast.containedBy.join(', ') || '—'}.
+                    </>
+                  ) : undefined,
                 },
                 {
+                  key: 'org-impact',
                   label: 'Organization impact',
-                  value: `${formatUsd(selected.orgBudgetImpact)} of the ${formatUsd(aggregate)} aggregate`,
-                },
-                { label: 'Policy hash', value: selected.policyHash ? <BlockchainRef value={selected.policyHash} kind="hash" /> : <span className="cl-meta">Assigned at deployment.</span> },
-                {
-                  label: 'Runtime revision',
-                  value: selected.runtimeRevision === null ? 'Never deployed' : `r${selected.runtimeRevision}`,
+                  value: <><span className="cl-num">{formatUsd(selected.orgBudgetImpact)}</span> of the <span className="cl-num">{formatUsd(aggregate)}</span> aggregate</>,
                 },
               ]}
             />
-          </Card>
-
-          {selected.executionClass === 'REPORTING_ONLY' ? (
-            <div style={{ marginTop: 14 }}>
-              <BlockerBanner tone="neutral" title="Reporting-only principal">
-                {selected.name} has execution class NONE. There is no capability-issuing path for it, so no policy limit
-                needs to exist — the absence of authority is structural, not a setting that could be raised in place.
-              </BlockerBanner>
-            </div>
-          ) : null}
-
-          <Section label="Agent controls">
-            <div className="cl-btn-group">
-              <button type="button" className="cl-btn" onClick={() => setDuplicateOpen(true)} disabled={!selected.projectId}>
-                <Copy size={13} aria-hidden />
-                Duplicate as New Agent
-              </button>
-              <button type="button" className="cl-btn" onClick={() => setRemoveOpen(true)} disabled title="Members are part of the organization's design; removing one means designing the organization again without it.">
-                <Trash2 size={13} aria-hidden />
-                Remove Draft Agent
-              </button>
-              <span className="cl-spacer" />
-              <button
-                type="button"
-                className="cl-btn cl-btn-danger"
-                onClick={() => setRevokeOpen(true)}
-                disabled={isRevoked || !ctx.deploymentId || selected.projectId !== ctx.dataProjectId}
-                title={!ctx.deploymentId ? 'Identity revocation acts on a live deployment. This agent has none.' : undefined}
-              >
-                <ShieldAlert size={13} aria-hidden />
-                Revoke Agent
-              </button>
-            </div>
-          </Section>
+          </div>
         </div>
-      </div>
+      </Section>
+
+      <Section label="Agent controls">
+        <div className="cl-btn-group">
+          <button type="button" className="cl-btn" onClick={() => setDuplicateOpen(true)} disabled={!selected.projectId}>
+            <Copy size={13} aria-hidden />
+            Duplicate as New Agent
+          </button>
+          <button type="button" className="cl-btn" onClick={() => setRemoveOpen(true)} disabled title="Members are part of the organization's design; removing one means designing the organization again without it.">
+            <Trash2 size={13} aria-hidden />
+            Remove Draft Agent
+          </button>
+          <span className="cl-spacer" />
+          <button
+            type="button"
+            className="cl-btn cl-btn-danger"
+            onClick={() => setRevokeOpen(true)}
+            disabled={isRevoked || !ctx.deploymentId || selected.projectId !== ctx.dataProjectId}
+            title={!ctx.deploymentId ? 'Identity revocation acts on a live deployment. This agent has none.' : undefined}
+          >
+            <ShieldAlert size={13} aria-hidden />
+            Revoke Agent
+          </button>
+        </div>
+      </Section>
 
       {/* revoke — security confirmation */}
       <SecurityConfirmation

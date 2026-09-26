@@ -1,4 +1,22 @@
 import type { Metadata } from 'next';
+import { IBM_Plex_Mono } from 'next/font/google';
+
+/*
+ * The one typeface the project did not have.
+ *
+ * Every label, badge, count, threshold and address in the workbench used to be
+ * set in the UI sans at 10–11px, uppercase and letterspaced — which is the
+ * house style of every admin template ever shipped. A real mono under the micro
+ * type separates the instrument readings from the prose around them, and gives
+ * the numbers tabular widths so a column of dollar limits lines up on the
+ * decimal instead of drifting.
+ */
+const plexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--kd-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Kido — Give AI authority, not keys',
@@ -22,7 +40,7 @@ export default function RootLayout({
      * app tree, so genuine mismatches inside the workbench are still reported.
      */
     <html lang="en" className="w-mod-js" suppressHydrationWarning>
-      <body className="body" suppressHydrationWarning>
+      <body className={`body ${plexMono.variable}`} suppressHydrationWarning>
         {/* Same cascade order as the original: Webflow base, Lenis, then the
             custom Three.js app styles. Served verbatim from /public. */}
         <link rel="stylesheet" href="/styles/webflow.css" precedence="high" />

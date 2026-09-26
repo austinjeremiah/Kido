@@ -108,18 +108,24 @@ export function StatusBadge({
   status,
   label,
   large,
+  chip,
   icon = true,
   title,
 }: {
   status: Status | string;
   label?: string;
   large?: boolean;
+  chip?: boolean;
   icon?: boolean;
   title?: string;
 }) {
   const tone = statusTone(status);
   return (
-    <span className={`cl-badge${large ? ' cl-badge-lg' : ''}`} data-tone={tone} title={title ?? statusLabel(status)}>
+    <span
+      className={`cl-badge${chip ? ' cl-badge-chip' : ''}${large ? ' cl-badge-lg' : ''}`}
+      data-tone={tone}
+      title={title ?? statusLabel(status)}
+    >
       {icon ? <StatusIcon tone={tone} status={String(status)} /> : null}
       {label ?? statusLabel(status)}
     </span>
@@ -136,19 +142,31 @@ export function VerdictBadge({ verdict, large }: { verdict: Verdict; large?: boo
   );
 }
 
+/**
+ * The default badge is a mark: a rule in the tone colour with the word beside
+ * it. `chip` promotes it to the filled form, which is reserved for the single
+ * hero status at the top of a page — emphasis only means something while it
+ * stays rare.
+ */
 export function Badge({
   tone = 'neutral',
   children,
   large,
+  chip,
   title,
 }: {
   tone?: Tone;
   children: ReactNode;
   large?: boolean;
+  chip?: boolean;
   title?: string;
 }) {
   return (
-    <span className={`cl-badge${large ? ' cl-badge-lg' : ''}`} data-tone={tone} title={title}>
+    <span
+      className={`cl-badge${chip ? ' cl-badge-chip' : ''}${large ? ' cl-badge-lg' : ''}`}
+      data-tone={tone}
+      title={title}
+    >
       {children}
     </span>
   );
@@ -745,19 +763,89 @@ export function PageHeader({
   badges?: ReactNode;
   actions?: ReactNode;
 }) {
+  /* Title and actions share the first line; the status row is given its own
+     band below the rule rather than being crammed under the subtitle, where a
+     badge, an autosave stamp and a token count ran together as one grey line. */
   return (
     <header className="cl-page-head">
-      <div className="cl-page-head-main">
-        <h1 className="cl-page-title">{title}</h1>
-        {subtitle ? <p className="cl-page-sub">{subtitle}</p> : null}
-        {badges ? (
-          <div className="cl-row cl-row-wrap" style={{ marginTop: 10 }}>
-            {badges}
-          </div>
-        ) : null}
+      <div className="cl-page-head-top">
+        <div className="cl-page-head-main">
+          <h1 className="cl-page-title">{title}</h1>
+          {subtitle ? <p className="cl-page-sub">{subtitle}</p> : null}
+        </div>
+        {actions ? <div className="cl-page-actions">{actions}</div> : null}
       </div>
-      {actions ? <div className="cl-page-actions">{actions}</div> : null}
+      {badges ? <div className="cl-page-status">{badges}</div> : null}
     </header>
+  );
+}
+
+/**
+ * A section head reads as a numbered entry in a specification: a mono index in
+ * the brand colour, then the heading in the display serif at reading size.
+ *
+ * The index is a CSS counter rather than a prop — no page has to know its own
+ * position, and a section that renders conditionally cannot leave a hole in the
+ * sequence. `plain` opts out for the pages where a single section is really
+ * just a container.
+ */
+/**
+ * A list of named values that were derived rather than entered.
+ *
+ * Replaces the <table> this pattern used to be built from. A table spends a
+ * whole header row restating what two obvious columns are, gives every value
+ * the same one-line cell whether it holds a word or two sentences, and cannot
+ * mark a row without adding a third column of badges that mostly repeat. These
+ * are ruled rows with a mono key and a free-flowing value, the way a datasheet
+ * sets them.
+ *
+ * `ok` draws the established tick in its own track at the end of the key
+ * column, so the marks line up down the page instead of trailing each label at
+ * a different x. `open` puts the brand edge down the row's left, so a page of
+ * settled values shows its one loose end in the margin.
+ */
+export function Spec({
+  rows,
+}: {
+  rows: Array<{
+    key: string;
+    label: string;
+    value: ReactNode;
+    note?: ReactNode;
+    ok?: boolean;
+    open?: boolean;
+    onClick?: () => void;
+  }>;
+}) {
+  return (
+    <div className="cl-spec">
+      {rows.map((row) => {
+        const body = (
+          <>
+            {/* The label is wrapped rather than left bare: it is a grid item,
+                and an anonymous text item cannot be addressed if the key column
+                ever needs another track. */}
+            <span className="cl-spec-key">
+              <span>{row.label}</span>
+              {row.ok ? <Check className="cl-spec-tick" aria-label="Established" /> : null}
+            </span>
+            <span className="cl-spec-val">
+              <span className="cl-spec-value">{row.value}</span>
+              {row.note ? <span className="cl-spec-note">{row.note}</span> : null}
+            </span>
+          </>
+        );
+        return row.onClick ? (
+          <button key={row.key} type="button" className="cl-spec-row" data-open={row.open ? '' : undefined} onClick={row.onClick}>
+            {body}
+          </button>
+        ) : (
+          <div key={row.key} className="cl-spec-row" data-static="" data-open={row.open ? '' : undefined}>
+            {body}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -765,15 +853,18 @@ export function Section({
   label,
   actions,
   children,
+  plain,
 }: {
   label: string;
   actions?: ReactNode;
   children: ReactNode;
+  plain?: boolean;
 }) {
   return (
-    <section className="cl-section">
+    <section className="cl-section" data-plain={plain ? '' : undefined}>
       <div className="cl-section-head">
-        <span className="cl-label">{label}</span>
+        <span className="cl-section-index" aria-hidden />
+        <h2 className="cl-section-title">{label}</h2>
         <span className="cl-section-rule" />
         {actions}
       </div>

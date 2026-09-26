@@ -10,11 +10,11 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FileInput, Lightbulb, Play, Sparkles, Square } from 'lucide-react';
+import { Check, FileInput, Lightbulb, Play, Sparkles, Square } from 'lucide-react';
 import { StudioPage, useStudioPage } from '@/components/studio/PageScaffold';
 import { AgentPatchInbox } from '@/components/studio/AgentPatches';
 import { RequirementInterview } from '@/components/studio/RequirementInterview';
-import { Badge, BlockerBanner, Card, Section, StatusBadge, TimeAgo } from '@/components/studio/primitives';
+import { Badge, BlockerBanner, Card, Section, Spec, StatusBadge, TimeAgo } from '@/components/studio/primitives';
 import { Modal } from '@/components/studio/dialogs';
 import { useWorkbench } from '@/lib/studio/workbench';
 import { COMPOSER_EXAMPLES, COMPOSER_SLASH_HELPERS, questionsFor, type BuildStage } from '@/lib/studio/content/composer';
@@ -178,6 +178,8 @@ export default function ComposerPage() {
   const requirements = useMemo(() => detectedRequirements(bp, requirementsEvent).map((r) => (answers[r.id] ? { ...r, value: answers[r.id]!, status: 'PASS' as Status, note: 'Answered here — regenerate to apply it to the design.' } : r)), [bp, requirementsEvent, answers]);
   const openQuestions = useMemo(() => questionsFor(requirements), [requirements]);
   const missingRequired = requirements.filter((r) => r.status === 'REQUIRED');
+  /* Anything not established. The table marks these and leaves the rest alone. */
+  const unresolved = requirements.filter((r) => r.status !== 'PASS');
 
   const running = build?.status === 'RUNNING';
   const awaiting = build?.stage === 'AWAITING_APPROVAL' && build.status === 'AWAITING_APPROVAL';
@@ -205,24 +207,37 @@ export default function ComposerPage() {
         s.id === 'AWAITING_APPROVAL' ? (build.approvedAt ? `approved ${new Date(build.approvedAt).toLocaleString()}` : awaiting ? 'Review the authority below and decide.' : '') :
         s.id === 'BUILD' ? (view?.files.length ? `${view.files.length} file(s) in the sandbox${build.repairCycles ? ` · ${build.repairCycles} repair cycle(s)` : ''}` : '') :
         (view?.simulations.length ? `${view.simulations.filter((x) => x.passed).length}/${view.simulations.length} scenarios passed · ${view.tests.length} suite(s)` : '');
-      return { id: s.id, name: s.name, status, detail: detail || (status === 'PENDING' ? 'Not started' : ''), panel: s.panel };
+      return { id: s.id, name: s.name, status, detail, panel: s.panel };
     });
   }, [build, view, bp, requirementsEvent, running, awaiting, complete, failed, needsReview, abandoned, paused]);
 
   const usage = view?.usage;
   const nearQuota = !!usage && usage.peakFraction >= 0.8;
 
-  const statusLine =
-    isDraft ? 'Draft · Blueprint not generated'
-    : !build ? 'No build yet'
-    : running ? `Running · ${build.stage.toLowerCase().replace(/_/g, ' ')}`
-    : awaiting ? 'Awaiting your review'
-    : complete ? `Complete · Blueprint r${bp?.revision ?? build.blueprintRevision} · build r${build.buildRevision}`
-    : needsReview ? 'Build needs your review'
-    : failed ? 'Build failed'
+  /* Split in two. A badge is a word — uppercase, letterspaced, in a tinted
+     chip — and everything longer than two of them reads as a label shouting a
+     sentence. The state is the badge; what it happens to be doing is meta text
+     beside it, set in ordinary case. */
+  const stateWord =
+    isDraft ? 'Draft'
+    : !build ? 'No build'
+    : running ? 'Running'
+    : awaiting ? 'Needs review'
+    : complete ? 'Complete'
+    : needsReview ? 'Needs review'
+    : failed ? 'Failed'
     : abandoned ? 'Abandoned'
-    : paused ? 'Paused by a limit'
+    : paused ? 'Paused'
     : build.status.toLowerCase().replace(/_/g, ' ');
+
+  const stateNote =
+    isDraft ? 'Blueprint not generated'
+    : !build ? ''
+    : running ? build.stage.toLowerCase().replace(/_/g, ' ')
+    : awaiting ? 'authority below is waiting on you'
+    : complete ? `Blueprint r${bp?.revision ?? build.blueprintRevision} · build r${build.buildRevision}`
+    : paused ? 'a model or usage limit was reached'
+    : '';
 
   const insertHelper = (insert: string) => {
     setText((prev) => `${prev}${prev.endsWith('\n') || !prev ? '' : '\n'}${insert}\n`);
@@ -241,7 +256,8 @@ export default function ComposerPage() {
       subtitle="Describe what this agent should do and the boundaries it must obey."
       badges={
         <>
-          <Badge tone={complete ? 'pass' : running || busy ? 'sim' : awaiting ? 'warn' : failed || needsReview ? 'deny' : 'neutral'}>{busy ?? statusLine}</Badge>
+          <Badge chip tone={complete ? 'pass' : running || busy ? 'sim' : awaiting ? 'warn' : failed || needsReview ? 'deny' : 'neutral'}>{busy ?? stateWord}</Badge>
+          {!busy && stateNote ? <span className="cl-meta">{stateNote}</span> : null}
           {savedAt ? <span className="cl-meta">Draft autosaved <TimeAgo iso={savedAt} /></span> : null}
           {usage ? <span className="cl-meta" title="Model usage for this build, from the SDK's own accounting">{usage.requests} calls · {(usage.inputTokens + usage.outputTokens).toLocaleString()} tokens{usage.estimatedCostUsd !== null ? ` · ~$${usage.estimatedCostUsd.toFixed(3)} est.` : ''}</span> : null}
         </>
@@ -345,41 +361,72 @@ export default function ComposerPage() {
         </Section>
       ) : null}
 
-      <Section label="Detected requirements" actions={<Badge tone={bp ? 'pass' : requirementsEvent ? 'warn' : 'neutral'}>{bp ? `From Blueprint r${bp.revision}` : requirementsEvent ? 'Requirements stage output' : 'Nothing generated yet'}</Badge>}>
+      {/* The head used to carry a badge reading "From Blueprint r1" — provenance
+          dressed as a verdict. Provenance is meta text; the badge is kept for the
+          one thing that needs acting on, and only appears when there is one. */}
+      <Section
+        label="Detected requirements"
+        actions={
+          <>
+            <span className="cl-meta">
+              {bp ? `Blueprint r${bp.revision}` : requirementsEvent ? 'Requirements stage' : 'Not generated yet'}
+              {requirements.length > 0 ? ` · ${requirements.length - unresolved.length}/${requirements.length} established` : ''}
+            </span>
+            {unresolved.length > 0 ? <Badge tone="warn">{unresolved.length} open</Badge> : null}
+          </>
+        }
+      >
         {requirements.length === 0 ? (
           <Card><p className="cl-meta">Nothing parsed yet. Generate the Blueprint and the pipeline’s own requirements appear here — the parser is the backend, not this page.</p></Card>
         ) : (
-          <Card flush>
-            <div className="cl-table-scroll">
-              <table className="cl-table">
-                <thead><tr><th style={{ width: 210 }}>Requirement</th><th>Value</th><th style={{ width: 130 }}>Status</th></tr></thead>
-                <tbody>
-                  {requirements.map((r) => (
-                    <tr key={r.id} data-clickable="true" onClick={() => setSelection({ kind: 'requirement', id: r.id, label: r.label })}>
-                      <td className="cl-strong">{r.label}</td>
-                      <td><div style={{ whiteSpace: 'normal' }}>{r.value}</div>{r.note ? <div className="cl-meta" style={{ whiteSpace: 'normal' }}>{r.note}</div> : null}</td>
-                      <td><StatusBadge status={r.status} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Card>
+          /* The same ruled spec list the Organization page uses — one pattern
+             for "named values that were derived", not two near-identical
+             hand-rolled tables. */
+          <Spec
+            rows={requirements.map((r) => ({
+              key: r.id,
+              label: r.label,
+              value: r.value,
+              note: r.note,
+              ok: r.status === 'PASS',
+              open: r.status !== 'PASS',
+              onClick: () => setSelection({ kind: 'requirement', id: r.id, label: r.label }),
+            }))}
+          />
         )}
       </Section>
 
+      {/* The timeline head said "Click a stage to open its detail below" — an
+          instruction for something the hover already shows. It states the
+          progress instead, which is the one thing the rows cannot say between
+          them. */}
       {stages.length > 0 ? (
-        <Section label="Build timeline" actions={<span className="cl-meta">Click a stage to open its detail below</span>}>
+        <Section label="Build timeline" actions={<span className="cl-meta">{stages.filter((x) => x.status === 'PASS').length}/{stages.length} complete</span>}>
           <div className="cl-steps">
-            {stages.map((stage, i) => (
-              <button key={stage.id} type="button" className="cl-step" style={{ width: '100%', textAlign: 'left' }} onClick={() => { openBottom(stage.panel); setSelection({ kind: 'build-stage', id: stage.id, label: stage.name }); }}>
-                <span className="cl-step-index">{i + 1}</span>
-                <span className="cl-step-name">{stage.name}</span>
-                <StatusBadge status={stage.status} />
-                <span className="cl-spacer" />
-                <span className="cl-step-detail">{stage.detail}</span>
-              </button>
-            ))}
+            {stages.map((stage, i) => {
+              const done = stage.status === 'PASS';
+              const current = stage.status === 'RUNNING' || (stage.status === 'REQUIRED' && awaiting);
+              const exception = stage.status === 'FAIL' || stage.status === 'STOPPED' || stage.status === 'PAUSED' || stage.status === 'WARN';
+              return (
+                <button
+                  key={stage.id}
+                  type="button"
+                  className="cl-step"
+                  data-state={done ? 'done' : current ? 'current' : exception ? 'exception' : 'pending'}
+                  style={{ width: '100%', textAlign: 'left' }}
+                  onClick={() => { openBottom(stage.panel); setSelection({ kind: 'build-stage', id: stage.id, label: stage.name }); }}
+                >
+                  <span className="cl-step-index">{done ? <Check aria-hidden /> : i + 1}</span>
+                  <span className="cl-step-name">{stage.name}</span>
+                  {/* Done and pending are both legible from the chip and the row's
+                      place in the list. A badge here only ever marks the stage that
+                      is running, waiting, or has gone wrong. */}
+                  {current || exception ? <StatusBadge status={stage.status} /> : null}
+                  <span className="cl-spacer" />
+                  <span className="cl-step-detail">{stage.detail}</span>
+                </button>
+              );
+            })}
           </div>
 
           {awaiting && bp && view ? (
@@ -446,7 +493,9 @@ function ApprovalPanel({ autonomous, escMin, escMax, mechanism, denied, critical
   const deterministicCriticals = criticals.filter((c) => c.source !== 'security-architect');
   return (
     <div className="cl-card" style={{ marginTop: 12 }}>
-      <div className="cl-card-head"><div className="cl-card-title">Review before building</div><Badge tone="warn">No code has been generated</Badge></div>
+      {/* "No code has been generated" was set as a warn badge: six words,
+          uppercase and letterspaced, for a reassurance rather than a warning. */}
+      <div className="cl-card-head"><div className="cl-card-title">Review before building</div><span className="cl-meta">No code has been generated yet</span></div>
       <div className="cl-card-body">
         <div className="cl-grid cl-grid-3" style={{ marginBottom: 12 }}>
           <div><div className="cl-label">Autonomous</div><div className="cl-strong">{autonomous === null ? 'UNRESOLVED' : `up to ${usd(autonomous)} per action`}</div></div>

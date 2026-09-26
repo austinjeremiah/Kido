@@ -49,13 +49,43 @@ html:has(.cl-studio) { font-size: 16px; }
      drafting surface rather than a blank page */
   --cl-canvas-dot: rgba(8, 11, 26, 0.34);
 
+  /* --- washes -------------------------------------------------------------
+     Every hover, selected row, zebra stripe, inline-code chip and scrollbar in
+     this sheet used to state its own rgba(0, 66, 175, …). That is the ink
+     colour of the cream theme spelled out by hand, so none of it could follow
+     a theme flip: on the dark ground they all rendered as a faint blue film
+     over near-black. They read from these five instead. */
+  --cl-wash-soft: rgba(0, 66, 175, 0.03);   /* zebra stripe                  */
+  --cl-wash: rgba(0, 66, 175, 0.08);        /* hover                         */
+  --cl-wash-2: rgba(0, 66, 175, 0.14);      /* pressed / active              */
+  --cl-sel: rgba(0, 66, 175, 0.09);         /* selected row                  */
+  --cl-scroll: rgba(0, 66, 175, 0.24);
+  --cl-scroll-hover: rgba(0, 66, 175, 0.42);
+  /* Overlay and lift. Both carried the same navy as the washes did. */
+  --cl-scrim: rgba(1, 13, 110, 0.4);
+  --cl-shadow: rgba(1, 13, 110, 0.28);
+
+  /* --- brand ---------------------------------------------------------------
+     A third colour, alongside the cream and the near-black. It is deliberately
+     kept off every hue the verdict palette already owns — green, amber, red,
+     violet, cyan — so that seeing it can never be mistaken for a status. Its
+     whole job is structure and intent: the section index, the focus ring, the
+     active marker, the one button on a page that commits something. */
+  --cl-brand: #ff5c35;
+  --cl-brand-soft: rgba(255, 92, 53, 0.14);
+  --cl-brand-ink: #14060a;   /* text on a brand fill */
+
+  /* The mono is loaded by next/font on <body>; the stack is the fallback for
+     the moment before it lands and for any surface outside the app tree. */
+  --mono: var(--kd-mono, ui-monospace), SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
   /* --- semantic verdict palette (doc §8.2), tuned to the cream ground ----- */
   --cl-pass: #14714a;
   --cl-pass-bg: rgba(20, 113, 74, 0.1);
   --cl-warn: #9a6300;
   --cl-warn-bg: rgba(154, 99, 0, 0.12);
-  --cl-deny: #a8211a;
-  --cl-deny-bg: rgba(168, 33, 26, 0.1);
+  --cl-deny: #b0143f;
+  --cl-deny-bg: rgba(176, 20, 63, 0.1);
   --cl-sim: #5b3fb5;
   --cl-sim-bg: rgba(91, 63, 181, 0.1);
   --cl-data: #0b6c86;
@@ -146,7 +176,7 @@ html:has(.cl-studio) { font-size: 16px; }
 }
 .cl-studio :where(label) { margin: 0; font-weight: inherit; display: inline-block; }
 .cl-studio :where(code, kbd, samp, pre) {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--mono);
 }
 .cl-studio :where(table) { border-collapse: collapse; border-spacing: 0; }
 
@@ -157,10 +187,14 @@ html:has(.cl-studio) { font-size: 16px; }
 .cl-display-s{ font-family: var(--serif); font-size: 24px; line-height: 1.25; letter-spacing: -0.4px; color: var(--cl-ink-heading); }
 .cl-h1       { font-family: var(--medium); font-size: 18px; letter-spacing: -0.2px; color: var(--cl-ink-heading); }
 .cl-h2       { font-family: var(--medium); font-size: 15px; color: var(--cl-ink-heading); }
-.cl-label    { font-family: var(--medium); font-size: 11px; letter-spacing: 0.11em; text-transform: uppercase; color: var(--cl-ink-2); }
+.cl-label    { font-family: var(--mono); font-weight: 500; font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--cl-ink-3); }
 .cl-meta     { font-size: 12.5px; color: var(--cl-ink-3); }
+.cl-meta svg { width: 13px; height: 13px; vertical-align: -2px; }
 .cl-body     { font-size: 14px; }
-.cl-mono     { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; letter-spacing: -0.1px; }
+.cl-mono     { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+/* Numbers that belong to a column — limits, counts, percentages — so they line
+   up on the digit rather than drifting with the sans's proportional widths. */
+.cl-num      { font-family: var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .cl-dim      { color: var(--cl-ink-3); }
 .cl-strong   { font-family: var(--medium); }
 
@@ -377,13 +411,17 @@ html:has(.cl-studio) { font-size: 16px; }
   white-space: nowrap;
 }
 .cl-rail-btn:hover { color: var(--cl-ink-inv); background: rgba(254, 241, 208, 0.08); }
-.cl-rail-btn[data-active="true"] { color: var(--cl-ink-inv); }
+/* The active marker was a bar in --cl-canvas: a cream edge against the dark
+   blue chrome of the old theme. Inverted, canvas and chrome are both near-black
+   and the bar vanished, which is why the rail gave no sign of which view you
+   were in. It is the brand colour now, which is true in either theme. */
+.cl-rail-btn[data-active="true"] { color: var(--cl-brand); background: var(--cl-wash); }
 .cl-rail-btn[data-active="true"]::before {
   content: "";
   position: absolute;
-  left: 0; top: 6px; bottom: 6px;
+  left: 0; top: 4px; bottom: 4px;
   width: 2px;
-  background: var(--cl-canvas);
+  background: var(--cl-brand);
 }
 .cl-rail-btn .cl-rail-dot {
   position: absolute;
@@ -431,7 +469,7 @@ html:has(.cl-studio) { font-size: 16px; }
 }
 .cl-nav-item:hover { background: var(--cl-raised); }
 .cl-nav-item[data-active="true"] {
-  background: rgba(0, 66, 175, 0.08);
+  background: var(--cl-wash);
   border-left-color: var(--cl-ink);
   font-family: var(--medium);
 }
@@ -503,11 +541,25 @@ html:has(.cl-studio) { font-size: 16px; }
 }
 .cl-page-content > * { flex: 1 1 auto; min-width: 0; }
 .cl-page-pad { padding: 24px 28px 48px; max-width: 1280px; min-width: 0; }
-.cl-page-head { display: flex; align-items: flex-start; gap: 16px; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--cl-line); }
+.cl-page-head { margin-bottom: 22px; }
+.cl-page-head-top { display: flex; align-items: flex-start; gap: 16px; padding-bottom: 16px; }
 .cl-page-head-main { flex: 1 1 auto; min-width: 0; }
-.cl-page-title { font-family: var(--serif); font-size: 30px; letter-spacing: -0.5px; line-height: 1.15; color: var(--cl-ink-heading); }
-.cl-page-sub { margin-top: 8px; font-size: 14px; color: var(--cl-ink-2); max-width: 74ch; }
+/* Larger and tighter — on a near-black ground the serif can carry more size
+   before it starts to shout, and the page needs one thing that is unmistakably
+   the title rather than a heading among headings. */
+.cl-page-title { font-family: var(--serif); font-size: 38px; letter-spacing: -0.9px; line-height: 1.06; color: var(--cl-ink-heading); }
+.cl-page-sub { margin-top: 9px; font-size: 14px; line-height: 1.5; color: var(--cl-ink-2); max-width: 66ch; }
 .cl-page-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* The status band. Ruled top and bottom so it reads as an instrument strip
+   under the title rather than a third line of grey text. */
+.cl-page-status {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px;
+  padding: 9px 0;
+  border-top: 1px solid var(--cl-line);
+  border-bottom: 1px solid var(--cl-line);
+}
+.cl-page-status .cl-meta { font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em; }
 
 /* --- bottom panel --------------------------------------------------------- */
 .cl-bottom { display: flex; flex: 1 1 auto; width: 100%; flex-direction: column; min-height: 0; background: var(--cl-panel); border-top: 1px solid var(--cl-line); }
@@ -751,8 +803,8 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
 }
-.cl-btn:hover:not(:disabled) { background: rgba(0, 66, 175, 0.08); border-color: var(--cl-ink); }
-.cl-btn:active:not(:disabled) { background: rgba(0, 66, 175, 0.14); }
+.cl-btn:hover:not(:disabled) { background: var(--cl-wash); border-color: var(--cl-ink); }
+.cl-btn:active:not(:disabled) { background: var(--cl-wash-2); }
 .cl-btn:disabled { opacity: 0.42; cursor: not-allowed; }
 .cl-btn:focus-visible { outline: 2px solid var(--cl-accent); outline-offset: 1px; }
 
@@ -782,7 +834,7 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 }
 
 .cl-btn-ghost { background: transparent; border-color: transparent; }
-.cl-btn-ghost:hover:not(:disabled) { background: rgba(0, 66, 175, 0.08); border-color: var(--cl-line); }
+.cl-btn-ghost:hover:not(:disabled) { background: var(--cl-wash); border-color: var(--cl-line); }
 
 .cl-btn-sm { height: 28px; padding: 0 11px; font-size: 12px; }
 .cl-btn-lg { height: 38px; padding: 0 20px; font-size: 14px; }
@@ -802,27 +854,50 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
    Badges — status / verdict / freshness / trust  (doc §8.1, §8.2, §33)
    Colour is never the only signal: every badge renders its text label.
    ========================================================================== */
+/* A pill with a tinted fill and a coloured outline is the universal dashboard
+   badge; a page carrying six of them reads as six buttons that cannot be
+   pressed. The default badge is a *mark* instead — a rule in the tone colour
+   with the word beside it, no chip, no fill, no outline. It sits in text
+   without interrupting it, and a column of them lines up on the rules.
+
+   The filled chip survives as a modifier for the one place a page genuinely
+   needs a hero status, so emphasis means something again by being rare. */
 .cl-badge {
-  display: inline-flex; align-items: center; gap: 5px;
-  height: 21px; padding: 0 8px;
-  font-family: var(--medium); font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase;
-  white-space: nowrap;
-  border: 1px solid currentColor;
-  background: var(--cl-blocked-bg);
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 18px; padding: 0 0 0 8px;
+  font-family: var(--mono); font-weight: 500; font-size: 10.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; white-space: nowrap;
+  border: none; border-left: 2px solid currentColor;
+  background: none;
   color: var(--cl-blocked);
 }
 .cl-badge svg { width: 12px; height: 12px; flex: 0 0 auto; }
 .cl-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: 0 0 auto; }
 
-.cl-badge[data-tone="pass"]    { color: var(--cl-pass);    background: var(--cl-pass-bg); }
-.cl-badge[data-tone="warn"]    { color: var(--cl-warn);    background: var(--cl-warn-bg); }
-.cl-badge[data-tone="deny"]    { color: var(--cl-deny);    background: var(--cl-deny-bg); }
-.cl-badge[data-tone="sim"]     { color: var(--cl-sim);     background: var(--cl-sim-bg); }
-.cl-badge[data-tone="data"]    { color: var(--cl-data);    background: var(--cl-data-bg); }
-.cl-badge[data-tone="blocked"] { color: var(--cl-blocked); background: var(--cl-blocked-bg); }
-.cl-badge[data-tone="neutral"] { color: var(--cl-ink-2);   background: rgba(0, 66, 175, 0.07); }
+.cl-badge[data-tone="pass"]    { color: var(--cl-pass); }
+.cl-badge[data-tone="warn"]    { color: var(--cl-warn); }
+.cl-badge[data-tone="deny"]    { color: var(--cl-deny); }
+.cl-badge[data-tone="sim"]     { color: var(--cl-sim); }
+.cl-badge[data-tone="data"]    { color: var(--cl-data); }
+.cl-badge[data-tone="blocked"] { color: var(--cl-blocked); }
+.cl-badge[data-tone="neutral"] { color: var(--cl-ink-3); }
 
-.cl-badge-lg { height: 26px; padding: 0 11px; font-size: 12px; }
+/* The hero status: one per page, at the top, where the mark would be too
+   quiet to anchor the header. */
+.cl-badge-chip {
+  height: 22px; padding: 0 9px;
+  border: 1px solid color-mix(in srgb, currentColor 34%, transparent);
+  border-left-width: 2px; border-left-color: currentColor;
+  background: var(--cl-blocked-bg);
+}
+.cl-badge-chip[data-tone="pass"]    { background: var(--cl-pass-bg); }
+.cl-badge-chip[data-tone="warn"]    { background: var(--cl-warn-bg); }
+.cl-badge-chip[data-tone="deny"]    { background: var(--cl-deny-bg); }
+.cl-badge-chip[data-tone="sim"]     { background: var(--cl-sim-bg); }
+.cl-badge-chip[data-tone="data"]    { background: var(--cl-data-bg); }
+.cl-badge-chip[data-tone="neutral"] { background: var(--cl-wash); }
+
+.cl-badge-lg { height: 24px; font-size: 11.5px; }
 
 /* live pulse — suppressed under reduced motion (doc §45) */
 .cl-pulse { animation: cl-pulse 2.4s ease-in-out infinite; }
@@ -857,7 +932,7 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 .cl-chrome-bar .cl-badge[data-tone="warn"] { color: #e8b055; }
 .cl-titlebar .cl-badge[data-tone="deny"],
 .cl-statusbar .cl-badge[data-tone="deny"],
-.cl-chrome-bar .cl-badge[data-tone="deny"] { color: #f5776d; }
+.cl-chrome-bar .cl-badge[data-tone="deny"] { color: #fb5f80; }
 .cl-titlebar .cl-badge[data-tone="sim"],
 .cl-statusbar .cl-badge[data-tone="sim"],
 .cl-chrome-bar .cl-badge[data-tone="sim"] { color: #b79cf7; }
@@ -873,13 +948,6 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 
 /* A popover rendered inside a chrome bar is a cream panel, so badges within it
    must keep the normal light-ground palette rather than the chrome variant. */
-[role="menu"] .cl-badge[data-tone="pass"]    { color: var(--cl-pass);    background: var(--cl-pass-bg);    border-color: currentColor; }
-[role="menu"] .cl-badge[data-tone="warn"]    { color: var(--cl-warn);    background: var(--cl-warn-bg);    border-color: currentColor; }
-[role="menu"] .cl-badge[data-tone="deny"]    { color: var(--cl-deny);    background: var(--cl-deny-bg);    border-color: currentColor; }
-[role="menu"] .cl-badge[data-tone="sim"]     { color: var(--cl-sim);     background: var(--cl-sim-bg);     border-color: currentColor; }
-[role="menu"] .cl-badge[data-tone="data"]    { color: var(--cl-data);    background: var(--cl-data-bg);    border-color: currentColor; }
-[role="menu"] .cl-badge[data-tone="blocked"] { color: var(--cl-blocked); background: var(--cl-blocked-bg); border-color: currentColor; }
-[role="menu"] .cl-badge[data-tone="neutral"] { color: var(--cl-ink-2);   background: rgba(0, 66, 175, 0.07); border-color: currentColor; }
 
 /* Status-bar state dots use the same light hues. */
 .cl-statusbar .cl-badge-dot { box-shadow: 0 0 0 1px rgba(254, 241, 208, 0.3); }
@@ -913,10 +981,45 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 .cl-card-body { padding: 14px; }
 .cl-card-body-flush { padding: 0; }
 
-.cl-section { margin-bottom: 28px; }
-.cl-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 11px; }
-.cl-section-head .cl-label { flex: 0 0 auto; }
-.cl-section-rule { flex: 1 1 auto; height: 1px; background: var(--cl-line); }
+/* --- section heads ---------------------------------------------------------
+   Was: an uppercase letterspaced sans micro-label, a hairline rule, and the
+   actions pushed right. Three of those stacked down a page is the layout every
+   admin template ships with, and no amount of recolouring changes that.
+
+   It reads as a printed specification instead: a mono index in the brand
+   colour, the heading set in the display serif at reading size and in sentence
+   case, and the rule dropped *under* the whole head rather than threaded
+   through the middle of it. The index is a CSS counter, so no page has to pass
+   a number and a conditionally-rendered section cannot leave a gap. */
+.cl-page-pad, .cl-bleed { counter-reset: kd-sec; }
+.cl-section { margin-bottom: 34px; }
+.cl-section-head {
+  display: flex; align-items: baseline; gap: 12px;
+  padding-bottom: 9px; margin-bottom: 14px;
+  border-bottom: 1px solid var(--cl-line);
+}
+.cl-section-index {
+  flex: 0 0 auto;
+  font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing: 0.06em;
+  color: var(--cl-brand);
+}
+/* display:none also suppresses the increment, which is what a plain section
+   wants: it takes no number and leaves no gap in the sequence. */
+.cl-section[data-plain] .cl-section-index { display: none; }
+.cl-section-index::before { counter-increment: kd-sec; content: counter(kd-sec, decimal-leading-zero); }
+.cl-section-title {
+  flex: 0 0 auto;
+  font-family: var(--serif); font-size: 19px; line-height: 1.2; letter-spacing: -0.2px;
+  color: var(--cl-ink-heading);
+  text-transform: none;
+}
+/* The rule used to be a visible element between title and actions. It is the
+   head's own bottom border now, so this just pushes the actions to the end. */
+.cl-section-rule { flex: 1 1 auto; }
+.cl-section-head > .cl-badge,
+.cl-section-head > .cl-meta,
+.cl-section-head > .cl-row,
+.cl-section-head > button { flex: 0 0 auto; align-self: center; }
 
 .cl-grid { display: grid; gap: 12px; }
 .cl-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -955,8 +1058,8 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 .cl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .cl-table th {
   position: sticky; top: 0; z-index: 1;
-  text-align: left; font-family: var(--medium); font-size: 10.5px;
-  letter-spacing: 0.09em; text-transform: uppercase; color: var(--cl-ink-2);
+  text-align: left; font-family: var(--mono); font-weight: 500; font-size: 10px;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--cl-ink-3);
   /* kept in ink-2, not heading ink: a column label should not outweigh the
      data beneath it */
   padding: 9px 12px; background: var(--cl-panel-2);
@@ -966,9 +1069,104 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 .cl-table td { padding: 10px 12px; border-bottom: 1px solid var(--cl-line); vertical-align: middle; }
 .cl-table tbody tr { transition: background 0.1s ease; }
 .cl-table tbody tr:hover { background: var(--cl-raised); }
-.cl-table tbody tr[data-selected="true"] { background: rgba(0, 66, 175, 0.09); }
+.cl-table tbody tr[data-selected="true"] { background: var(--cl-sel); }
 .cl-table tbody tr[data-clickable="true"] { cursor: pointer; }
 .cl-table-scroll { overflow: auto; max-height: 100%; }
+
+/* --- principals ------------------------------------------------------------
+   The agents of an organization, across the top of the page rather than in a
+   list down one side. Each is a separate principal with its own identity,
+   policy and budget, so each gets its own card rather than a row in a table
+   that implies they are records of one kind of thing. */
+.cl-principals {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 10px;
+}
+.cl-principal {
+  display: flex; flex-direction: column; gap: 8px;
+  text-align: left; cursor: pointer;
+  padding: 14px 15px;
+  background: var(--cl-panel);
+  border: 1px solid var(--cl-line);
+  border-left: 2px solid var(--cl-line);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.cl-principal:hover { background: var(--cl-raised); border-left-color: var(--cl-line-strong); }
+.cl-principal[data-selected="true"] { background: var(--cl-panel-2); border-left-color: var(--cl-brand); }
+.cl-principal-head { display: flex; align-items: center; gap: 10px; }
+.cl-principal-name { flex: 1 1 auto; min-width: 0; font-family: var(--medium); font-size: 14.5px; color: var(--cl-ink-heading); }
+.cl-principal-role { font-size: 12.5px; color: var(--cl-ink-3); }
+.cl-principal-foot { display: flex; align-items: baseline; gap: 7px; margin-top: 2px; }
+.cl-principal-foot .cl-num { font-size: 14px; color: var(--cl-ink); }
+
+/* The one figure on the page that is about the organization rather than any
+   one member, so it is set apart from the cards instead of tucked inside one. */
+.cl-aggregate {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px;
+  margin-top: 12px; padding: 11px 15px;
+  border: 1px solid var(--cl-line);
+  border-left: 2px solid var(--cl-ink-3);
+  background: var(--cl-panel);
+}
+.cl-aggregate-figure { font-size: 17px; color: var(--cl-ink-heading); }
+.cl-aggregate .cl-meta { flex: 1 1 260px; }
+
+/* A label over a sub-list inside a section, where the section head is already
+   spent on something else. */
+.cl-spec-group { display: block; margin-bottom: 7px; }
+
+/* Lead paragraph under a section head — the sentence that says what the thing
+   is, before the values that describe it. */
+.cl-lead { font-size: 14.5px; line-height: 1.6; color: var(--cl-ink-2); max-width: 78ch; margin-bottom: 16px; }
+
+/* --- spec rows -------------------------------------------------------------
+   For a set of named values that were derived rather than entered: detected
+   requirements, resolved limits, a policy readout. A <table> with a
+   REQUIREMENT / VALUE header spends a whole row of chrome restating what the
+   two columns obviously are, and gives every value the same one-line box
+   whether it is "lending" or two sentences.
+
+   These are ruled rows with a mono key and a free-flowing value, the way a
+   datasheet sets them — no header, no cell borders, no fixed row height. */
+.cl-spec { border-top: 1px solid var(--cl-line); }
+.cl-spec-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) minmax(0, 1fr);
+  gap: 10px 26px;
+  width: 100%; text-align: left;
+  padding: 13px 4px 13px 12px;
+  border-bottom: 1px solid var(--cl-line);
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.cl-spec-row[data-static] { cursor: default; }
+.cl-spec-row:not([data-static]):hover { background: var(--cl-wash); border-left-color: var(--cl-line-strong); }
+/* Anything not yet established takes the brand edge, so a page of settled rows
+   shows its one loose end down the left margin without reading the values. */
+.cl-spec-row[data-open] { border-left-color: var(--cl-brand); }
+
+.cl-spec-key {
+  /* The tick gets a track of its own at the end of the key column rather than
+     trailing the label text. Following the text put it at a different x on
+     every row — after OBJECTIVE, then after DATA REQUIREMENTS — so eight marks
+     that mean the same thing scattered across the column. Pinned to the track,
+     they read down as one line. */
+  display: grid; grid-template-columns: minmax(0, 1fr) 14px; gap: 8px;
+  align-items: start;
+  font-family: var(--mono); font-weight: 500; font-size: 11px;
+  letter-spacing: 0.1em; text-transform: uppercase; line-height: 1.5;
+  color: var(--cl-ink-3);
+  padding-top: 3px;
+}
+.cl-spec-tick { grid-column: 2; width: 13px; height: 13px; color: var(--cl-pass); margin-top: 1px; }
+
+.cl-spec-val { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
+.cl-spec-value { font-size: 14px; line-height: 1.5; color: var(--cl-ink); overflow-wrap: anywhere; }
+.cl-spec-note { font-size: 12.5px; line-height: 1.5; color: var(--cl-ink-3); }
+
+@container cl-pane (max-width: 620px) {
+  .cl-spec-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
 
 .cl-list-row {
   display: flex; align-items: center; gap: 10px;
@@ -976,10 +1174,10 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   cursor: pointer; transition: background 0.1s ease;
 }
 .cl-list-row:hover { background: var(--cl-raised); }
-.cl-list-row[data-selected="true"] { background: rgba(0, 66, 175, 0.09); box-shadow: inset 2px 0 0 var(--cl-ink); }
+.cl-list-row[data-selected="true"] { background: var(--cl-sel); box-shadow: inset 2px 0 0 var(--cl-ink); }
 /* Selectable path steps (runtime dependencies) carry the same selected
    treatment, so a selection reads identically wherever it is made (§6.6). */
-.cl-path-step[data-selected="true"] { background: rgba(0, 66, 175, 0.09); box-shadow: inset 2px 0 0 var(--cl-ink); }
+.cl-path-step[data-selected="true"] { background: var(--cl-sel); box-shadow: inset 2px 0 0 var(--cl-ink); }
 
 /* split view used by Simulation / Attack Lab / Code / Organization */
 .cl-split { display: flex; flex: 1 1 auto; min-height: 0; }
@@ -1016,7 +1214,7 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   position: fixed; inset: 0; z-index: 400;
   display: grid; place-items: center;
   padding: 24px;
-  background: rgba(1, 13, 110, 0.42);
+  background: var(--cl-scrim);
   backdrop-filter: blur(2px);
   animation: cl-fade 0.14s ease-out;
 }
@@ -1025,7 +1223,7 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   width: min(620px, 100%); max-height: min(84vh, 760px);
   display: flex; flex-direction: column;
   background: var(--cl-panel); border: 1px solid var(--cl-ink);
-  box-shadow: 0 18px 50px rgba(1, 13, 110, 0.28);
+  box-shadow: 0 18px 50px var(--cl-shadow);
   animation: cl-rise 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes cl-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -1068,7 +1266,7 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 .cl-banner[data-tone="sim"]     { color: var(--cl-sim);     background: var(--cl-sim-bg); }
 .cl-banner[data-tone="data"]    { color: var(--cl-data);    background: var(--cl-data-bg); }
 .cl-banner[data-tone="pass"]    { color: var(--cl-pass);    background: var(--cl-pass-bg); }
-.cl-banner[data-tone="neutral"] { color: var(--cl-ink-2);   background: rgba(0, 66, 175, 0.07); }
+.cl-banner[data-tone="neutral"] { color: var(--cl-ink-2);   background: var(--cl-wash); }
 
 /* ============================================================================
    Empty states (doc §47) — what is this / why empty / what next
@@ -1104,11 +1302,36 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 .cl-step:last-child { border-bottom: none; }
 .cl-step:hover { background: var(--cl-raised); }
 .cl-step-index {
-  flex: 0 0 22px; height: 22px; display: grid; place-items: center;
-  font-family: var(--mono, ui-monospace); font-size: 11px;
+  /* Round, not square: the chip holds either a number or a tick, and a boxed
+     tick reads as a checkbox someone could click. A disc reads as a station on
+     a track, which is what a stage in a timeline is. */
+  flex: 0 0 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-family: var(--mono); font-size: 11px; line-height: 1;
   border: 1px solid var(--cl-line-strong); color: var(--cl-ink-2);
 }
 .cl-step-name { flex: 0 0 190px; min-width: 0; font-size: 13.5px; font-family: var(--medium); }
+.cl-step-index svg { width: 12px; height: 12px; }
+
+/* A six-stage timeline where four rows carry a PENDING badge spends four
+   badges saying the same thing. The row's own state lives in the index chip
+   instead — a tick when it is done, a filled chip when it is the one running —
+   and a badge appears only where the state is not what the position implies. */
+.cl-step[data-state="done"] .cl-step-index {
+  color: var(--cl-pass);
+  border-color: color-mix(in srgb, var(--cl-pass) 45%, transparent);
+}
+.cl-step[data-state="current"] { background: var(--cl-wash); }
+.cl-step[data-state="current"] .cl-step-index {
+  color: var(--cl-canvas); background: var(--cl-ink-heading); border-color: var(--cl-ink-heading);
+}
+.cl-step[data-state="current"] .cl-step-name { color: var(--cl-ink-heading); }
+.cl-step[data-state="pending"] .cl-step-index { color: var(--cl-ink-3); }
+.cl-step[data-state="pending"] .cl-step-name { color: var(--cl-ink-3); font-family: var(--sans); }
+.cl-step[data-state="exception"] .cl-step-index {
+  color: var(--cl-deny);
+  border-color: color-mix(in srgb, var(--cl-deny) 50%, transparent);
+}
 .cl-step-status { flex: 0 0 104px; display: flex; }
 .cl-step-detail { flex: 1 1 auto; min-width: 0; font-size: 12.5px; color: var(--cl-ink-3); }
 
@@ -1134,9 +1357,9 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 .cl-ref-value {
   overflow-wrap: break-word;
   min-width: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 12.5px; color: var(--cl-ink-2);
-  padding: 2px 6px; background: rgba(0, 66, 175, 0.07); border: 1px solid var(--cl-line);
+  padding: 2px 6px; background: var(--cl-wash); border: 1px solid var(--cl-line);
 }
 .cl-ref-copy { display: inline-grid; place-items: center; width: 18px; height: 18px; cursor: pointer; opacity: 0.6; transition: opacity 0.12s ease; }
 .cl-ref-copy:hover { opacity: 1; }
@@ -1157,12 +1380,12 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 
 
 /* command palette (doc §4.5) */
-.cl-palette-backdrop { position: fixed; inset: 0; z-index: 450; display: flex; justify-content: center; padding-top: 12vh; background: rgba(1, 13, 110, 0.34); backdrop-filter: blur(2px); animation: cl-fade 0.12s ease-out; }
-.cl-palette { width: min(620px, 92vw); max-height: 60vh; display: flex; flex-direction: column; background: var(--cl-panel); border: 1px solid var(--cl-ink); box-shadow: 0 18px 50px rgba(1, 13, 110, 0.3); animation: cl-rise 0.14s cubic-bezier(0.16,1,0.3,1); }
+.cl-palette-backdrop { position: fixed; inset: 0; z-index: 450; display: flex; justify-content: center; padding-top: 12vh; background: var(--cl-scrim); backdrop-filter: blur(2px); animation: cl-fade 0.12s ease-out; }
+.cl-palette { width: min(620px, 92vw); max-height: 60vh; display: flex; flex-direction: column; background: var(--cl-panel); border: 1px solid var(--cl-ink); box-shadow: 0 18px 50px var(--cl-shadow); animation: cl-rise 0.14s cubic-bezier(0.16,1,0.3,1); }
 .cl-palette-input { height: 50px; padding: 0 16px; font-size: 15px; background: transparent; border: none; border-bottom: 1px solid var(--cl-line); outline: none; }
 .cl-palette-list { flex: 1 1 auto; overflow-y: auto; padding: 6px 0; }
 .cl-palette-item { display: flex; align-items: center; gap: 10px; padding: 9px 15px; font-size: 13.5px; cursor: pointer; }
-.cl-palette-item[data-active="true"] { background: rgba(0, 66, 175, 0.1); box-shadow: inset 2px 0 0 var(--cl-ink); }
+.cl-palette-item[data-active="true"] { background: var(--cl-wash-2); box-shadow: inset 2px 0 0 var(--cl-ink); }
 .cl-palette-item-hint { margin-left: auto; font-size: 11.5px; color: var(--cl-ink-3); }
 
 /* drawers used by inspectors (kept inside the centre pane per doc §13) */
@@ -1178,7 +1401,7 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   width: 336px;
   max-width: min(336px, 100%);
   z-index: 12;
-  box-shadow: -14px 0 34px rgba(1, 13, 110, 0.16);
+  box-shadow: -14px 0 34px var(--cl-shadow);
 }
 .cl-drawer-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--cl-line); }
 .cl-drawer-body { flex: 1 1 auto; overflow-y: auto; padding: 12px; }
@@ -1186,9 +1409,9 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 /* scrollbars — thin, on-palette */
 .cl-studio ::-webkit-scrollbar { width: 9px; height: 9px; -webkit-appearance: none; }
 .cl-studio ::-webkit-scrollbar-track { background: transparent; }
-.cl-studio ::-webkit-scrollbar-thumb { background: rgba(0, 66, 175, 0.22); border: 2px solid transparent; background-clip: padding-box; }
-.cl-studio ::-webkit-scrollbar-thumb:hover { background: rgba(0, 66, 175, 0.4); background-clip: padding-box; }
-.cl-studio * { scrollbar-width: thin; scrollbar-color: rgba(0, 66, 175, 0.28) transparent; }
+.cl-studio ::-webkit-scrollbar-thumb { background: var(--cl-scroll); border: 2px solid transparent; background-clip: padding-box; }
+.cl-studio ::-webkit-scrollbar-thumb:hover { background: var(--cl-scroll-hover); background-clip: padding-box; }
+.cl-studio * { scrollbar-width: thin; scrollbar-color: var(--cl-scroll) transparent; }
 
 /* utility */
 .cl-row { display: flex; align-items: center; gap: 8px; }
@@ -1210,7 +1433,7 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   .cl-agent-drawer {
     position: fixed; top: var(--cl-titlebar-h); right: 0; bottom: var(--cl-statusbar-h);
     width: min(380px, 92vw); z-index: 300;
-    box-shadow: -12px 0 34px rgba(1, 13, 110, 0.2);
+    box-shadow: -12px 0 34px var(--cl-shadow);
   }
 }
 @media (max-width: 899px) {
@@ -1258,8 +1481,8 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   --cl-pass-bg: rgba(74, 198, 138, 0.14);
   --cl-warn: #e0a33a;
   --cl-warn-bg: rgba(224, 163, 58, 0.15);
-  --cl-deny: #f0645a;
-  --cl-deny-bg: rgba(240, 100, 90, 0.15);
+  --cl-deny: #fb5f80;
+  --cl-deny-bg: rgba(251, 95, 128, 0.15);
   --cl-sim: #a98bf5;
   --cl-sim-bg: rgba(169, 139, 245, 0.15);
   --cl-data: #49b6d6;
@@ -1291,8 +1514,6 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   background: linear-gradient(90deg, rgba(225,225,235,0.06) 25%, rgba(225,225,235,0.12) 37%, rgba(225,225,235,0.06) 63%);
   background-size: 400% 100%;
 }
-.cl-theme-dark ::-webkit-scrollbar-thumb { background: rgba(225, 225, 235, 0.2); background-clip: padding-box; }
-.cl-theme-dark * { scrollbar-color: rgba(225, 225, 235, 0.24) transparent; }
 
 /* ============================================================================
    Output log
@@ -1302,7 +1523,7 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
    so a failure is findable by scanning rather than by reading.
    ========================================================================== */
 .cl-log {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 12.5px;
   line-height: 1.75;
   padding: 2px 0;
@@ -1314,7 +1535,7 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   padding: 1px 6px;
   border-left: 2px solid transparent;
 }
-.cl-log-line:hover { background: rgba(0, 66, 175, 0.06); }
+.cl-log-line:hover { background: var(--cl-wash); }
 
 /* Row-ruled variant: a hairline under each line so a long log scans as rows. */
 .cl-log-rows { padding: 0; }
@@ -1323,8 +1544,8 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   border-bottom: 1px solid var(--cl-line);
 }
 .cl-log-rows .cl-log-line:last-child { border-bottom: none; }
-.cl-log-rows .cl-log-line:nth-child(even) { background: rgba(0, 66, 175, 0.028); }
-.cl-log-rows .cl-log-line:nth-child(even):hover { background: rgba(0, 66, 175, 0.06); }
+.cl-log-rows .cl-log-line:nth-child(even) { background: var(--cl-wash-soft); }
+.cl-log-rows .cl-log-line:nth-child(even):hover { background: var(--cl-wash); }
 .cl-log-time { color: var(--cl-ink-3); }
 .cl-log-scope { color: var(--cl-ink-3); opacity: 0.85; }
 .cl-log-msg { color: var(--cl-ink-2); overflow-wrap: anywhere; }
@@ -1361,7 +1582,7 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   min-height: 100%;
   background: #0b0f18;
   color: #ccd6e8;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 12.5px;
   line-height: 1.65;
 }
@@ -1649,12 +1870,31 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   --cl-pass-bg: rgba(74, 222, 128, 0.12);
   --cl-warn: #fbbf24;
   --cl-warn-bg: rgba(251, 191, 36, 0.12);
-  --cl-deny: #f87171;
-  --cl-deny-bg: rgba(248, 113, 113, 0.12);
+  --cl-deny: #fb5f80;
+  --cl-deny-bg: rgba(251, 95, 128, 0.12);
   --cl-sim: #a78bfa;
   --cl-sim-bg: rgba(167, 139, 250, 0.12);
   --cl-data: #67c9e0;
+  --cl-data-bg: rgba(103, 201, 224, 0.12);
+  /* The neutral verdict. It was the one left on a cool grey, which put a
+     blue-grey chip among cream ones on every table that has a quiet row. */
+  --cl-blocked: #a09885;
+  --cl-blocked-bg: rgba(160, 152, 133, 0.14);
   --cl-accent: #7aa7ff;
+
+  /* The washes, in cream. Kept deliberately shy of the light theme's alphas:
+     a light film over near-black separates at a lower value than a dark film
+     over cream does, and matching the numbers made every hover a grey slab. */
+  --cl-wash-soft: rgba(254, 241, 208, 0.022);
+  --cl-wash: rgba(254, 241, 208, 0.06);
+  --cl-wash-2: rgba(254, 241, 208, 0.11);
+  --cl-sel: rgba(254, 241, 208, 0.085);
+  --cl-scroll: rgba(254, 241, 208, 0.18);
+  --cl-scroll-hover: rgba(254, 241, 208, 0.32);
+  /* A navy scrim over a near-black page is invisible; the lift has to come
+     from black itself, carried deeper than the ground beneath it. */
+  --cl-scrim: rgba(0, 0, 0, 0.66);
+  --cl-shadow: rgba(0, 0, 0, 0.55);
 }
 
 /* The two places in this sheet that hardcode a white instead of reading a
@@ -1726,16 +1966,33 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
    emphasis a blue edge gave on a cream one. */
 .cl-dark .cl-btn-primary,
 .cl-theme-dark .cl-btn-primary {
-  background: var(--cl-ink-heading);
-  border-color: var(--cl-ink-heading);
-  color: var(--cl-canvas);
+  background: var(--cl-brand);
+  border-color: var(--cl-brand);
+  color: var(--cl-brand-ink);
 }
 
 /* Hover dims rather than inverting: going cream to dark reads as the button
    switching off at the moment it is about to be pressed. */
 .cl-dark .cl-btn-primary:hover:not(:disabled),
 .cl-theme-dark .cl-btn-primary:hover:not(:disabled) {
-  background: var(--cl-ink-2);
-  border-color: var(--cl-ink-2);
-  color: var(--cl-canvas);
+  background: #ff7454;
+  border-color: #ff7454;
+  color: var(--cl-brand-ink);
 }
+/* Focus is the brand's other job. A cream ring on a cream-inked field says
+   nothing; this one is unmistakably "you are typing here". */
+.cl-dark .cl-input:focus,
+.cl-dark .cl-select:focus,
+.cl-dark .cl-textarea:focus,
+.cl-theme-dark .cl-input:focus,
+.cl-theme-dark .cl-select:focus,
+.cl-theme-dark .cl-textarea:focus {
+  border-color: var(--cl-brand);
+  box-shadow: 0 0 0 1px var(--cl-brand);
+}
+/* The active editor tab and the active rail entry, marked in brand rather than
+   in a second shade of cream nobody can see. */
+.cl-dark .cl-tab[data-active="true"],
+.cl-theme-dark .cl-tab[data-active="true"] { box-shadow: inset 0 2px 0 var(--cl-brand); }
+.cl-dark .cl-nav-item[data-active="true"],
+.cl-theme-dark .cl-nav-item[data-active="true"] { border-left-color: var(--cl-brand); }
