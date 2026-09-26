@@ -103,7 +103,10 @@ describe("design interview", () => {
       "privacy.disclosure": "only the decision",
       "monitor.condition": "health factor below 1.6",
     });
-    expect(asked.map((q) => q.key)).toEqual(expect.arrayContaining(["privacy.required", "privacy.values", "privacy.hidden_from", "privacy.plaintext", "privacy.disclosure"]));
+    // "private agent" in the request is the user's own decision; only the details are asked.
+    expect(asked.map((q) => q.key)).not.toContain("privacy.required");
+    expect(asked.map((q) => q.key)).toEqual(expect.arrayContaining(["privacy.values", "privacy.hidden_from", "privacy.plaintext", "privacy.disclosure"]));
+    expect(bp.requirements.find((r) => r.key === "privacy.required")).toMatchObject({ value: true, provenance: { kind: "USER_ANSWER", quote: "private" } });
     expect(bp.privacy.values).toEqual([
       { id: "risk-threshold", description: "risk threshold", kind: "PRIVATE_POLICY", hiddenFrom: ["PUBLIC_CHAIN", "AI_AGENT"], plaintextBoundary: "APPROVED_ENCLAVE", allowedDisclosure: "DECISION_ONLY", failurePolicy: "FAIL_CLOSED" },
     ]);

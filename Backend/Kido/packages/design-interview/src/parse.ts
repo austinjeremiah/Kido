@@ -139,7 +139,7 @@ export function parseThreshold(s: string, kind?: ObjectiveKind): Parsed {
   const t = s.toLowerCase();
   const n = /(\d+(?:\.\d+)?)\s*(%|percent|bps)?/.exec(t);
   if (!n) return bad("expected a number");
-  const metric = /health|\bhf\b/.test(t) || kind === "LENDING_PROTECTION" ? "HEALTH_FACTOR" : /drift|allocation|%|percent/.test(t) || kind === "REBALANCE" ? "ALLOCATION_DRIFT" : "VALUE";
+  const metric = /health|\bhf\b/.test(t) || kind === "LENDING_PROTECTION" ? "HEALTH_FACTOR" : /drift|allocation|%|percent/.test(t) || kind === "REBALANCE" || kind === "TRADING" ? "ALLOCATION_DRIFT" : "VALUE";
   if (metric === "HEALTH_FACTOR") return ok({ metric, op: "LT", threshold: n[1] });
   if (metric === "ALLOCATION_DRIFT") return ok({ metric, op: "DRIFT_GT", threshold: n[1] });
   const keepAbove = /\b(keep|stay|maintain|remain)\b[^.]*\b(above|over)\b/.test(t);
@@ -148,12 +148,19 @@ export function parseThreshold(s: string, kind?: ObjectiveKind): Parsed {
 }
 
 export function parsePayees(s: string): Parsed {
+  // Anything that looks like an address but is valid on no chain is a typo to re-ask, never silently dropped.
+  for (const tok of s.match(/0x[0-9a-fA-F]{38,}/g) ?? []) {
+    if (!interviewChains().some((c) => isChainAddress(c.chainId, tok, interviewChains()))) return bad(`${tok.slice(0, 10)}… (${tok.length - 2} hex digits) is not a valid address on ${interviewChains().map((c) => c.label).join(" or ")}`);
+  }
+  const chainWords = new Set(interviewChains().flatMap((c) => [c.label.toLowerCase(), ...c.aliases]));
+  const named = [...s.matchAll(/\b([A-Z][A-Za-z0-9&]{1,30})\b/g)].map((m) => m[1]!).find((w) => !chainWords.has(w.toLowerCase()) && !/^(only|pay|the|it|and|or|may|be|my|our|on|at|to)$/i.test(w));
   const out: { label: string; chain: ChainId; address: string }[] = [];
-  const re = /(?:([A-Za-z][\w .-]{0,40}?)\s*[:=-]?\s*)?(0x[0-9a-fA-F]{64}|0x[0-9a-fA-F]{40})\b/g;
+  const re = /(?:([A-Za-z][\w .-]{0,40}?)\s*[:=-]?\s*[`'"]?)?(0x[0-9a-fA-F]{64}|0x[0-9a-fA-F]{40})\b/g;
   for (const m of s.matchAll(re)) {
     if (negatedAt(s, m.index ?? 0) || negatedAt(s, (m.index ?? 0) + m[0].length - m[2]!.length)) continue;
     const addr = m[2]!;
-    const label = (m[1] ?? "").trim().replace(/\s+(on|at)$/i, "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
+    let label = (m[1] ?? "").trim().replace(/\s+(on|at)$/i, "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
+    if (!label || chainWords.has(label)) label = named ? named.toLowerCase().replace(/[^a-z0-9-]+/g, "-") : "";
     const chain = interviewChains().find((c) => isChainAddress(c.chainId, addr, interviewChains()))?.chainId;
     if (!chain) continue;
     out.push({ label: label || `payee-${out.length + 1}`, chain, address: addr });
@@ -216,12 +223,22 @@ export function parseObjectiveKind(s: string): ObjectiveKind {
   const t = s.toLowerCase();
   if (/protect|health factor|liquidat|lending position|loan/.test(t)) return "LENDING_PROTECTION";
   if (/drift|rebalanc|allocation/.test(t)) return "REBALANCE";
+  if (/\btrad(e|es|er|ing)\b|\bswap|\bexchange\b/.test(t)) return "TRADING";
   if (/pay|invoice|payroll|vendor/.test(t)) return "PAYMENTS";
   if (/liquidity/.test(t)) return "LIQUIDITY";
   if (/treasury/.test(t)) return "TREASURY";
   if (/monitor|watch|alert|notify/.test(t)) return "MONITORING";
   if (/research|summar|report|analy/.test(t)) return "RESEARCH";
   return "OTHER";
+}
+
+/** Whether payments may go to anyone or only to recipients approved in advance; a refusal of "anyone" means approved only. */
+export function parseRecipientsScope(s: string): Parsed {
+  const anyone = hasAffirmed(s, /\b(anyone|anybody|whoever|any recipient|anywhere|everyone|whomever)\b/i) || /^\s*(yes|yeah|yep|sure)\b/i.test(s);
+  const approved = hasAffirmed(s, /\b(only|approved?|in advance|specific|listed|named|just|pre-?approved|allow ?list)\b/i) || /\b(not|never|no)\b[^.]{0,20}\b(anyone|anybody)\b/i.test(s) || /^\s*(no|nope)\b/i.test(s);
+  if (anyone && !approved) return ok("ANYONE");
+  if (approved && !anyone) return ok("APPROVED_ONLY");
+  return bad("say whether it may pay anyone, or only recipients you approve");
 }
 
 /** "at least 0.95 AMSUI for each AMUSD" → { minOutPerIn: "0.95", assetOut: "AMSUI", assetIn: "AMUSD" }. */
@@ -258,7 +275,11 @@ export function parseByType(type: AnswerType, text: string, ctx: Ctx, choices?: 
     case "privacy_values": return parsePrivacyValues(text);
     case "hidden_from": return parseHiddenFrom(text);
     case "plaintext": return parsePlaintext(text);
-    case "objective_kind": return ok(parseObjectiveKind(text));
+    case "objective_kind": {
+      const k = parseObjectiveKind(text);
+      return k === "OTHER" ? bad("could not tell what the agent should do") : ok(k);
+    }
+    case "recipients_scope": return parseRecipientsScope(text);
     case "identity_name": {
       const name = text.trim().toLowerCase().replace(/[^a-z0-9. -]/g, "").replace(/\s+/g, "-");
       return name.length >= 3 ? ok(name.slice(0, 63)) : bad("name too short");

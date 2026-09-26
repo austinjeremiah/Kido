@@ -22,6 +22,18 @@ export interface ProviderState {
   blocker: string | null;
 }
 
+/** How one allowed action is executed and enforced. */
+export interface ExecutionFact {
+  action: string;
+  chain: string;
+  providerId: string;
+  providerVersion: string;
+  adapter: { name: string; version: number } | null;
+  /** Pinned upstream objects (pool, router, fee tier) the adapter may touch; nothing else. */
+  upstream: Record<string, unknown>;
+  enforcement: string[];
+}
+
 export interface AgentSelfModel {
   kidoAgentId: string;
   objective: string;
@@ -35,12 +47,16 @@ export interface AgentSelfModel {
   forbiddenActions: string[];
   privacy: { required: boolean | null; protectedInputs: { id: string; kind: string; hiddenFrom: string[]; plaintextMayExistIn: string; mayLeave: string; protectedBy: string[] }[] };
   providers: ProviderState[];
+  execution: ExecutionFact[];
+  /** What happens if an upstream protocol changes underneath a pinned adapter. */
+  upstreamChangePolicy: string;
+  capabilitiesNotAvailable: string[];
   authority: {
     mode: string | null;
     amaneActive: boolean;
     limits: { chain: ChainId; asset: string; perAction: string; perWindow: string; windowSeconds: number; total: string }[];
-    payees: { label: string; chain: ChainId }[];
-    beneficiaries: { label: string; chain: ChainId }[];
+    payees: { label: string; chain: ChainId; address: string }[];
+    beneficiaries: { label: string; chain: ChainId; address: string }[];
     lease: { leaseId: string; expiresAt: number; revoked: boolean; remaining: { chain: ChainId; asset: string; perWindow: string; total: string }[] } | "unknown";
   };
   failureBehaviour: { oracleFailure: string; bridgeTimeout: string; leaseRevocation: string; partialExecution: string };
@@ -50,7 +66,7 @@ export interface AgentSelfModel {
  * Deterministic self-model (bible §13.2), computed from the active blueprint and live runtime state.
  * It holds no secrets: private thresholds appear only as "private" with the providers protecting them.
  */
-export function buildSelfModel(bp: KidoAgentBlueprint, rt: RuntimeSnapshot = {}, providers: ProviderState[] = []): AgentSelfModel {
+export function buildSelfModel(bp: KidoAgentBlueprint, rt: RuntimeSnapshot = {}, providers: ProviderState[] = [], execution: ExecutionFact[] = []): AgentSelfModel {
   const a = bp.authority;
   const protectedBy = (id: string) => bp.privacy.providers.filter((p) => p.satisfies.includes(id)).map((p) => (p.chain ? `${p.providerId} (${p.chain})` : p.providerId));
   const liveIdentity = new Map((rt.identity ?? []).map((i) => [`${i.provider}:${i.chain}`, i]));
@@ -78,12 +94,16 @@ export function buildSelfModel(bp: KidoAgentBlueprint, rt: RuntimeSnapshot = {},
     forbiddenActions: a.forbiddenActions,
     privacy: { required: bp.privacy.required, protectedInputs: bp.privacy.values.map((v) => ({ id: v.id, kind: v.kind, hiddenFrom: v.hiddenFrom, plaintextMayExistIn: v.plaintextBoundary, mayLeave: v.allowedDisclosure, protectedBy: protectedBy(v.id) })) },
     providers,
+    execution,
+    upstreamChangePolicy: "Each adapter is pinned by id to its exact code; an upstream protocol upgrade is outside that guarantee. Kido's knowledge drift check compares pinned protocol versions and deployments and fails closed on a security-relevant change, and Amane still measures every result on-chain, so a changed protocol can make actions fail but cannot make them exceed the policy.",
+    capabilitiesNotAvailable: ["BORROW", "WITHDRAW", ...["SWAP", "SUPPLY", "REPAY", "PAY", "BRIDGE"].filter((x) => !bp.authority.allowedActions.includes(x as never))],
     authority: {
       mode: a.mode,
       amaneActive: a.provider === "AMANE" && Boolean(rt.lease && !rt.lease.revoked && rt.lease.expiresAt * 1000 > (rt.observedAt ?? Date.now())),
       limits: a.limits,
-      payees: a.payees.map((p) => ({ label: p.label, chain: p.chain })),
-      beneficiaries: a.beneficiaries.map((b) => ({ label: b.label, chain: b.chain })),
+      // Pinned recipients are policy, not secrets: the owner signed them into the Root Policy.
+      payees: a.payees.map((p) => ({ label: p.label, chain: p.chain, address: p.address })),
+      beneficiaries: a.beneficiaries.map((b) => ({ label: b.label, chain: b.chain, address: b.address })),
       lease: rt.lease ?? "unknown",
     },
     failureBehaviour: {
@@ -105,6 +125,7 @@ const TOPICS: Topic[] = [
   { id: "data", re: /\b(data|oracle|source|monitor|watch|trust)\b/i, answer: (m) => ({ dataSources: m.dataSources, monitors: m.monitors }) },
   { id: "actions", re: /\b(actions?|allowed|forbidden|can you|may you|permitted|borrow|withdraw|swap|repay|pay)\b/i, answer: (m) => ({ allowed: m.allowedActions, forbidden: m.forbiddenActions }) },
   { id: "privacy", re: /\b(privacy|private|secret|sensitive|confidential|protect|plaintext|enclave|tee|attest\w*|seal|nautilus)\b/i, answer: (m) => ({ ...m.privacy, providers: m.providers.filter((p) => p.role === "privacy") }) },
+  { id: "execution", re: /\b(adapter|version|pool|router|minimum|min(imum)? output|slippage|floor|enforc\w*|checked|verif\w*|success|beneficiar\w*|dex|protocol|supply|withdraw|upgrade|changes?|underneath)\b/i, answer: (m) => ({ execution: m.execution, notAvailable: m.capabilitiesNotAvailable, upstreamChangePolicy: m.upstreamChangePolicy, beneficiaries: m.authority.beneficiaries }) },
   { id: "providers", re: /\b(live|simulated|provider|infrastructure|proven|status)\b/i, answer: (m) => m.providers },
   { id: "authority", re: /\b(amane|lease|limit|budget|remaining|expir|spend|authority)\b/i, answer: (m) => m.authority },
   { id: "failure", re: /\b(fail|failure|timeout|revok|stale|unavailable|what happens)\b/i, answer: (m) => m.failureBehaviour },

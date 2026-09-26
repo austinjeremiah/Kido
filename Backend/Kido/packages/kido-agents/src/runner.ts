@@ -34,8 +34,11 @@ You are a narrow Kido specialist agent. Your output is a PROPOSAL, never authori
 - If no plan satisfies the constraints in context, answer NO_COMPLIANT_PLAN. Do not invent budget or recipients.
 `.trim();
 
+/** The live model comes from the environment only; without one the live tier is BLOCKED_ENV. */
 export function modelFromEnv(): string {
-  return process.env.KIDO_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-5.6-luna";
+  const m = process.env.KIDO_MODEL ?? process.env.OPENAI_MODEL;
+  if (!m) throw new Error("BLOCKED_ENV: set OPENAI_MODEL (or KIDO_MODEL) to run live model agents");
+  return m;
 }
 
 export class OpenAISpecialistRunner implements SpecialistRunner {

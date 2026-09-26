@@ -54,6 +54,9 @@ export function ruleBasedCandidates(objective: string): ObjectiveCandidate[] {
   if (noWithdraw) out.push({ key: "authority.withdraw", value: false, quote: noWithdraw });
   const noSensitive = firstMatch(objective, /\bno (sensitive|private|secret) (data|information|inputs?) (is |are )?(involved|used|needed|required)\b|\b(there is |there's )?nothing (sensitive|private)\b|\bdoesn'?t (use|need|involve) (any )?(sensitive|private|secret) (data|information)\b/i);
   if (noSensitive) out.push({ key: "privacy.required", value: false, quote: noSensitive });
+  // An explicit request for privacy is a user decision; the details are still asked.
+  const wantsPrivacy = !noSensitive ? affirmed(objective, /\b(private|privacy|secret|confidential|never see|must not see|not be shown|hidden from|hide it)\b/i)[0]?.[0] : undefined;
+  if (wantsPrivacy) out.push({ key: "privacy.required", value: true, quote: wantsPrivacy });
   const noBridge = firstMatch(objective, /\b(never|no|not|don'?t|without)\b[^.]{0,20}\bbridg\w*/i);
   if (noBridge) out.push({ key: "authority.bridge", value: false, quote: noBridge });
   return out;
@@ -75,7 +78,7 @@ export class RuleBasedInterviewModel implements InterviewModel {
 
 /** Chains and protocols are whatever the registry lists; the model only points at quotes, which are re-parsed deterministically. */
 const extractionSchema = () => z.object({
-  objectiveKind: z.enum(["LENDING_PROTECTION", "REBALANCE", "PAYMENTS", "LIQUIDITY", "TREASURY", "MONITORING", "RESEARCH", "OTHER"]),
+  objectiveKind: z.enum(["LENDING_PROTECTION", "REBALANCE", "TRADING", "PAYMENTS", "LIQUIDITY", "TREASURY", "MONITORING", "RESEARCH", "OTHER"]),
   chains: z.array(z.object({ chain: z.string().describe(`one of: ${interviewChains().map((c) => c.label).join(", ")}`), quote: z.string() })),
   protocols: z.array(z.object({ protocol: z.string().describe(`one of: ${interviewRegistry().providers.filter((p) => p.kind === "protocol").map((p) => p.displayName).join(", ")}`), quote: z.string() })),
   restrictions: z.array(z.object({ kind: z.enum(["NO_WITHDRAW", "NO_BRIDGE", "NO_SENSITIVE_DATA"]), quote: z.string() })),
@@ -117,11 +120,10 @@ export class OpenAIInterviewModel implements InterviewModel {
     if (cs.length) out.push({ key: "chains", value: cs, quote: r.chains[0]!.quote });
     const ps = fromQuotes(r.protocols.map((p) => p.quote), parseProtocols);
     if (ps.length) out.push({ key: "protocols", value: ps, quote: r.protocols[0]!.quote });
-    for (const x of r.restrictions.filter((x) => quoted(objective, x.quote))) {
-      if (x.kind === "NO_WITHDRAW") out.push({ key: "authority.withdraw", value: false, quote: x.quote });
-      if (x.kind === "NO_BRIDGE") out.push({ key: "authority.bridge", value: false, quote: x.quote });
-      if (x.kind === "NO_SENSITIVE_DATA") out.push({ key: "privacy.required", value: false, quote: x.quote });
-    }
+    // Restrictions and privacy decisions are taken from the deterministic reading of the user's own
+    // words only; the model's restriction labels are not trusted on their own.
+    void r.restrictions;
+    for (const c of ruleBasedCandidates(objective)) if (["authority.withdraw", "authority.bridge", "privacy.required"].includes(c.key)) out.push(c);
     return out;
   }
 

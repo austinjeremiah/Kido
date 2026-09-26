@@ -53,6 +53,8 @@ export class DesignInterview {
     for (const c of await model.extract(objective)) {
       const def = byKey(c.key);
       if (!def) continue;
+      // An unclassifiable request is not a purpose: leave it for the objective question.
+      if (c.key === "objective.kind" && c.value === "OTHER") continue;
       if (c.key !== "objective.kind" && !objective.toLowerCase().includes(c.quote.toLowerCase().trim())) {
         s.warnings.push(`dropped unquoted model candidate for ${c.key}`);
         continue;

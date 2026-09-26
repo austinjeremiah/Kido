@@ -88,7 +88,7 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
     const src = protocols[0] ?? "chain-rpc";
     const chain = (protocols[0] ? reg.chainsFor(protocols[0]).find((c) => chains.includes(c)) : undefined) ?? chains[0] ?? null;
     dataSources.push({ id: `${src}-state`, providerId: src, chain, kind: cond.metric, minTrust: "RPC_DIRECT", maxAgeMs: KIDO_DEFAULTS.dataMaxAgeMs, onUnavailable, privateValueRef: null });
-    const action: Action | null = kind === "LENDING_PROTECTION" && allowed.includes("REPAY") ? "REPAY" : kind === "REBALANCE" && allowed.includes("SWAP") ? "SWAP" : null;
+    const action: Action | null = kind === "LENDING_PROTECTION" && allowed.includes("REPAY") ? "REPAY" : (kind === "REBALANCE" || kind === "TRADING") && allowed.includes("SWAP") ? "SWAP" : null;
     monitors.push({
       id: `${cond.metric.toLowerCase()}-watch`,
       dataSource: `${src}-state`,

@@ -7,7 +7,7 @@ import { buildPublicManifest, compileIdentityPlan, type PlannedBinding } from "@
 import { KnowledgeBase } from "@kido/knowledge";
 import { applyPrivacyPlan, compilePrivacy, type PrivacyPlan } from "@kido/privacy";
 import { ProviderRegistry } from "@kido/registry";
-import { buildAgentContext, buildSelfModel, compileAmaneAuthority, introspect, type AgentRuntimeState, type AuthorityResult, type ProviderState, type RuntimeSnapshot } from "@kido/runtime";
+import { buildAgentContext, buildSelfModel, compileAmaneAuthority, introspect, type AgentRuntimeState, type AuthorityResult, type ExecutionFact, type ProviderState, type RuntimeSnapshot } from "@kido/runtime";
 import type { AmaneDeploymentManifest } from "@kido/amane-bridge";
 import { authorityEndpoints } from "./endpoints.js";
 import { securityReview, type SecurityReport } from "./review.js";
@@ -215,7 +215,32 @@ export class Foundry {
 
   selfModel(projectId: string, runtime: RuntimeSnapshot = {}) {
     const bp = this.requireBlueprint(this.d.store.load(projectId));
-    return buildSelfModel(bp, runtime, this.providerStates(bp));
+    return buildSelfModel(bp, runtime, this.providerStates(bp), this.executionFacts(bp));
+  }
+
+  /** Adapter, pinned upstream and on-chain enforcement for every allowed action, from the Amane manifest and registry. */
+  private executionFacts(bp: KidoAgentBlueprint): ExecutionFact[] {
+    type Fam = { adapters: { name: string; version: number; actionKind: string; upstream?: Record<string, unknown> }[]; pools?: Record<string, Record<string, unknown>> };
+    const m = this.d.amaneManifest as unknown as { evm: Fam; sui: Fam };
+    return bp.actions.map((a) => {
+      const fam = a.chain === "ethereum-sepolia" ? m.evm : m.sui;
+      const exec = this.registry.get(a.providerId)?.execution?.find((e) => e.action === a.action);
+      const ad = fam.adapters.find((x) => x.actionKind === a.action && (!exec || x.name === exec.amaneAdapter));
+      const pools = Object.values(fam.pools ?? {});
+      const enforcement: string[] = ["action, adapter id, name and version must be in the owner-signed Root Policy and the active lease", "per-action, per-window and total budgets are debited on-chain"];
+      if (a.action === "SWAP") enforcement.push(...bp.authority.swapFloors.filter((f) => f.chain === a.chain).map((f) => `output must be at least ${f.minOutPerIn} ${f.assetOut} per ${f.assetIn}; Amane measures the output it received and reverts below the floor`), "swap output can only return to the account");
+      if (a.action === "REPAY") enforcement.push("only the pinned beneficiary's debt can be repaid", "Amane measures the beneficiary's variable-debt-token balance before and after and requires the fall to match the amount spent (minimum ratio pinned in the policy)");
+      if (a.action === "PAY") enforcement.push("payments only to payees pinned in the policy; delivery measured on-chain");
+      return {
+        action: a.action,
+        chain: a.chain,
+        providerId: a.providerId,
+        providerVersion: this.registry.get(a.providerId)?.version ?? "unknown",
+        adapter: ad ? { name: ad.name, version: ad.version } : null,
+        upstream: { ...(ad?.upstream ?? {}), ...(a.action === "SWAP" && pools.length ? { permittedPools: pools.map((p) => p.pool) } : {}) },
+        enforcement,
+      };
+    });
   }
 
   /** Implementation state of every provider the blueprint relies on, straight from the registry. */

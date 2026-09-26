@@ -7,9 +7,9 @@ const humanDuration = (secs: number) => (secs % 3600 === 0 ? (secs === 3600 ? "o
 export type AnswerType =
   | "authority_mode" | "yesno" | "chains" | "protocols" | "actions" | "autonomy" | "asset" | "amount"
   | "payees" | "threshold" | "identity_name" | "privacy_values" | "hidden_from" | "plaintext" | "disclosure"
-  | "recovery" | "objective_kind" | "swap_floor" | "duration" | "beneficiary";
+  | "recovery" | "objective_kind" | "swap_floor" | "duration" | "beneficiary" | "recipients_scope";
 
-export type ObjectiveKind = "LENDING_PROTECTION" | "REBALANCE" | "PAYMENTS" | "LIQUIDITY" | "TREASURY" | "MONITORING" | "RESEARCH" | "OTHER";
+export type ObjectiveKind = "LENDING_PROTECTION" | "REBALANCE" | "TRADING" | "PAYMENTS" | "LIQUIDITY" | "TREASURY" | "MONITORING" | "RESEARCH" | "OTHER";
 
 /** Resolved values keyed by requirement key; the interview's view of the world. */
 export type Ctx = Record<string, unknown>;
@@ -44,7 +44,7 @@ const acts = (c: Ctx) => (c["actions.allowed"] as Action[] | undefined) ?? [];
 const chains = (c: Ctx) => (c["chains"] as ChainId[] | undefined) ?? [];
 const kind = (c: Ctx) => c["objective.kind"] as ObjectiveKind | undefined;
 const privateValues = (c: Ctx) => ((c["privacy.values"] as unknown[] | undefined) ?? []).length > 0;
-const watches = (c: Ctx) => ["LENDING_PROTECTION", "REBALANCE", "MONITORING", "LIQUIDITY"].includes(kind(c) ?? "");
+const watches = (c: Ctx) => ["LENDING_PROTECTION", "REBALANCE", "TRADING", "MONITORING", "LIQUIDITY"].includes(kind(c) ?? "");
 const spendList = (c: Ctx): string[] => (Array.isArray(c["assets.spend"]) ? (c["assets.spend"] as string[]) : typeof c["assets.spend"] === "string" ? [c["assets.spend"] as string] : []);
 const assetSymbol = (c: Ctx) => (spendList(c).length > 1 ? `of each of ${spendList(c).join(" and ")}` : (spendList(c)[0] ?? "tokens"));
 
@@ -67,13 +67,13 @@ export const CATALOG: RequirementDef[] = [
   {
     key: "objective.kind",
     topic: "OBJECTIVE",
-    class: "INFERABLE",
+    // Asked first when the request does not say what the agent is for; inferred otherwise.
+    class: "USER_REQUIRED",
     critical: false,
-    bucket: 10,
+    bucket: 0,
     answerType: "objective_kind",
     appliesWhen: () => true,
-    question: () => ({ text: "In one sentence, what should this agent achieve?" }),
-    infer: () => undefined,
+    question: () => ({ text: "What should this agent do for you? For example: protect a loan, trade tokens, pay suppliers, or watch something and alert you." }),
   },
   {
     key: "authority.mode",
@@ -110,10 +110,16 @@ export const CATALOG: RequirementDef[] = [
     class: "USER_REQUIRED",
     critical: true,
     bucket: 1,
-    answerType: "yesno",
+    answerType: "recipients_scope",
     appliesWhen: (c) => financial(c) && acts(c).includes("PAY"),
-    question: () => ({ text: "Should it be able to pay anyone it chooses, or only recipients you approve in advance? (answer yes for anyone)" }),
-    unsatisfiable: (v) => (v === true ? "payments to arbitrary recipients are never authorized; approve recipients in advance instead" : undefined),
+    question: () => ({
+      text: "Should it be able to pay anyone it chooses, or only recipients you approve in advance?",
+      choices: [
+        { value: "APPROVED_ONLY", label: "Only recipients I approve in advance" },
+        { value: "ANYONE", label: "Anyone it chooses" },
+      ],
+    }),
+    unsatisfiable: (v) => (v === "ANYONE" ? "payments to arbitrary recipients are never authorized; approve recipients in advance instead" : undefined),
   },
   {
     key: "authority.bridge",
@@ -153,7 +159,7 @@ export const CATALOG: RequirementDef[] = [
     critical: true,
     bucket: 3,
     answerType: "protocols",
-    appliesWhen: (c) => ["LENDING_PROTECTION", "REBALANCE", "LIQUIDITY"].includes(kind(c) ?? "") || acts(c).some((a) => a === "SWAP" || a === "REPAY"),
+    appliesWhen: (c) => ["LENDING_PROTECTION", "REBALANCE", "TRADING", "LIQUIDITY"].includes(kind(c) ?? "") || acts(c).some((a) => a === "SWAP" || a === "REPAY"),
     question: (c) => ({ text: kind(c) === "LENDING_PROTECTION" ? "Which lending protocol is your position on?" : "Which exchange should it use?", choices: protocolChoices(c) }),
   },
   {
@@ -167,7 +173,9 @@ export const CATALOG: RequirementDef[] = [
     unsatisfiable: (v) => ((v as string[]).some((a) => a === "BORROW" || a === "WITHDRAW") ? "agents are never granted borrowing or withdrawal; remove those actions" : undefined),
     question: (c) => {
       const protos = (c["protocols"] as string[] | undefined) ?? [];
-      const options = new Set<string>(protos.flatMap((p) => reg().actionsOf(p)));
+      // Before a protocol is chosen, offer every action some provider executes on the chosen chains.
+      const cs = chains(c).length ? chains(c) : interviewChains().map((x) => x.chainId);
+      const options = new Set<string>(protos.length ? protos.flatMap((p) => reg().actionsOf(p)) : reg().providers.filter((p) => p.chains.some((ch) => cs.includes(ch))).flatMap((p) => reg().actionsOf(p.providerId)));
       if ((kind(c) === "PAYMENTS" || options.size === 0) && payProviders(c).length) options.add("PAY");
       return { text: "Which actions may it take?", choices: [...options].map((a) => ({ value: a, label: ACTION_LABEL[a] ?? a })) };
     },
@@ -302,7 +310,7 @@ export const CATALOG: RequirementDef[] = [
     answerType: "threshold",
     appliesWhen: watches,
     question: (c) => ({
-      text: kind(c) === "LENDING_PROTECTION" ? "At what health factor should it act?" : kind(c) === "REBALANCE" ? "How far may your allocation drift before it acts (in percent)?" : "What condition should it watch for?",
+      text: kind(c) === "LENDING_PROTECTION" ? "At what health factor should it act?" : kind(c) === "REBALANCE" || kind(c) === "TRADING" ? "How far may your allocation drift before it trades (in percent)?" : "What condition should it watch for?",
     }),
   },
   {
