@@ -50,7 +50,7 @@ describe("BREAK: knowledge drift", () => {
 describe("BREAK: secrets in knowledge", () => {
   it("break_F0532_secret_in_pack_reaches_role_context", () => {
     const secrets = [
-      "OPENAI_API_KEY=sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789",
+      "OPENAI_API_KEY=sk-proj-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789", // NOT-A-REAL-KEY
       "suiprivkey1qzv8m0example0example0example0example0example0example0",
       `deployer key 0x${"4f".repeat(32)}`,
     ];

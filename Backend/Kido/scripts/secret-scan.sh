@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# ContextLock secret scanner. Fails (exit 1) if any secret material is tracked by git.
+# Kido secret scanner. Fails (exit 1) if any secret material is tracked by git.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 FAIL=0
 say(){ printf '%s\n' "$*"; }
 
-say "=== ContextLock secret scan ==="
+say "=== Kido secret scan ==="
 
 # 1. Files that must never be tracked
 say "--- tracked-file check ---"
@@ -65,7 +65,7 @@ done < <(git ls-files)
 #     Verify that literally: any line assigning a value (rather than referencing an env var name)
 #     fails the scan, so the exception cannot be abused to smuggle a secret in.
 say "--- CRE secrets.yaml name-only check ---"
-for f in $(git ls-files 'workflows/cre-policy/**/secrets.yaml' 2>/dev/null); do
+for f in $(git ls-files 'workflows/**/secrets.yaml' 2>/dev/null); do
   # Permitted shapes: comments, `secretsNames:`, `  ID:`, `    - ENV_VAR_NAME`.
   if grep -vE '^[[:space:]]*(#|$)|^secretsNames:|^[[:space:]]+[A-Za-z0-9_]+:[[:space:]]*$|^[[:space:]]+-[[:space:]]*[A-Z0-9_]+[[:space:]]*$' "$f" | grep -q .; then
     say "FAIL $f contains something other than a name mapping"; FAIL=1

@@ -68,7 +68,7 @@ describe("private inputs never enter Kido or the model", () => {
   });
 
   it("a pasted API key is discarded, never stored or forwarded", async () => {
-    const key = "sk-proj-AbCdEfGhIjKlMnOpQrStUv0123456789";
+    const key = "sk-proj-AbCdEfGhIjKlMnOpQrStUv0123456789"; // NOT-A-REAL-KEY
     const { iv, m } = await run("Watch my Aave health factor and alert me", { ...PRIVATE, "privacy.values": `the API key, it is ${key}`, "monitor.condition": "health factor below 1.5" });
     expect(JSON.stringify(iv.state)).not.toContain(key);
     expect(m.seen.join("\n")).not.toContain(key);

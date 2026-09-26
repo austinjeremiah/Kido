@@ -58,7 +58,7 @@ studio*.db*
 reports/group-e/evidence/image/agent-runtime.oci.tar
 reports/group-e/evidence/image/oci/
 
-# Studio credentials held under the Ledger Key Ring (wallet-cli ring encrypt). Ciphertext, but never committed.
+# Encrypted credential files: ciphertext, but never committed.
 /secrets/
 .kido/
 move/*/build/

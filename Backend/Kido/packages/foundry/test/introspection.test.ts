@@ -104,7 +104,7 @@ describe("introspection", () => {
     const privacy = (q.facts.privacy as { providers: { providerId: string; status: string; live: boolean; blocker: string | null }[] }).providers;
     expect(privacy.length).toBeGreaterThan(0);
     for (const p of privacy) {
-      if (p.providerId === "nautilus") expect(p).toMatchObject({ live: false, status: "NOT_IMPLEMENTED", blocker: expect.stringMatching(/^BLOCKED_ENV/) });
+      if (p.providerId === "nautilus") expect(p).toMatchObject({ live: false, status: "IMPLEMENTED_LOCAL", blocker: expect.stringMatching(/^BLOCKED_ENV/) });
       if (p.providerId === "chainlink-cre") expect(p).toMatchObject({ live: false, status: "SIMULATED", blocker: expect.stringMatching(/^BLOCKED_AUTH/) });
     }
     expect(privacy.some((p) => p.live)).toBe(false);
