@@ -2,3 +2,5 @@ export * from "./endpoints.js";
 export * from "./review.js";
 export * from "./simulate.js";
 export * from "./service.js";
+export * from "./deploy.js";
+export * from "./runtime-builder.js";

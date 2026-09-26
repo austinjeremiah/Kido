@@ -39,6 +39,8 @@ export interface AuthorityCompileOptions {
   controllers: `0x${string}`[];
   issuer: `0x${string}`;
   agent: `0x${string}`;
+  /** Account id shared by every endpoint of this deployment. */
+  accountId?: Bytes32;
   now: bigint;
 }
 
@@ -151,7 +153,7 @@ export function compileAmaneAuthority(bp: KidoAgentBlueprint, endpoints: Authori
   if (blockers.length) return { ok: false, blockers };
 
   const policy: RootPolicy = {
-    accountId: bp.amane?.accountId as Bytes32 ?? ZERO32,
+    accountId: o.accountId ?? ((bp.amane?.accountId as Bytes32 | null) ?? ZERO32),
     policyVersion: 1n,
     parentPolicyHash: ZERO32,
     allowedActions: actionMask(...granted),

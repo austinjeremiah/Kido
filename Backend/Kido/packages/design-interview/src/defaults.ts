@@ -22,6 +22,10 @@ export const KIDO_DEFAULTS = {
    * accrues between reading and repaying a debt, so an exact 1:1 would reject honest repayments.
    */
   repayMinReductionPerSpent: "0.9999",
+  /** A health-factor rescue repays until HF reaches trigger threshold × this margin. */
+  healthFactorTargetMargin: 1.2,
+  /** Lifetime of a signed agent action before it expires. */
+  actionTtlSeconds: 300,
   /** Knowledge every generated agent receives. */
   basePacks: ["platform/kido", "platform/actions"],
 } as const;

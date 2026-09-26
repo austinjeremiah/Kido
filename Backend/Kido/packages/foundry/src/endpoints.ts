@@ -40,7 +40,7 @@ const FAMILY: Record<ChainFamily, {
  * deployed endpoints; without, symbolic accounts derived from the KidoAgentId (simulation only).
  * Every adapter the Amane manifest lists is offered; an action without a shipped adapter is absent.
  */
-export function authorityEndpoints(bp: KidoAgentBlueprint, manifest: AmaneDeploymentManifest, reg: ProviderRegistry, accounts: Partial<Record<ChainId, Bytes32>> = {}, chains: ChainProfile[] = CHAINS): AuthorityEndpoint[] {
+export function authorityEndpoints(bp: KidoAgentBlueprint, manifest: AmaneDeploymentManifest, reg: ProviderRegistry, accounts: Partial<Record<ChainId, Bytes32>> = {}, chains: ChainProfile[] = CHAINS, recovery: Partial<Record<ChainId, Bytes32>> = {}): AuthorityEndpoint[] {
   return bp.chains.map((chain) => {
     const profile = chains.find((c) => c.chainId === chain);
     if (!profile) throw new Error(`no chain profile for ${chain}`);
@@ -62,7 +62,8 @@ export function authorityEndpoints(bp: KidoAgentBlueprint, manifest: AmaneDeploy
       account,
       assets,
       adapters,
-      recovery: { recipientId: account, label: "owner recovery" },
+      // Owner recovery goes to the owner's own address when given; simulation falls back to the account.
+      recovery: { recipientId: recovery[chain] ?? account, label: "owner recovery" },
       debtTokens,
       repay: profile.family === "evm" && coreVersion >= 2 && Boolean(adapters.REPAY),
       repayFloor: ratio(KIDO_DEFAULTS.repayMinReductionPerSpent),
