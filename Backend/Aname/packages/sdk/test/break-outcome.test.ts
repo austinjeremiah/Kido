@@ -113,7 +113,7 @@ describe('EVM outcome classification', () => {
 
   // F-0230: the signed action is front-run by another relayer (executors are untrusted and hold
   // the signature). Our tx lands after it and reverts with REPLAY_NONCE; the action DID execute.
-  it('break_F0230 front-run action reported as operational failure although it executed', async () => {
+  it('fixed_F0230 front-run action reported as operational failure although it executed', async () => {
     const { ep } = evmEndpoint({
       execCall: (n) => (n === 0 ? undefined : amaneRevert(AMANE_CODES.AMANE_REPLAY_NONCE)),
       receiptStatus: '0x0',
@@ -127,7 +127,7 @@ describe('EVM outcome classification', () => {
 
   // F-0231: a pause/revoke lands between simulation and inclusion. The on-chain revert is a policy
   // rejection (ACTION_ACCOUNT_PAUSED) but is reported as an operational failure without a code.
-  it('break_F0231 on-chain policy rejection after simulation reported as operational failure', async () => {
+  it('fixed_F0231 on-chain policy rejection after simulation reported as operational failure', async () => {
     const { ep } = evmEndpoint({
       execCall: (n) => (n === 0 ? undefined : amaneRevert(AMANE_CODES.AMANE_ACTION_ACCOUNT_PAUSED)),
       receiptStatus: '0x0',
@@ -142,7 +142,7 @@ describe('EVM rejection evidence', () => {
   // F-0234: a REJECTED_BY_AMANE outcome for executeAction rests only on one eth_call answer from
   // the configured RPC. executeAction cannot request submitRejected, so a censoring RPC/executor
   // can make censorship look like a deterministic policy rejection with no on-chain evidence.
-  it('break_F0234 executeAction rejection has no on-chain evidence and cannot request it', async () => {
+  it('fixed_F0234 executeAction rejection has no on-chain evidence and cannot request it', async () => {
     const { ep, sent } = evmEndpoint({ execCall: () => amaneRevert(AMANE_CODES.AMANE_LEASE_NOT_ACTIVE), receiptStatus: '0x0', nonceUsed: false });
     const out = await (ep.executeAction as (...a: unknown[]) => Promise<{ kind: string; tx?: string }>)(fixtureAction(), '0x', { submitRejected: true });
     expect(out.kind).toBe('REJECTED_BY_AMANE');
@@ -182,7 +182,7 @@ describe('Sui outcome classification', () => {
     expect(out.kind).toBe('OPERATIONAL_FAILURE');
   });
 
-  it('break_F0230 sui front-run action reported as rejected although it executed', async () => {
+  it('fixed_F0230 sui front-run action reported as rejected although it executed', async () => {
     const { ep } = suiEndpoint(
       { Transaction: { digest: 'sim' } },
       { FailedTransaction: { digest: 'D1', status: abort(AMANE_CODES.AMANE_REPLAY_NONCE, PKG) } },
@@ -193,7 +193,7 @@ describe('Sui outcome classification', () => {
 
   // F-0232: an abort with no location package is attributed to Amane even though its origin is
   // unknown (e.g. an adapter or upstream protocol aborting with a colliding number).
-  it('break_F0232 abort without location is attributed to Amane', async () => {
+  it('fixed_F0232 abort without location is attributed to Amane', async () => {
     const { ep } = suiEndpoint({ FailedTransaction: { status: abort(AMANE_CODES.AMANE_BUDGET_EPOCH) } }, undefined);
     const out = await ep.run(new (await import('@mysten/sui/transactions')).Transaction());
     expect(out.kind).toBe('OPERATIONAL_FAILURE');
@@ -201,7 +201,7 @@ describe('Sui outcome classification', () => {
 
   // F-0233: an underfunded vault is a funding/operational condition (EVM reports it as an
   // operational token revert) but Sui reports it as a policy rejection.
-  it('break_F0233 underfunded sui vault classified as policy rejection', async () => {
+  it('fixed_F0233 underfunded sui vault classified as policy rejection', async () => {
     const { ep } = suiEndpoint({ FailedTransaction: { status: abort(AMANE_CODES.AMANE_OWNER_INSUFFICIENT_VAULT, PKG) } }, undefined);
     const out = await ep.run(new (await import('@mysten/sui/transactions')).Transaction());
     expect(out.kind).toBe('OPERATIONAL_FAILURE');

@@ -11,7 +11,7 @@ import {
   type Withdraw,
 } from '@amane/core';
 import { amaneAccountAbi, amaneAccountBytecode } from './evm-artifacts.js';
-import { evmRejection, type AmaneOutcome } from './outcome.js';
+import { classifyCode, evmRejection, type AmaneOutcome } from './outcome.js';
 
 type Wallet = WalletClient<Transport, ViemChain, Account>;
 
@@ -97,8 +97,8 @@ export class AmaneEvmEndpoint {
     return this.send('activateLease', [lease, sig]);
   }
 
-  executeAction(intent: ActionIntent, agentSig: Hex) {
-    return this.send('executeAction', [intent, agentSig]);
+  executeAction(intent: ActionIntent, agentSig: Hex, opts: { submitRejected?: boolean } = {}) {
+    return this.send('executeAction', [intent, agentSig], opts);
   }
 
   pause(msg: PauseAccount, sig: Hex) {
@@ -118,24 +118,32 @@ export class AmaneEvmEndpoint {
   }
 
   /// Simulates first so a policy rejection is reported with its Amane code and never spends gas.
+  /// A transaction that passed simulation but reverted on inclusion (a pause, revoke or competing
+  /// relayer landed first) is re-simulated to recover its code.
   async send(functionName: string, args: unknown[], opts: { submitRejected?: boolean } = {}): Promise<AmaneOutcome> {
+    const call = { address: this.address, abi: amaneAccountAbi, functionName, args, account: this.relayer.account } as never;
     try {
-      const { request } = await this.publicClient.simulateContract({
-        address: this.address,
-        abi: amaneAccountAbi,
-        functionName,
-        args,
-        account: this.relayer.account,
-      } as never);
+      const { request } = await this.publicClient.simulateContract(call);
       const tx = await this.relayer.writeContract(request as never);
       const receipt = await this.publicClient.waitForTransactionReceipt({ hash: tx });
-      if (receipt.status !== 'success') return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: 'reverted after simulation', tx };
-      return { kind: 'EXECUTED', chain: this.chain, tx, block: receipt.blockNumber.toString() };
+      if (receipt.status === 'success') return { kind: 'EXECUTED', chain: this.chain, tx, block: receipt.blockNumber.toString() };
+      const code = await this.simulatedRejection(call);
+      if (code) return classifyCode(this.chain, code, tx);
+      return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: 'reverted on inclusion without an Amane code', tx };
     } catch (err) {
       const code = evmRejection(err);
       if (code && opts.submitRejected) return this.submitRejected(functionName, args, code);
-      if (code) return { kind: 'REJECTED_BY_AMANE', chain: this.chain, code };
+      if (code) return classifyCode(this.chain, code);
       return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: (err as Error).message.split('\n')[0]! };
+    }
+  }
+
+  private async simulatedRejection(call: never): Promise<string | undefined> {
+    try {
+      await this.publicClient.simulateContract(call);
+      return undefined;
+    } catch (err) {
+      return evmRejection(err);
     }
   }
 
@@ -150,6 +158,6 @@ export class AmaneEvmEndpoint {
     } as never);
     const receipt = await this.publicClient.waitForTransactionReceipt({ hash: tx });
     if (receipt.status === 'success') return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: 'expected rejection but succeeded', tx };
-    return { kind: 'REJECTED_BY_AMANE', chain: this.chain, code, tx };
+    return classifyCode(this.chain, code, tx);
   }
 }

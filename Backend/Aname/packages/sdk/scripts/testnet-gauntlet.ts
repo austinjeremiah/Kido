@@ -290,8 +290,8 @@ record('ATTACK   pay to attacker address (Sepolia)', await evm.send('executeActi
 const thiefSui = intent('sui', { recipient: suiObjectToBytes32(suiRelayer.toSuiAddress()) });
 record('ATTACK   pay to executor address (Sui)', await suiEp.pay(amusdSui, thiefSui, await agentSign(thiefSui), land), 'AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
 
-record('ATTACK   replay executed action (Sepolia)', await evm.send('executeAction', [evmPay, evmPaySig], land), 'AMANE_REPLAY_NONCE');
-record('ATTACK   replay executed action (Sui)', await suiEp.pay(amusdSui, suiPay, suiPaySig, land), 'AMANE_REPLAY_NONCE');
+record('ATTACK   replay executed action (Sepolia)', await evm.send('executeAction', [evmPay, evmPaySig], land), 'NONCE_CONSUMED');
+record('ATTACK   replay executed action (Sui)', await suiEp.pay(amusdSui, suiPay, suiPaySig, land), 'NONCE_CONSUMED');
 
 record('ATTACK   Sui-signed action relayed to Sepolia', await evm.send('executeAction', [suiPay, suiPaySig], land), 'AMANE_ACTION_WRONG_ENDPOINT');
 const freshEvm = intent('evm');

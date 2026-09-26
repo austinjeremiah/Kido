@@ -15,7 +15,7 @@ import {
   type UnpauseAccount,
   type Withdraw,
 } from '@amane/core';
-import { suiAbortName, type AmaneOutcome } from './outcome.js';
+import { classifyCode, suiAbortName, type AmaneOutcome } from './outcome.js';
 
 type Field = { name: string; type: string };
 const TYPES = AMANE_TYPES as unknown as Record<string, readonly Field[]>;
@@ -236,7 +236,7 @@ export class AmaneSuiEndpoint {
       if (!sim.Transaction) {
         const code = this.abortCode(sim.FailedTransaction!.status);
         if (!code) return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: JSON.stringify(sim.FailedTransaction!.status) };
-        if (!opts.submitRejected) return { kind: 'REJECTED_BY_AMANE', chain: this.chain, code };
+        if (!opts.submitRejected) return classifyCode(this.chain, code);
         await this.pinGas(tx);
       }
       const res = await this.client.signAndExecuteTransaction({ transaction: tx, signer: this.relayer, include: { effects: true, events: true } });
@@ -244,12 +244,12 @@ export class AmaneSuiEndpoint {
       await this.client.waitForTransaction({ digest: done.digest });
       if (res.Transaction) return { kind: 'EXECUTED', chain: this.chain, tx: done.digest };
       const code = this.abortCode(done.status);
-      if (code) return { kind: 'REJECTED_BY_AMANE', chain: this.chain, code, tx: done.digest };
+      if (code) return classifyCode(this.chain, code, done.digest);
       return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: JSON.stringify(done.status), tx: done.digest };
     } catch (err) {
       const message = (err as Error).message.split('\n')[0]!;
       const code = this.abortCodeFromMessage(message);
-      if (code) return { kind: 'REJECTED_BY_AMANE', chain: this.chain, code };
+      if (code) return classifyCode(this.chain, code);
       return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message };
     }
   }
@@ -276,7 +276,7 @@ export class AmaneSuiEndpoint {
     const abort = e?.MoveAbort;
     if (!abort) return undefined;
     const pkg = abort.location?.package;
-    if (pkg && suiObjectToBytes32(pkg) !== suiObjectToBytes32(this.packageId)) return undefined;
+    if (!pkg || suiObjectToBytes32(pkg) !== suiObjectToBytes32(this.packageId)) return undefined;
     return suiAbortName(abort.abortCode);
   }
 }
