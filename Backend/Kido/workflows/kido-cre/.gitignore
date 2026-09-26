@@ -1,0 +1,5 @@
+.env
+node_modules/
+decision/config.staging.json
+*.wasm
+.cre_build_tmp.js

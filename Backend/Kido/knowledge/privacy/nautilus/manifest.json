@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "kido.knowledge-pack/v1",
+  "pack": "privacy/nautilus",
+  "providerId": "nautilus",
+  "displayName": "Nautilus (verifiable off-chain compute for Sui)",
+  "version": "MystenLabs/nautilus@0104d627 (no npm package)",
+  "researchDate": "2026-09-26",
+  "status": "BLOCKED_ENV",
+  "statusNote": "BE-NAUT-1: no AWS Nitro host; local Move fixtures and on-chain attestation rejection verified",
+  "chains": [
+    "sui-testnet"
+  ],
+  "sdk": [],
+  "capabilities": [
+    "CONFIDENTIAL_COMPUTE",
+    "VERIFIABLE_COMPUTE",
+    "PRIVATE_API_ACCESS",
+    "DECISION_ONLY_OUTPUT"
+  ],
+  "deployments": {
+    "sui-testnet": {
+      "attestationModule": "0x2::nitro_attestation"
+    }
+  },
+  "trust": {
+    "providerId": "nautilus",
+    "protects": [
+      "computation and inputs inside an attested enclave"
+    ],
+    "verifies": [
+      "enclave attestation checked on-chain"
+    ],
+    "requiresTrustIn": [
+      "enclave hardware vendor",
+      "enclave image reproducibility",
+      "attestation verification package"
+    ],
+    "doesNotProtectAgainst": [
+      "side channels outside the vendor's model",
+      "a malicious enclave image that was approved"
+    ],
+    "version": "unpinned",
+    "sourceRefs": [
+      "https://docs.sui.io/concepts/cryptography/nautilus"
+    ]
+  },
+  "failureModes": [
+    "enclave unavailable",
+    "attestation mismatch"
+  ],
+  "limitations": [
+    "AWS Nitro enclave framework; live use needs an attested Nitro (or Oyster) host",
+    "on-chain sui::nitro_attestation verification is live"
+  ],
+  "sources": [
+    {
+      "url": "https://docs.sui.io/concepts/cryptography/nautilus",
+      "retrieved": "2026-09-26"
+    },
+    {
+      "url": "https://github.com/MystenLabs/nautilus",
+      "retrieved": "2026-09-26"
+    }
+  ],
+  "execution": []
+}

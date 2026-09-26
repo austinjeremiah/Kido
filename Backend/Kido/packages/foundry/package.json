@@ -1,0 +1,22 @@
+{
+  "name": "@kido/foundry",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./src/index.ts", "default": "./src/index.ts" } },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run" },
+  "dependencies": {
+    "@kido/agents": "*",
+    "@kido/amane-bridge": "*",
+    "@kido/blueprint": "*",
+    "@kido/design-interview": "*",
+    "@kido/identity": "*",
+    "@kido/knowledge": "*",
+    "@kido/privacy": "*",
+    "@kido/registry": "*",
+    "@kido/runtime": "*",
+    "viem": "2.56.9"
+  }
+}

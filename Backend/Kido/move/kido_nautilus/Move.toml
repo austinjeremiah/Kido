@@ -1,0 +1,6 @@
+[package]
+name = "kido_nautilus"
+edition = "2024"
+
+[dependencies]
+enclave = { local = "../vendor/nautilus-enclave" }

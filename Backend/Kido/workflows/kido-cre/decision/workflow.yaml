@@ -1,0 +1,11 @@
+# Kido private-decision workflow. deployment-registry is always set: when omitted the CRE CLI
+# targets the Ethereum-mainnet workflow registry. Kido is testnet-only, so it uses the private
+# (Chainlink-hosted) registry.
+staging-settings:
+  user-workflow:
+    workflow-name: "kido-private-decision"
+    deployment-registry: "private"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.staging.json"
+    secrets-path: "../secrets.yaml"

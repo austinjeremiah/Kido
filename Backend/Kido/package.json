@@ -1,0 +1,42 @@
+{
+  "name": "kido",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Kido - universal agent foundry with bounded on-chain authority (testnet only)",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/blueprint",
+    "packages/registry",
+    "packages/design-interview",
+    "packages/knowledge",
+    "packages/identity",
+    "packages/privacy",
+    "packages/foundry",
+    "packages/amane-bridge",
+    "packages/kido-runtime",
+    "packages/kido-agents",
+    "packages/kido-eval",
+    "apps/kido"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "secret-scan": "bash scripts/secret-scan.sh",
+    "canary-scan": "bash scripts/canary-scan.sh",
+    "privilege-audit": "bash scripts/privilege-audit.sh",
+    "kido": "tsx apps/kido/src/cli.ts",
+    "kido:api": "tsx apps/kido/src/main.ts",
+    "eval:live": "npm run live -w @kido/eval --"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.11",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7"
+  }
+}

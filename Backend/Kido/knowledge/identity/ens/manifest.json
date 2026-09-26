@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "kido.knowledge-pack/v1",
+  "pack": "identity/ens",
+  "providerId": "ens",
+  "displayName": "ENS (Ethereum Name Service)",
+  "version": "ensv2-beta (Sepolia)",
+  "researchDate": "2026-09-26",
+  "status": "VERIFIED_LIVE",
+  "statusNote": "contracts verified live on Sepolia (TRACE 2026-09-26); ABIs from ensdomains/contracts-v2@71a3b733",
+  "chains": [
+    "ethereum-sepolia"
+  ],
+  "sdk": [],
+  "capabilities": [
+    "RESOLVE",
+    "REVERSE_RESOLVE",
+    "REGISTER",
+    "SUBNAME",
+    "TEXT_RECORDS",
+    "ADDRESS_RECORD",
+    "SCOPED_RECORD_MANAGER",
+    "REVOKE",
+    "EXPIRY"
+  ],
+  "deployments": {
+    "ethereum-sepolia": {
+      "rootRegistry": "0x9703dbd26dab89504490994138cf2c575251a9ce",
+      "ethRegistry": "0x657ea849311d3d5823348dded7c2aaafb3ede09e",
+      "ethRegistrar": "0xabe76f6c8dfced81aa5a2bb8034202a7136b94ca",
+      "universalResolver": "0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe",
+      "rentPriceOracle": "0x9b0b9c65bdaf9794ff7697e4dcfb1f50581072bb",
+      "verifiableFactory": "0x9e726eb570beb6bceb495ab8cda7df517d4e841c",
+      "permissionedResolverImpl": "0x14f09fd05d4585759e54844dc9b00147131cf243",
+      "userRegistryImpl": "0xa80338aaa8d23831cea25e858d1774534abb0263",
+      "mockUsdc": "0x16f95d91dba7da3aca778ec053df0ff6c6a8aa8e",
+      "legacyRegistry": "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e",
+      "legacyPublicResolver": "0xE99638b40E4Fff0129D56f03b55b6bbC4BBE49b5",
+      "legacyNameWrapper": "0x0635513f179D50A207757E05759CbD106d7dFcE8"
+    }
+  },
+  "trust": {
+    "providerId": "ens",
+    "protects": [
+      "human-readable binding of a name to records chosen by the name's controller"
+    ],
+    "verifies": [
+      "record values are what the resolver returns for the current name owner/manager"
+    ],
+    "requiresTrustIn": [
+      "name owner and delegated record managers",
+      "resolver contract",
+      "Ethereum consensus",
+      "the RPC used to read it"
+    ],
+    "doesNotProtectAgainst": [
+      "a compromised name owner rewriting records",
+      "stale off-chain caches",
+      "financial misuse — ENS grants no financial authority"
+    ],
+    "version": "ensv2-beta",
+    "sourceRefs": [
+      "https://docs.ens.domains/ensv2/overview/",
+      "https://docs.ens.domains/ensip/26/"
+    ]
+  },
+  "failureModes": [
+    "resolver not found",
+    "name expired",
+    "ENSv2 interfaces change during beta"
+  ],
+  "limitations": [
+    "ENSv2 is beta on Sepolia; ENSIP-25/26 are draft standards",
+    "ENSv1 cannot mint new names on Sepolia (controller de-authorised)",
+    "registration: commit-reveal (>=60 s), >=28 days, 5+ chars = 8 USDC/yr paid in ENSv2 MockUSDC — not Aave test USDC",
+    "records use setText(bytes dnsName, key, value); a scoped setter can write that key on every name the resolver serves, so each agent gets its own resolver",
+    "subnames need a UserRegistry proxy per parent (setSubregistry → setParent → register)"
+  ],
+  "sources": [
+    {
+      "url": "https://docs.ens.domains/ensv2/overview/",
+      "retrieved": "2026-09-26"
+    },
+    {
+      "url": "https://github.com/ensdomains/contracts-v2",
+      "retrieved": "2026-09-26"
+    }
+  ],
+  "execution": []
+}

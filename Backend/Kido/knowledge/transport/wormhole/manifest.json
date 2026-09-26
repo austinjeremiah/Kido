@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "kido.knowledge-pack/v1",
+  "pack": "transport/wormhole",
+  "providerId": "wormhole",
+  "displayName": "Wormhole",
+  "version": "sdk 6.1.5",
+  "researchDate": "2026-09-26",
+  "status": "VERIFIED_LIVE",
+  "statusNote": "Sui ⇄ Sepolia round trip through Amane on both chains completed live 2026-09-26 (Token Bridge, payload-3)",
+  "chains": [
+    "ethereum-sepolia",
+    "sui-testnet"
+  ],
+  "sdk": [
+    {
+      "package": "@wormhole-foundation/sdk",
+      "version": "6.1.5"
+    }
+  ],
+  "capabilities": [
+    "TOKEN_TRANSFER",
+    "MESSAGE",
+    "DELIVERY_PROOF"
+  ],
+  "deployments": {
+    "ethereum-sepolia": {
+      "core": "0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78",
+      "tokenBridge": "0xDB5492265f6038831E89f495670FF909aDe94bd9"
+    },
+    "sui-testnet": {
+      "coreState": "0x31358d198147da50db32eda2562951d53973a0c0ad5ed738e9b17d88b213d790",
+      "tokenBridgeState": "0x6fb10cdb7aa299e9a4308752dadecb049ff55a892de92992a1edbd7912b3d6da"
+    }
+  },
+  "trust": {
+    "providerId": "wormhole",
+    "protects": [
+      "message/asset delivery per the transport's verification model"
+    ],
+    "verifies": [
+      "delivery attestation by the transport's verifiers"
+    ],
+    "requiresTrustIn": [
+      "Wormhole guardian set"
+    ],
+    "doesNotProtectAgainst": [
+      "verifier compromise",
+      "destination semantics — Kido/Amane revalidate on arrival"
+    ],
+    "version": "unpinned",
+    "sourceRefs": []
+  },
+  "failureModes": [
+    "delivery timeout",
+    "duplicate delivery"
+  ],
+  "limitations": [
+    "transport is never authority",
+    "Sepolia↔Sui testnet route via Token Bridge with manual redeem; single testnet guardian",
+    "NTT requires self-deployment and core exactly 6.1.4"
+  ],
+  "sources": [],
+  "execution": []
+}

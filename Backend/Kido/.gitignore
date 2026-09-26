@@ -1,0 +1,65 @@
+# --- secrets: never commit ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+keystore/
+wallets.json
+secrets.yaml
+!secrets.example.yaml
+.cre/
+cre.yaml
+~/.cre
+WALLET_PASS*
+*.keyring
+ring-*.json
+
+# --- build / deps ---
+node_modules/
+dist/
+/build/
+# Route segments named "build" (apps/frontend/app/.../build/) are source, not output.
+!apps/frontend/app/**/build/
+out/
+cache/
+cache_forge/
+broadcast/
+*.tsbuildinfo
+.next/
+coverage/
+lcov.info
+
+# --- local db / logs ---
+*.db
+*.db-journal
+*.sqlite
+*.log
+logs/
+
+# --- foundry build output (forge-std is a submodule: git submodule update --init) ---
+contracts/out/
+contracts/cache/
+
+# --- CRE project build artifacts ---
+.cre_build_tmp.js
+workflows/cre-policy/**/node_modules/
+
+# The CRE secrets.yaml maps secret IDs to ENV VAR NAMES only — it holds no values, and the CRE
+# CLI requires it at a fixed path, so a fresh checkout needs it. The blanket `secrets.yaml` ignore
+# above stays in force everywhere else, and secret-scan.sh separately asserts this file contains
+# no assigned values.
+!workflows/cre-policy/**/secrets.yaml
+studio*.db
+studio*.db*
+
+# Group E: the attested OCI archive is 80MB of build output. The digests, SBOM, provenance and
+# image record it produces ARE committed; the archive itself is reproducible from them.
+reports/group-e/evidence/image/agent-runtime.oci.tar
+reports/group-e/evidence/image/oci/
+
+# Encrypted credential files: ciphertext, but never committed.
+/secrets/
+.kido/
+move/*/build/
+move/vendor/*/build/

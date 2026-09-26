@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "kido.knowledge-pack/v1",
+  "pack": "transport/layerzero",
+  "providerId": "layerzero",
+  "displayName": "LayerZero",
+  "version": "EndpointV2 (EID 40161 / 40378)",
+  "researchDate": "2026-09-26",
+  "status": "BLOCKED_ENV",
+  "statusNote": "BE-LZ-1: Sui SDK unusable without JSON-RPC",
+  "chains": [
+    "ethereum-sepolia",
+    "sui-testnet"
+  ],
+  "sdk": [
+    {
+      "package": "@layerzerolabs/lz-v2-utilities",
+      "version": "3.0.168"
+    }
+  ],
+  "capabilities": [
+    "TOKEN_TRANSFER",
+    "MESSAGE",
+    "DELIVERY_PROOF"
+  ],
+  "deployments": {
+    "ethereum-sepolia": {
+      "endpointV2": "0x6EDCE65403992e310A62460808c4b910D972f10f"
+    },
+    "sui-testnet": {
+      "endpointPackage": "0xabf9629418d997fcc742a5ca22820241b72fb53691f010bc964eb49b4bd2263a",
+      "endpointObject": "0x2b96537c30c5fa962a1bfb58a168fc17c17f2546c88e2e9252f21ee7d5eff57a"
+    }
+  },
+  "trust": {
+    "providerId": "layerzero",
+    "protects": [
+      "message/asset delivery per the transport's verification model"
+    ],
+    "verifies": [
+      "delivery attestation by the transport's verifiers"
+    ],
+    "requiresTrustIn": [
+      "configured LayerZero DVNs and executor"
+    ],
+    "doesNotProtectAgainst": [
+      "verifier compromise",
+      "destination semantics — Kido/Amane revalidate on arrival"
+    ],
+    "version": "unpinned",
+    "sourceRefs": []
+  },
+  "failureModes": [
+    "delivery timeout",
+    "duplicate delivery"
+  ],
+  "limitations": [
+    "transport is never authority",
+    "Sepolia→Sui pathway supported but no ready token route (own OFT pair needed)",
+    "Sui SDK depends on @mysten/sui 1.x JSON-RPC, which is shut down (F-0407)"
+  ],
+  "sources": [],
+  "execution": []
+}

@@ -1,0 +1,70 @@
+{
+  "schemaVersion": "kido.knowledge-pack/v1",
+  "pack": "privacy/chainlink-cre",
+  "providerId": "chainlink-cre",
+  "displayName": "Chainlink Runtime Environment (CRE)",
+  "version": "cre-sdk 1.22.0 / cre CLI v1.35.0",
+  "researchDate": "2026-09-26",
+  "status": "BLOCKED_ENV",
+  "statusNote": "BE-CRE-1..3: interactive cre login, org deploy approval and confidential beta invite required; sdk 1.22.0 / CLI v1.35.0",
+  "chains": [
+    "ethereum-sepolia"
+  ],
+  "sdk": [
+    {
+      "package": "@chainlink/cre-sdk",
+      "version": "1.22.0"
+    }
+  ],
+  "capabilities": [
+    "CONFIDENTIAL_COMPUTE",
+    "VERIFIABLE_COMPUTE",
+    "PRIVATE_API_ACCESS",
+    "SECRET_ACCESS_CONTROL",
+    "DECISION_ONLY_OUTPUT"
+  ],
+  "deployments": {
+    "ethereum-sepolia": {
+      "keystoneForwarder": "0xF8344CFd5c43616a4366C34E3EEE75af79a74482",
+      "mockForwarder": "0x15fC6ae953E024d975e77382eEeC56A9101f9F88",
+      "kidoReceiverMockForwarder": "0x41032ee6b7a635b16ead62d0bcc20a9be05a5164"
+    }
+  },
+  "trust": {
+    "providerId": "chainlink-cre",
+    "protects": [
+      "private inputs and API credentials during workflow execution, per CRE's confidential compute model"
+    ],
+    "verifies": [
+      "workflow execution reported by the DON"
+    ],
+    "requiresTrustIn": [
+      "Chainlink DON operators and enclave attestation",
+      "workflow code"
+    ],
+    "doesNotProtectAgainst": [
+      "a malicious workflow author",
+      "disclosure the workflow itself performs"
+    ],
+    "version": "unpinned",
+    "sourceRefs": [
+      "https://docs.chain.link/cre"
+    ]
+  },
+  "failureModes": [
+    "DON unavailable",
+    "simulation-only environment"
+  ],
+  "limitations": [
+    "early access: deploy needs organisation approval",
+    "confidential (TEE) workflows are an invite-only beta; simulation runs on one node without a TEE and must be labelled SIMULATED",
+    "receiver contracts must implement onReport(bytes,bytes) + ERC-165"
+  ],
+  "sources": [
+    {
+      "url": "https://docs.chain.link/cre",
+      "retrieved": "2026-09-26"
+    }
+  ],
+  "execution": []
+}

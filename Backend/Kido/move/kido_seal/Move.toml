@@ -1,0 +1,6 @@
+[package]
+name = "kido_seal"
+edition = "2024"
+
+[addresses]
+kido_seal = "0x0"
