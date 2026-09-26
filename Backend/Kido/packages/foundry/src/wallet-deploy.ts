@@ -102,6 +102,11 @@ export class WalletDeployments {
     return v;
   }
 
+  /** The chain readers this backend was configured with (read-only uses such as name verification). */
+  get clients() {
+    return { evm: this.d.evm, sui: this.d.sui };
+  }
+
   status(id: string) {
     const { p, dep } = this.load(id);
     return { deployment: dep ? wire(dep) : null, events: p.events ?? [], issuerConfigured: Boolean(this.d.issuer), suiRelayer: Boolean(this.d.sui), evmRpc: Boolean(this.d.evm) };

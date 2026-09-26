@@ -198,3 +198,9 @@ export interface CostEstimate {
   note: string;
   measured: CostSource;
 }
+
+export interface LiveName { name: string; role: string | null; published: boolean; records: Record<string, string>; addresses: Record<string, string | null>; receipt: { name: string; resolver?: string; registry?: string; txs: string[]; at: number } | null }
+export interface IdentityLive { network: string; names: LiveName[] }
+export interface VerifyCheck { id: string; label: string; ok: boolean | null; detail: string }
+export interface VerifyResult { name: string; verified: boolean; checks: VerifyCheck[]; agent: { kidoAgentId?: string; chains: string[]; capabilities: string[]; description: string | null; live: string | null; accounts: Record<string, string>; amaneAccountId: string | null } | null; onchain?: Record<string, unknown>[]; blueprint?: { projectId: string; revision: number | null; matches: boolean } | null; specialists?: { name: string; role: string | null }[] }
+export interface EnsLive { name: string; records: Record<string, string>; address: string | null; sui: string | null; ms: number; via: string }

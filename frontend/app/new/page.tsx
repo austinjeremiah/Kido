@@ -44,6 +44,7 @@ function CreateFlow() {
   const [checks, setChecks] = useState<Record<'security' | 'simulation' | 'build', CheckState>>({ security: 'todo', simulation: 'todo', build: 'todo' });
   const [costs, setCosts] = useState<CostEstimate | null>(null);
   const [actions, setActions] = useState<Record<string, number>>({});
+  const [renewals, setRenewals] = useState(30);
   const [included, setIncluded] = useState<Set<string>>(new Set());
   const [templates, setTemplates] = useState<InterviewTemplateInfo[]>([]);
   const [setup, setSetup] = useState<InterviewTemplateInfo | null>(null);
@@ -227,12 +228,14 @@ function CreateFlow() {
       const est = await kido.costs(projectId);
       setCosts(est);
       setActions(est.assumptions.actionsPerMonth);
+      setRenewals(est.assumptions.leaseRenewalsPerMonth);
       goTo('COSTS');
       say({ from: 'kido', text: `Built. Here is what it would cost to run on mainnet: about ${usd(est.totals.monthlyUsd)} a month plus ${usd(est.totals.oneTimeUsd)} to set up.`, note: 'Change how often it acts to see the estimate move.' });
     });
-  const recost = async (next: Record<string, number>) => {
+  const recost = async (next: Record<string, number>, nextRenewals = renewals) => {
     setActions(next);
-    if (projectId) setCosts(await kido.costs(projectId, { actionsPerMonth: next }));
+    setRenewals(nextRenewals);
+    if (projectId) setCosts(await kido.costs(projectId, { actionsPerMonth: next, leaseRenewalsPerMonth: nextRenewals }));
   };
 
   const HEAD: Record<Stage, { title: string; body: string }> = {
@@ -342,7 +345,7 @@ function CreateFlow() {
             ) : stage === 'CHECKS' ? (
               <ChecksPane s={s} states={checks} />
             ) : costs ? (
-              <CostsPane est={costs} included={included} onToggle={(id) => setIncluded((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; })} actions={actions} onActions={(a) => void recost(a)} />
+              <CostsPane est={costs} included={included} onToggle={(id) => setIncluded((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; })} actions={actions} onActions={(a) => void recost(a)} renewals={renewals} onRenewals={(n) => void recost(actions, n)} />
             ) : null}
           </div>
         </section>

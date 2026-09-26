@@ -10,3 +10,4 @@ export * from "./wallet-deploy.js";
 export * from "./attack-lab.js";
 export * from "./evidence.js";
 export * from "./costs.js";
+export * from "./verify-name.js";

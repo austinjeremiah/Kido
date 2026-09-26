@@ -87,14 +87,14 @@ export function estimateCosts(bp: KidoAgentBlueprint, identity: PlannedBinding[]
     const items: CostItem[] = [];
     for (const c of evmChains) {
       items.push(gasItem(`Deploy the Amane account · ${c}`, MEASURED_GAS.evm.accountDeploy, 1, false), gasItem(`Install the owner policy · ${c}`, MEASURED_GAS.evm.policyInstall, 1, false));
-      items.push(gasItem(`Lease renewals · ${c}`, MEASURED_GAS.evm.leaseActivate, a.leaseRenewalsPerMonth, true));
+      items.push({ ...gasItem(`Lease renewals · ${c}`, MEASURED_GAS.evm.leaseActivate, a.leaseRenewalsPerMonth, true), basis: `${a.leaseRenewalsPerMonth} × ${MEASURED_GAS.evm.leaseActivate.toLocaleString()} gas (${(evmGasUsd(MEASURED_GAS.evm.leaseActivate)).toFixed(2)} USD each) at ${MARKET.ethGasGwei} gwei — the lease lives ${Math.round(bp.authority.leaseLifetimeSeconds / 3600)} h; a longer lease needs fewer renewals` });
     }
     for (const c of suiChains) items.push(suiItem(`Create account and install policy · ${c}`, 3, false), suiItem(`Lease renewals · ${c}`, a.leaseRenewalsPerMonth, true));
     for (const x of routed("amane")) {
       const gas = MEASURED_GAS.evm.action[x.action];
       items.push(fam(x.chain) === "evm" && gas ? gasItem(`${x.action} · ${x.chain}`, gas, times(x.action), true) : suiItem(`${x.action} · ${x.chain}`, times(x.action), true));
     }
-    push({ id: "amane", name: PRICING.amane!.name, category: "authority", model: "FREE", items, summary: PRICING.amane!.summary, reason: "Enforces the owner policy and the agent lease on every chain", optional: false, sources: PRICING.amane!.sources, paid: false });
+    push({ id: "amane", name: PRICING.amane!.name, category: "authority", model: "FREE", items, summary: PRICING.amane!.summary, reason: "Shared Amane contracts are already deployed; this is the agent's own account (one-time) and Ethereum gas for lease renewals and payments", optional: false, sources: PRICING.amane!.sources, paid: false });
   }
 
   // Protocols: free to use, gas per action.

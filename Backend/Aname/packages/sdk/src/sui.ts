@@ -232,6 +232,12 @@ export class AmaneSuiEndpoint {
     return res.commandResults![0]!.returnValues[0]!.bcs;
   }
 
+  /** The cross-chain account id this endpoint belongs to. */
+  async accountId(): Promise<Hex> {
+    const v = bcs.vector(bcs.u8()).parse(await this.view('account_id', () => []));
+    return bytesToHex(new Uint8Array(v));
+  }
+
   async policyVersion(): Promise<bigint> {
     return BigInt(bcs.u64().parse(await this.view('policy_version', () => [])));
   }

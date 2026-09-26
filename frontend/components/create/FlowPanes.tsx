@@ -177,9 +177,21 @@ export function ChecksPane({ s, states }: { s: ProjectSummary | null; states: Re
 }
 
 /* ── costs ── */
+/** Provider logos, served from /public/logos (Nautilus and Seal are Sui-stack services). */
+const LOGO: Record<string, string> = {
+  'uniswap-v3': '/logos/uniswap.png', 'aave-v3': '/logos/aave.png', 'cetus-clmm': '/logos/cetus.png', ens: '/logos/ens.png', suins: '/logos/suins.png',
+  'the-graph': '/logos/the-graph.png', wormhole: '/logos/wormhole.png', nautilus: '/logos/sui.jpg', seal: '/logos/sui.jpg',
+  'openai-model': '/logos/openai.png', 'alchemy-rpc': '/logos/alchemy.png', 'chainlink-cre': '/logos/chainlink.png',
+};
+
+function ProviderLogo({ id, name }: { id: string; name: string }) {
+  const src = LOGO[id];
+  return src ? <img className="kf-logo" src={src} alt="" width={28} height={28} /> : <span className="kf-logo kf-logo--mono" aria-hidden>{name.slice(0, 1)}</span>;
+}
+
 const CATEGORY: Record<CostLine['category'], string> = { authority: 'Authority', protocol: 'Protocol', transport: 'Bridge', identity: 'Identity', privacy: 'Privacy', infrastructure: 'Infrastructure' };
 
-export function CostsPane({ est, included, onToggle, actions, onActions }: { est: CostEstimate; included: Set<string>; onToggle: (id: string) => void; actions: Record<string, number>; onActions: (a: Record<string, number>) => void }) {
+export function CostsPane({ est, included, onToggle, actions, onActions, renewals, onRenewals }: { est: CostEstimate; included: Set<string>; onToggle: (id: string) => void; actions: Record<string, number>; onActions: (a: Record<string, number>) => void; renewals: number; onRenewals: (n: number) => void }) {
   const counted = est.lines.filter((l) => !l.optional || included.has(l.id));
   const monthly = counted.reduce((n, l) => n + l.monthlyUsd, 0);
   const once = counted.reduce((n, l) => n + l.oneTimeUsd, 0);
@@ -196,7 +208,16 @@ export function CostsPane({ est, included, onToggle, actions, onActions }: { est
             <input className="cl-input" type="number" min={0} max={10000} value={v} onChange={(e) => onActions({ ...actions, [k]: Math.max(0, Number(e.target.value) || 0) })} />
           </label>
         ))}
-        <span className="kf-meta">Gas at {est.market.ethGasGwei} gwei, ETH ${est.market.ethUsd.toLocaleString()} ({est.market.asOf}); Amane gas as measured on Sepolia.</span>
+        <label className="kf-assume__item" title="The agent acts only while its lease is active. A short lease is safer but costs a renewal each time it is re-activated; a longer lease means fewer renewals.">
+          <span>lease renewals</span>
+          <input className="cl-input" type="number" min={0} max={10000} value={renewals} onChange={(e) => onRenewals(Math.max(0, Number(e.target.value) || 0))} />
+        </label>
+        <span className="kf-presets" role="group" aria-label="Lease presets">
+          {([['1 h lease, always on', 730], ['renew daily', 30], ['7-day lease', 5], ['30-day lease', 1]] as const).map(([label, n]) => (
+            <button key={label} type="button" className="kf-preset" data-on={renewals === n ? '' : undefined} onClick={() => onRenewals(n)}>{label}</button>
+          ))}
+        </span>
+        <span className="kf-meta">Gas at {est.market.ethGasGwei} gwei, ETH ${est.market.ethUsd.toLocaleString()} ({est.market.asOf}); Amane gas as measured on Sepolia. The shared Amane contracts are already deployed; each agent only deploys its own account.</span>
       </div>
       <div className="kf-grid">
         {lines.map((l) => {
@@ -204,8 +225,8 @@ export function CostsPane({ est, included, onToggle, actions, onActions }: { est
           return (
             <div key={l.id} className="kf-card kf-cost" data-off={on ? undefined : ''}>
               <div className="kf-card__head">
-                <span className="kf-card__title">{l.name}</span>
-                <span className="kf-chip" data-tone={l.paid ? 'warn' : 'pass'}>{l.paid ? 'Paid' : 'Free'}</span>
+                <span className="kf-card__who"><ProviderLogo id={l.id} name={l.name} /><span className="kf-card__title">{l.name}</span></span>
+                <span className="kf-chip" data-tone={l.paid ? 'warn' : 'pass'}>{l.paid ? 'Paid' : l.monthlyUsd + l.oneTimeUsd > 0 ? 'No protocol fee · gas' : 'Free'}</span>
               </div>
               <span className="kf-cat">{CATEGORY[l.category]}{l.optional ? ' · recommended for mainnet' : ''}</span>
               <div className="kf-cost__price">

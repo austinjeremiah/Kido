@@ -55,7 +55,7 @@ export const PROVIDERS: ProviderManifest[] = [
     sources: [{ url: "https://docs.ens.domains/ensv2/overview/", retrieved: R }, { url: "https://github.com/ensdomains/contracts-v2", retrieved: R }],
     status: "VERIFIED_LIVE",
     statusNote: "contracts verified live on Sepolia (TRACE 2026-09-26); ABIs from ensdomains/contracts-v2@71a3b733",
-    implementation: { status: "TESTNET_LIVE", proven: ["resolve via UniversalResolver", "commit-reveal .eth registration", "subname creation", "text/address records", "record revocation"], notProven: ["reverse-resolution primary name set by Kido"], evidence: ["Kido scripts/identity-live.ts run 2026-09-26: kidomuhsw6k2.eth, payment.kidomuhsw6k2.eth"] },
+    implementation: { status: "TESTNET_LIVE", proven: ["resolve via UniversalResolver", "commit-reveal .eth registration", "nested subnames with their own registries (agent → specialists)", "text records and multichain addresses (ENSIP-9/11: Sepolia and Sui accounts)", "agent verification from the name alone against the Amane accounts on both chains", "CCIP-read live state (ERC-3668) through KidoLiveResolver, signature verified on-chain", "record revocation"], notProven: ["primary names for the Amane accounts (contracts cannot claim a reverse record without core support)"], evidence: ["Kido scripts/identity-live.ts run 2026-09-26: kidomuhsw6k2.eth, payment.kidomuhsw6k2.eth", "Kido apps/kido/scripts/identity-publish.ts run 2026-09-27: treasury.kidomuhsw6k2.eth and 5 specialist subnames", "Kido apps/kido/scripts/live-resolver-deploy.ts run 2026-09-27: live.treasury.kidomuhsw6k2.eth", "Kido contracts/test/KidoLiveResolver.t.sol"] },
     knowledgePack: "identity/ens",
   },
   {
@@ -95,9 +95,9 @@ export const PROVIDERS: ProviderManifest[] = [
     sources: [{ url: "https://docs.suins.io/", retrieved: R }],
     status: "VERIFIED_LIVE",
     statusNote: "reads verified live with @mysten/suins 2.0.12 over gRPC (TRACE 2026-09-26)",
-    implementation: { status: "BLOCKED_ENV", capabilities: { RESOLVE: "TESTNET_LIVE", REVERSE_RESOLVE: "TESTNET_LIVE", TEXT_RECORDS: "IMPLEMENTED_LOCAL", REGISTER: "BLOCKED_ENV", SUBNAME: "BLOCKED_ENV" }, proven: ["name resolution over gRPC", "reverse lookup"], notProven: ["registration", "subname creation", "record writes"], blocker: { type: "BLOCKED_ENV", actionRequired: "fund the registrar payment (test USDC/NS) or provide a Pyth access token", evidence: "BC-SUINS-1: registration requires NS/USDC payment through Pyth price feeds on testnet" }, evidence: ["Kido packages/identity/test/identity.test.ts (SuiNS reads live)"] },
+    implementation: { status: "BLOCKED_ENV", capabilities: { RESOLVE: "TESTNET_LIVE", REVERSE_RESOLVE: "TESTNET_LIVE", TEXT_RECORDS: "IMPLEMENTED_LOCAL", REGISTER: "BLOCKED_ENV", SUBNAME: "BLOCKED_ENV" }, proven: ["name resolution over gRPC", "reverse lookup"], notProven: ["registration", "subname creation", "record writes"], blocker: { type: "BLOCKED_ENV", actionRequired: "a Pyth plan with a crypto-spot grant (SUI/USD feed), or SuiNS TESTUSDC for the relayer (its mint needs the SuiNS treasury cap)", evidence: "BC-SUINS-1, re-checked 2026-09-27: the provided Pyth token is accepted but not entitled to feed 0x23d7…5744 (\"no grant accepts this feed (asset type 'crypto', instrument type 'spot')\"); public Hermes answers 401; testnet price is 1 USDC/yr for 5+ characters. Kido scripts/suins-publish.ts registers the name, node and leaf subnames and hands the NFTs to the owner in one transaction once either is available." }, evidence: ["Kido packages/identity/test/identity.test.ts (SuiNS reads live)"] },
     capabilityStatus: {
-      REGISTER: { status: "BLOCKED_ENV", note: "BC-SUINS-1: needs test USDC/NS or a Pyth access token" },
+      REGISTER: { status: "BLOCKED_ENV", note: "BC-SUINS-1: the Pyth token has no crypto-spot grant for SUI/USD; TESTUSDC is not mintable" },
       SUBNAME: { status: "BLOCKED_ENV", note: "requires owning a parent name (blocked by BC-SUINS-1)" },
     },
     knowledgePack: "identity/suins",

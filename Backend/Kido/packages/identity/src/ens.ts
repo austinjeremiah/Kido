@@ -41,7 +41,10 @@ export interface EnsDeployment {
   mockUsdc: Address;
 }
 
-export const KIDO_RECORD_KEYS = ["agent-context", "kido-agent-id", "agent-endpoint[web]", "agent-endpoint[mcp]", "agent-endpoint[a2a]"];
+/** ENSIP-9 / ENSIP-11 coin types: Ethereum's own (60), an EVM chain by id, and Sui (SLIP-44 784). */
+export const ENS_COIN = { eth: 60n, evmChain: (chainId: number | bigint) => 0x80000000n | BigInt(chainId), sui: 784n } as const;
+
+export const KIDO_RECORD_KEYS = ["agent-context", "kido-agent-id", "kido-agent-role", "kido-live", "description", "url", "avatar", "agent-endpoint[web]", "agent-endpoint[mcp]", "agent-endpoint[a2a]"];
 
 // EAC role values (ENSv2 contracts-v2@71a3b733). Admin roles sit 128 bits higher.
 const R = (n: number) => 1n << BigInt(n);
@@ -220,6 +223,109 @@ export class EnsIdentityAdapter implements AgentIdentityProvider {
     } catch (err) {
       return { providerId: this.providerId, chain: this.chain, operation: "SUBNAME", name, txs, status: "FAILED", detail: (err as Error).message.split("\n")[0] };
     }
+  }
+
+  /** The registry holding the children of `name` ("eth" → the ETH registry); zero when none exists yet. */
+  async registryOf(name: string): Promise<Address> {
+    const labels = name.split(".").filter(Boolean);
+    if (labels.at(-1) !== "eth") throw new Error(`${name} is not under .eth`);
+    let reg: Address = this.d.ethRegistry;
+    for (const label of labels.slice(0, -1).reverse()) {
+      reg = (await this.publicClient.readContract({ address: reg, abi: UserRegistryImpl.abi, functionName: "getSubregistry", args: [label] })) as Address;
+      if (reg === zeroAddress) return zeroAddress;
+    }
+    return reg;
+  }
+
+  /** Ensures `name` has its own registry for children (a UserRegistry the wallet administers). */
+  private async ensureSubregistry(name: string, txs: Hex[]): Promise<Address> {
+    const existing = await this.registryOf(name);
+    if (existing !== zeroAddress) return existing;
+    const w = this.requireWallet();
+    const [label, ...rest] = name.split(".");
+    const parentReg = await this.registryOf(rest.join("."));
+    if (parentReg === zeroAddress) throw new Error(`${rest.join(".")} has no registry`);
+    const salt = BigInt(keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "bytes32" }, { type: "uint256" }], [keccak256(toHex("UserRegistry")), namehash(name), 1n])));
+    const init = encodeFunctionData({ abi: UserRegistryImpl.abi, functionName: "initialize", args: [[{ account: w.account.address, roleBitmap: USER_REGISTRY_OWNER_ROLES }]] });
+    const { result, request } = await this.publicClient.simulateContract({ address: this.d.verifiableFactory, abi: VerifiableFactory.abi, functionName: "deployProxy", args: [this.d.userRegistryImpl, salt, init], account: w.account });
+    const tx = await w.writeContract(request as never);
+    await this.confirm(tx);
+    txs.push(tx);
+    const reg = result as Address;
+    const tokenId = (await this.publicClient.readContract({ address: parentReg, abi: UserRegistryImpl.abi, functionName: "findTokenId", args: [label] })) as bigint;
+    txs.push(await this.send(parentReg, UserRegistryImpl.abi, "setSubregistry", [tokenId, reg]));
+    txs.push(await this.send(reg, UserRegistryImpl.abi, "setParent", [parentReg, label]));
+    return reg;
+  }
+
+  /**
+   * Publishes `name` at any depth: creates any missing registry above it, deploys its own resolver
+   * holding the text records and multichain addresses (ENSIP-9/11 coin types), and registers it
+   * to the wallet until the root name expires. An existing name only has its records rewritten.
+   */
+  async publishName(name: string, records: PublicRecords, addresses: { coinType: bigint; address: Hex }[] = [], opts: { withSubregistry?: boolean; resolver?: Address } = {}): Promise<IdentityReceipt & { resolver?: Address; registry?: Address }> {
+    const w = this.requireWallet();
+    const txs: Hex[] = [];
+    const dns = dnsEncode(name);
+    const calls = [
+      ...Object.entries(records).map(([k, v]) => encodeFunctionData({ abi: PermissionedResolverImpl.abi, functionName: "setText", args: [dns, k, v] })),
+      ...addresses.map((a) => encodeFunctionData({ abi: PermissionedResolverImpl.abi, functionName: "setAddress", args: [dns, a.coinType, a.address] })),
+    ];
+    try {
+      const [label, ...rest] = name.split(".");
+      const parent = rest.join(".");
+      const parentReg = await this.ensureSubregistry(parent, txs);
+      const owner = (await this.publicClient.readContract({ address: parentReg, abi: UserRegistryImpl.abi, functionName: "findOwner", args: [label] })) as Address;
+      if (owner !== zeroAddress) {
+        // Already registered: rewrite its records on its resolver.
+        const resolver = (await this.publicClient.readContract({ address: parentReg, abi: UserRegistryImpl.abi, functionName: "getResolver", args: [label] })) as Address;
+        if (resolver === zeroAddress) throw new Error(`${name} has no resolver`);
+        if (calls.length) txs.push(await this.send(resolver, PermissionedResolverImpl.abi, "multicall", [calls]));
+        const registry = opts.withSubregistry ? await this.ensureSubregistry(name, txs) : undefined;
+        return { providerId: this.providerId, chain: this.chain, operation: "PUBLISH_RECORDS", name, txs, status: "CONFIRMED", detail: `records updated on ${resolver}`, resolver, ...(registry ? { registry } : {}) };
+      }
+      let resolver: Address;
+      if (opts.resolver) {
+        // An existing resolver (e.g. an offchain CCIP-read resolver) answers for this name.
+        resolver = opts.resolver;
+      } else {
+        const salt = BigInt(keccak256(encodeAbiParameters([{ type: "bytes32" }, { type: "address" }, { type: "uint256" }], [keccak256(toHex("OwnedResolver")), w.account.address, BigInt(namehash(name))])));
+        const init = encodeFunctionData({ abi: PermissionedResolverImpl.abi, functionName: "initialize", args: [[{ account: w.account.address, roleBitmap: RESOLVER_OWNER_ROLES }], calls] });
+        const sim = await this.publicClient.simulateContract({ address: this.d.verifiableFactory, abi: VerifiableFactory.abi, functionName: "deployProxy", args: [this.d.permissionedResolverImpl, salt, init], account: w.account });
+        const rtx = await w.writeContract(sim.request as never);
+        await this.confirm(rtx);
+        txs.push(rtx);
+        resolver = sim.result as Address;
+      }
+      this.resolvers.set(name, resolver);
+      const root = name.split(".").slice(-2, -1)[0]!;
+      const rootToken = (await this.publicClient.readContract({ address: this.d.ethRegistry, abi: ETHRegistry.abi, functionName: "findTokenId", args: [root] })) as bigint;
+      const expiry = (await this.publicClient.readContract({ address: this.d.ethRegistry, abi: ETHRegistry.abi, functionName: "getExpiry", args: [rootToken] })) as bigint;
+      // Owner roles on the name itself, so it can hold its own registry for children.
+      txs.push(await this.send(parentReg, UserRegistryImpl.abi, "register", [label, w.account.address, zeroAddress, resolver, opts.withSubregistry ? USER_REGISTRY_OWNER_ROLES : SUBNAME_OWNER_ROLES, expiry]));
+      const registry = opts.withSubregistry ? await this.ensureSubregistry(name, txs) : undefined;
+      return { providerId: this.providerId, chain: this.chain, operation: "SUBNAME", name, txs, status: "CONFIRMED", detail: `resolver ${resolver}`, resolver, ...(registry ? { registry } : {}) };
+    } catch (err) {
+      return { providerId: this.providerId, chain: this.chain, operation: "SUBNAME", name, txs, status: "FAILED", detail: (err as Error).message.split("\n")[0] };
+    }
+  }
+
+  /** Multichain address records on a name (ENSIP-9 coin types). */
+  async addresses(name: string, coinTypes: bigint[]): Promise<Record<string, Hex | null>> {
+    const node = namehash(name);
+    const dns = dnsEncode(name);
+    const ADDR = parseAbi(["function addr(bytes32 node, uint256 coinType) view returns (bytes)"]);
+    const out: Record<string, Hex | null> = {};
+    for (const ct of coinTypes) {
+      try {
+        const [bytes] = (await this.publicClient.readContract({ address: this.d.universalResolver, abi: UniversalResolverV2.abi, functionName: "resolve", args: [dns, encodeFunctionData({ abi: ADDR, functionName: "addr", args: [node, ct] })] })) as [Hex, Address];
+        const v = decodeFunctionResult({ abi: ADDR, functionName: "addr", data: bytes }) as Hex;
+        out[ct.toString()] = v && v !== "0x" ? v : null;
+      } catch {
+        out[ct.toString()] = null;
+      }
+    }
+    return out;
   }
 
   async publishRecords(name: string, records: PublicRecords): Promise<IdentityReceipt> {

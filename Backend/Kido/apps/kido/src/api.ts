@@ -1,8 +1,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { z } from "zod";
 import { INTERVIEW_TEMPLATES } from "@kido/design-interview";
-import type { EnsIdentityAdapter } from "@kido/identity";
-import { LifecycleError, type EvidenceStore, type Foundry, type WalletDeployments } from "@kido/foundry";
+import { ProviderRegistry } from "@kido/registry";
+import { ENS_COIN, type EnsIdentityAdapter } from "@kido/identity";
+import { LifecycleError, verifyAgentName, type EvidenceStore, type Foundry, type WalletDeployments } from "@kido/foundry";
 import type { KidoConfig } from "./config.js";
 
 const MAX_BODY = 64 * 1024;
@@ -57,9 +58,9 @@ type Handler = (req: IncomingMessage, params: Record<string, string>) => Promise
  * Kido HTTP API: a thin transport over the Foundry state machine. Every lifecycle transition is a
  * foundry gate; this layer only parses input and maps errors.
  */
-export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulationSigners" | "model">, deployments?: WalletDeployments, evidence?: EvidenceStore, ens?: EnsIdentityAdapter): Server {
+export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulationSigners" | "model">, deployments?: WalletDeployments, evidence?: EvidenceStore, ens?: EnsIdentityAdapter, ccip?: (data: `0x${string}`) => Promise<{ data: string }>): Server {
   const routes: [string, RegExp, Handler][] = [];
-  const route = (method: string, path: string, h: Handler) => routes.push([method, new RegExp(`^${path.replace(/:(\w+)/g, "(?<$1>[\\w-]+)")}$`), h]);
+  const route = (method: string, path: string, h: Handler) => routes.push([method, new RegExp(`^${path.replace(/:(\w+)/g, "(?<$1>[\\w.-]+)")}$`), h]);
 
   route("GET", "/health", () => ({ ok: true, interviewModel: config.model, simulationSigners: config.simulationSigners, chatModel: Boolean(process.env.OPENAI_API_KEY && (process.env.KIDO_MODEL ?? process.env.OPENAI_MODEL)) }));
   route("GET", "/projects", () => ({ projects: foundry.projects() }));
@@ -77,6 +78,52 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
       },
     })),
   }));
+  // Every ENS name planned for an agent, read back from the chain: published or not, its records and addresses.
+  route("GET", "/projects/:id/identity/live", async (_r, p) => {
+    if (!ens) throw new HttpError(503, "BLOCKED_ENV", "ENS reads are not configured on this backend");
+    const rec = foundry.loadRecord(p.id!);
+    const evmChainId = Number((foundry.manifest as unknown as { evm: { chainId: number } }).evm.chainId);
+    const coins = [ENS_COIN.eth, ENS_COIN.evmChain(evmChainId), ENS_COIN.sui];
+    const names = await Promise.all(rec.identityPlan.filter((b) => b.providerId === "ens").map(async (b) => {
+      const [status, res, addrs] = await Promise.all([ens.inspect(b.name), ens.resolve(b.name), ens.addresses(b.name, coins)]);
+      return { name: b.name, role: b.role ?? null, published: status.registered || Object.keys(res.records).length > 0, records: res.records, addresses: { eth: addrs[coins[0]!.toString()] ?? null, [`evm:${evmChainId}`]: addrs[coins[1]!.toString()] ?? null, sui: addrs[coins[2]!.toString()] ?? null }, receipt: rec.identityPublished?.find((x) => x.name === b.name) ?? null };
+    }));
+    return { network: "ethereum-sepolia (ENSv2)", names };
+  });
+  // CCIP-read gateway for live.<agent> names (ERC-3668): GET /ccip/{sender}/{data}.json
+  route("GET", "/ccip/:sender/:file", async (_r, p) => {
+    if (!ccip) throw new HttpError(503, "BLOCKED_ENV", "the live gateway is not configured on this backend");
+    const data = p.file!.replace(/\.json$/, "");
+    if (!/^0x[0-9a-fA-F]+$/.test(data)) throw new HttpError(400, "KIDO_API_INVALID", "data must be hex");
+    return ccip(data as `0x${string}`);
+  });
+  // A live.<agent> name, resolved through ENSv2 with CCIP-read: what the gateway signed, as any client sees it.
+  route("POST", "/identity/ens-live", async (req) => {
+    if (!ens) throw new HttpError(503, "BLOCKED_ENV", "ENS reads are not configured on this backend");
+    const { name } = await body(req, EnsName);
+    const keys = ["kido.status", "kido.health-factor", "kido.lease-expires", "kido.holdings", "kido.updated", "kido-agent-id", "description"];
+    const t0 = Date.now();
+    const [res, addrs] = await Promise.all([ens.resolve(name, keys), ens.addresses(name, [ENS_COIN.sui])]);
+    return { name, records: res.records, address: res.address, sui: addrs[ENS_COIN.sui.toString()] ?? null, ms: Date.now() - t0, via: "ENSv2 UniversalResolver → KidoLiveResolver (CCIP-read, signature verified on-chain)" };
+  });
+  // Verify an agent from its ENS name alone: records → manifest → accounts read on their own chains.
+  route("POST", "/verify", async (req) => {
+    if (!ens) throw new HttpError(503, "BLOCKED_ENV", "ENS reads are not configured on this backend");
+    const { name } = await body(req, EnsName);
+    const evmChainId = Number((foundry.manifest as unknown as { evm: { chainId: number } }).evm.chainId);
+    const [status, res, addrs] = await Promise.all([ens.inspect(name), ens.resolve(name), ens.addresses(name, [ENS_COIN.evmChain(evmChainId), ENS_COIN.eth, ENS_COIN.sui])]);
+    const evmAddr = addrs[ENS_COIN.evmChain(evmChainId).toString()] ?? addrs[ENS_COIN.eth.toString()] ?? null;
+    const chains = new ProviderRegistry().providers.find((x) => x.providerId === "amane")?.chains ?? [];
+    const addresses = Object.fromEntries(chains.map((c) => [c, c.startsWith("sui") ? (addrs[ENS_COIN.sui.toString()] ?? null) : evmAddr]));
+    const subnames = async (parent: string) => {
+      const recs = foundry.projects().map((pr) => foundry.loadRecord(pr.projectId)).filter((r) => r.identityPlan.some((b) => b.name === parent));
+      const rec = recs.find((r) => r.identityPublished?.some((x) => x.name === parent)) ?? recs.find((r) => r.deployment) ?? recs[0];
+      const kids = rec?.identityPlan.filter((b) => b.providerId === "ens" && b.parent === parent) ?? [];
+      return Promise.all(kids.map(async (k) => ({ name: k.name, role: (await ens.resolve(k.name)).records["kido-agent-role"] ?? null })));
+    };
+    // A name that returns its records exists, even if the separate registry read was rate-limited.
+    return verifyAgentName({ name, registered: status.registered || Object.keys(res.records).length > 0, records: res.records, addresses }, { foundry, ...(deployments?.clients.evm ? { evm: deployments.clients.evm } : {}), ...(deployments?.clients.sui ? { sui: deployments.clients.sui } : {}), subnames });
+  });
   // ENS, read live: is a name taken, who owns it, what it resolves to and which records it carries.
   route("POST", "/identity/ens", async (req) => {
     if (!ens) throw new HttpError(503, "BLOCKED_ENV", "ENS reads are not configured on this backend");

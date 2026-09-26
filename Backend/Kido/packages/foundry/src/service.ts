@@ -43,6 +43,8 @@ export interface ProjectRecord {
   deployment?: unknown;
   /** Earlier deployments, kept for the record after the owner retired them to redeploy. */
   retiredDeployments?: unknown[];
+  /** Names published on-chain for this agent, with the transactions that created them. */
+  identityPublished?: { providerId: string; chain: string; name: string; role?: string; resolver?: string; registry?: string; txs: string[]; at: number }[];
   /** Lifecycle and on-chain events, newest last. */
   events?: ProjectEvent[];
 }
