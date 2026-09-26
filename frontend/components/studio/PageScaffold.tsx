@@ -4,7 +4,7 @@
  * Page scaffold used by every workbench page.
  *
  * Registers the page with the shell (opens/focuses its editor tab, sets the
- * Context Agent page kind, clears stale selection) and renders the standard
+ * Kido Assistant page kind, clears stale selection) and renders the standard
  * page header. Pages supply their own body.
  */
 import { useSearchParams } from 'next/navigation';

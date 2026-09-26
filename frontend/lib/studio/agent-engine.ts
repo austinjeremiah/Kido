@@ -1,5 +1,5 @@
 /**
- * Context Agent response engine (mock).
+ * Kido Assistant response engine (mock).
  *
  * Stands in for the backend agent until it exists. It is deliberately
  * constrained the same way the real one must be (spec §6.4, §30):

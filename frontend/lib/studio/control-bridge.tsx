@@ -3,7 +3,7 @@
 /**
  * Control bridge.
  *
- * The Context Agent and the command palette may *request* that a security
+ * The Kido Assistant and the command palette may *request* that a security
  * control be opened; only the owning page may render its native deterministic
  * dialog. This bridge carries the request and nothing else — no execution path
  * passes through it (spec §6.4, §4.5).

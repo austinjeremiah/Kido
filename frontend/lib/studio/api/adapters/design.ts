@@ -306,8 +306,12 @@ export function toArchitecture(g: BlueprintGraph, bp: BlueprintDocument | null, 
     const overlay = nodeStates[n.id] ? statusOfNode(nodeStates[n.id] as GraphNode['state']) : statusOfNode(n.state);
     return {
       id: n.id,
-      // The backend lays out on a 260×130 grid for 180px nodes; ours are 216px wide and taller.
-      position: { x: n.position.x * 1.35, y: n.position.y * 1.15 },
+      /* The backend lays out on a 260×130 grid for 180px nodes; ours are 216px
+         wide and three rows tall, so its spacing left the middle column packed
+         edge to edge while the canvas had room on every side. Scaled out on
+         both axes — harder vertically, since that is where the crowding was
+         and where the free space is. */
+      position: { x: n.position.x * 1.7, y: n.position.y * 1.62 },
       data: {
         kind,
         label: n.label,

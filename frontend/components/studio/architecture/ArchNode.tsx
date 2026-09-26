@@ -61,8 +61,11 @@ export function ArchFlowNode({ data, selected }: NodeProps) {
       style={{
         width: 216,
         background: 'var(--cl-panel)',
-        border: `1px solid ${selected ? 'var(--cl-ink)' : 'var(--cl-line-strong)'}`,
-        boxShadow: selected ? '0 0 0 2px rgba(0,66,175,0.22)' : 'none',
+        border: `1px solid ${selected ? 'var(--cl-brand)' : 'var(--cl-line-strong)'}`,
+        /* Was a hardcoded rgba(0,66,175) — the old cream theme's blue ink,
+           written out by hand, so it survived the flip as a faint navy halo
+           nobody could see on a dark canvas. */
+        boxShadow: selected ? '0 0 0 2px var(--cl-brand-soft)' : 'none',
         opacity: d.dimmed ? 0.26 : 1,
         transition: 'opacity 0.2s ease, box-shadow 0.15s ease, border-color 0.15s ease',
       }}

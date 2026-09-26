@@ -13,7 +13,7 @@
  *                           revoke, deliberate typed confirmation, no countdown.
  *   DestructiveConfirmation — irreversible deletion, requires the resource name.
  *
- * No dialog here is reachable from free-text chat: the Context Agent can only
+ * No dialog here is reachable from free-text chat: the Kido Assistant can only
  * request that one be opened.
  */
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
@@ -455,7 +455,7 @@ export function DestructiveConfirmation({
 
 /**
  * Small helper for pages that own several dialogs: tracks which control dialog
- * is open plus a busy flag, so the Context Agent's "open this control" requests
+ * is open plus a busy flag, so the Kido Assistant's "open this control" requests
  * and the page's own buttons share one deterministic path.
  */
 export function useControlDialog<T extends string>() {

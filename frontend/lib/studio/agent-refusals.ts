@@ -16,7 +16,7 @@
  * │ produce refusal cards. Keep the card shape; keep the architecture.     │
  * └────────────────────────────────────────────────────────────────────────┘
  *
- * Every page names one thing the Context Agent must never do there, and those
+ * Every page names one thing the Kido Assistant must never do there, and those
  * prohibitions are the product. An agent that quietly declines reads as broken;
  * an agent that complies is a security hole. So each one is answered with a
  * visible refusal that says what was asked, why it is not the agent's to do,

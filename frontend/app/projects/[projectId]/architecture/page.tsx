@@ -8,7 +8,7 @@
  * second one, the node inspector opens inside the center workspace (never over
  * the Agent Sidebar), and an accessible node list mirrors the canvas (§45).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Background,
@@ -39,7 +39,7 @@ import {
   BlockchainRef,
   BlockerBanner,
   FreshnessBadge,
-  KeyValue,
+  Spec,
   StatusBadge,
 } from '@/components/studio/primitives';
 import { Popover, MenuLabel } from '@/components/studio/shell/Popover';
@@ -52,6 +52,7 @@ import { EmptyState } from '@/components/studio/primitives';
 import type { ArchLayer, ArchNodeData, ArchitectureGraph } from '@/lib/studio/types';
 
 const nodeTypes = { arch: ArchFlowNode };
+
 
 const ALL_LAYERS: ArchLayer[] = [
   'identity',
@@ -351,7 +352,15 @@ function ArchitectureCanvas() {
         {/* canvas */}
         {/* React Flow handles its own wheel events for zoom; Lenis must not
             smooth them or the canvas stops responding to the wheel. */}
-        <div data-lenis-prevent style={{ flex: '1 1 auto', minWidth: 0, position: 'relative' }}>
+        {/*
+          The canvas carries its own token scope. On the page's own ground the
+          nodes were #101015 panels on a #0a0a0d canvas — five points apart, so
+          a graph of twelve nodes read as one dark smear. Inside cl-graph the
+          ground lifts to a grey and the nodes go *darker* than it, which is the
+          right way round for a diagram: the nodes are the dense objects and the
+          surface is the table they sit on.
+        */}
+        <div className="cl-graph" data-lenis-prevent style={{ flex: '1 1 auto', minWidth: 0, position: 'relative' }}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -437,120 +446,110 @@ function NodeInspector({
   const outgoing = graph.edges.filter((e) => e.source === nodeId);
   const incoming = graph.edges.filter((e) => e.target === nodeId);
 
+  /* The adapter flattens each detail into "Label: value" and the panel rendered
+     the result as badges — sentences in chips, clipped at the panel edge. They
+     are split back into the pairs they always were. The one whose value repeats
+     the purpose sentence above is dropped rather than printed twice. */
+  const capabilities = (data.capabilities ?? [])
+    .map((c) => {
+      const at = c.indexOf(':');
+      return at === -1 ? { label: c, value: '' } : { label: c.slice(0, at).trim(), value: c.slice(at + 1).trim() };
+    })
+    .filter((c) => c.value.toLowerCase() !== (data.purpose ?? '').toLowerCase());
+
+  /* Only rows that have something in them. A row whose value is an em-dash
+     tells you less than no row at all, and four of them in a column read as a
+     form someone forgot to fill in. */
+  const facts: Array<{ key: string; label: string; value: ReactNode }> = [];
+  if (data.adapter) facts.push({ key: 'adapter', label: 'Adapter', value: <span className="cl-mono">{data.adapter}</span> });
+  if (data.version) facts.push({ key: 'version', label: 'Version', value: data.version });
+  /* Network role and configured status are the two marks in the header. They
+     were also KeyValue rows directly beneath it, saying the same words twice. */
+  if (liveOverlay && data.liveStatus && data.liveStatus !== data.status) {
+    facts.push({ key: 'observed', label: 'Observed', value: <StatusBadge status={data.liveStatus} /> });
+  }
+  if (data.ref) {
+    facts.push({
+      key: 'ref',
+      label: data.ref.kind === 'address' ? 'Address' : data.ref.kind === 'hash' ? 'Hash' : 'Node',
+      value: <BlockchainRef value={data.ref.value} network={data.ref.network} kind={data.ref.kind === 'node' ? 'node' : data.ref.kind} />,
+    });
+  }
+  if (data.generatedModule) facts.push({ key: 'module', label: 'Module', value: <span className="cl-mono">{data.generatedModule}</span> });
+  capabilities.forEach((c, i) => facts.push({ key: `cap-${i}`, label: c.label, value: c.value || '—' }));
+
   return (
-    <div className="cl-col" style={{ gap: 14 }}>
+    <div className="cl-col" style={{ gap: 18 }}>
       <div>
         <div className="cl-h1">{data.label}</div>
-        <p className="cl-meta" style={{ marginTop: 6, whiteSpace: 'normal' }}>
-          {data.purpose}
-        </p>
-      </div>
-
-      <div className="cl-row cl-row-wrap" style={{ gap: 5 }}>
-        <StatusBadge status={status} />
-        {data.trustClass ? (
-          <Badge tone={data.trustClass === 'VERIFIED_ORACLE' ? 'pass' : data.trustClass === 'SIMULATED' ? 'sim' : 'data'}>
-            {data.trustClass.replace(/_/g, ' ')}
-          </Badge>
+        {data.purpose ? (
+          <p className="cl-meta" style={{ marginTop: 6, whiteSpace: 'normal' }}>
+            {data.purpose}
+          </p>
         ) : null}
-        {data.networkRole === 'MAINNET_READ_ONLY' ? <Badge tone="data">MAINNET · READ ONLY</Badge> : null}
-        {data.networkRole === 'EXECUTION_TESTNET' ? <Badge tone="sim">SEPOLIA · TESTNET</Badge> : null}
+        <div className="cl-row cl-row-wrap" style={{ gap: 12, marginTop: 10 }}>
+          <StatusBadge status={status} />
+          {data.trustClass ? (
+            <Badge tone={data.trustClass === 'VERIFIED_ORACLE' ? 'pass' : data.trustClass === 'SIMULATED' ? 'sim' : 'data'}>
+              {data.trustClass.replace(/_/g, ' ')}
+            </Badge>
+          ) : null}
+          {data.networkRole === 'MAINNET_READ_ONLY' ? <Badge tone="data">MAINNET · READ ONLY</Badge> : null}
+          {data.networkRole === 'EXECUTION_TESTNET' ? <Badge tone="sim">SEPOLIA · TESTNET</Badge> : null}
+          {data.freshness ? <FreshnessBadge freshness={data.freshness} /> : null}
+        </div>
       </div>
 
-      {data.freshness ? <FreshnessBadge freshness={data.freshness} /> : null}
-
-      <KeyValue
-        rows={[
-          { label: 'Adapter / provider', value: data.adapter ?? '—', mono: Boolean(data.adapter) },
-          { label: 'Version', value: data.version ?? '—' },
-          { label: 'Network role', value: data.networkRole.replace(/_/g, ' ') },
-          { label: 'Configured status', value: data.status },
-          ...(liveOverlay && data.liveStatus ? [{ label: 'Observed status', value: data.liveStatus }] : []),
-          ...(data.ref
-            ? [
-                {
-                  label: data.ref.kind === 'address' ? 'Address' : data.ref.kind === 'hash' ? 'Hash' : 'Node',
-                  value: (
-                    <BlockchainRef
-                      value={data.ref.value}
-                      network={data.ref.network}
-                      kind={data.ref.kind === 'node' ? 'node' : data.ref.kind}
-                    />
-                  ),
-                },
-              ]
-            : []),
-          ...(data.generatedModule ? [{ label: 'Generated module', value: data.generatedModule, mono: true }] : []),
-        ]}
-      />
-
-      {data.capabilities?.length ? (
-        <div>
-          <div className="cl-label" style={{ marginBottom: 6 }}>
-            Capabilities
-          </div>
-          <div className="cl-row cl-row-wrap" style={{ gap: 5 }}>
-            {data.capabilities.map((c) => (
-              <Badge key={c} tone="neutral">
-                {c}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {facts.length > 0 ? <Spec rows={facts} /> : null}
 
       {outgoing.length > 0 || incoming.length > 0 ? (
         <div>
-          <div className="cl-label" style={{ marginBottom: 6 }}>
-            Connections
-          </div>
-          <div className="cl-col" style={{ gap: 7 }}>
+          <div className="cl-label" style={{ marginBottom: 7 }}>Connections</div>
+          {/*
+            Was two formats in one list: outgoing rows read "Supplies context to
+            ENSv2 identity" and incoming ones "← Agent runtime triggers this
+            node", with the arrow on only one of them and nothing lining up.
+            One row shape now — a direction glyph in a fixed gutter, the verb,
+            then the other node — so the whole list reads down its columns.
+          */}
+          <div className="cl-conns">
             {outgoing.map((edge) => (
-              <div key={edge.id}>
-                <div style={{ fontSize: 12.5 }}>
-                  {EDGE_KIND_LABEL[edge.kind]} <span className="cl-strong">{labelFor(edge.target)}</span>
+              <div className="cl-conn" key={edge.id}>
+                <span className="cl-conn-dir" aria-label="to">→</span>
+                <span className="cl-conn-verb">{EDGE_KIND_LABEL[edge.kind]}</span>
+                <span className="cl-conn-node">
+                  {labelFor(edge.target)}
                   {edge.requiresCre ? <Badge tone="sim">requires CRE</Badge> : null}
-                </div>
-                {edge.note ? (
-                  <div className="cl-meta" style={{ whiteSpace: 'normal' }}>
-                    {edge.note}
-                  </div>
-                ) : null}
+                  {edge.note ? <span className="cl-conn-note">{edge.note}</span> : null}
+                </span>
               </div>
             ))}
             {incoming.map((edge) => (
-              <div key={edge.id} className="cl-meta">
-                ← <span className="cl-strong">{labelFor(edge.source)}</span> {EDGE_KIND_LABEL[edge.kind].toLowerCase()}{' '}
-                this node
+              <div className="cl-conn" key={edge.id} data-incoming="">
+                <span className="cl-conn-dir" aria-label="from">←</span>
+                <span className="cl-conn-verb">{EDGE_KIND_LABEL[edge.kind]}</span>
+                <span className="cl-conn-node">{labelFor(edge.source)}</span>
               </div>
             ))}
           </div>
         </div>
       ) : null}
 
-      {/* Navigation only — no destructive controls live in a node inspector. */}
-      <div className="cl-col" style={{ gap: 6 }}>
+      {/* Navigation only — no destructive controls live in a node inspector.
+          Five full-width stacked buttons read as the panel's main event; they
+          wrap as ordinary small ones instead. */}
+      <div className="cl-row cl-row-wrap" style={{ gap: 6 }}>
         {data.blueprintSection ? (
-          <button type="button" className="cl-btn cl-btn-block" onClick={() => onOpen('blueprint')}>
-            Open Blueprint section
-          </button>
+          <button type="button" className="cl-btn cl-btn-sm" onClick={() => onOpen('blueprint')}>Blueprint</button>
         ) : null}
         {data.codePath ? (
-          <button type="button" className="cl-btn cl-btn-block" onClick={() => onOpen('code')}>
-            Open Code
-          </button>
+          <button type="button" className="cl-btn cl-btn-sm" onClick={() => onOpen('code')}>Code</button>
         ) : null}
-        <button type="button" className="cl-btn cl-btn-block" onClick={() => onOpen('activity')}>
-          Open Activity
-        </button>
+        <button type="button" className="cl-btn cl-btn-sm" onClick={() => onOpen('activity')}>Activity</button>
         {data.relatedSimulationId ? (
-          <button type="button" className="cl-btn cl-btn-block" onClick={() => onOpen('simulation')}>
-            Run related simulation
-          </button>
+          <button type="button" className="cl-btn cl-btn-sm" onClick={() => onOpen('simulation')}>Simulation</button>
         ) : null}
-        <button type="button" className="cl-btn cl-btn-block" onClick={() => onOpen('reality')}>
-          View provenance
-        </button>
+        <button type="button" className="cl-btn cl-btn-sm" onClick={() => onOpen('reality')}>Provenance</button>
       </div>
     </div>
   );

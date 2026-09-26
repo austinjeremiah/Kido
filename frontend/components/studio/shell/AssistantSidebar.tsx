@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Context Agent sidebar (spec §6).
+ * Kido Assistant sidebar (spec §6).
  *
  * A product primitive, not a generic chatbot: it is page-aware, selection-aware,
  * renders structured response cards, and can never itself execute a privileged
@@ -72,7 +72,7 @@ const TIER_LABEL: Record<string, string> = {
   emergency: 'Critical modal only',
 };
 
-export function ContextAgentSidebar({
+export function AssistantSidebar({
   projectId,
   agent,
   segment,
@@ -250,11 +250,11 @@ export function ContextAgentSidebar({
   };
 
   return (
-    <aside className={`cl-agent${agentDrawer ? ' cl-agent-drawer' : ''}`} aria-label="Context Agent">
+    <aside className={`cl-agent${agentDrawer ? ' cl-agent-drawer' : ''}`} aria-label="Kido Assistant">
       {/* header (spec §6.1) */}
       <div className="cl-agent-head">
         <div className="cl-agent-head-row">
-          <span className="cl-agent-title">Context Agent</span>
+          <span className="cl-agent-title">Assistant</span>
           <Popover
             align="right"
             width={220}
@@ -297,7 +297,7 @@ export function ContextAgentSidebar({
           </button>
         </div>
         <div className="cl-agent-chips">
-          <Badge tone="neutral" title="Page context">
+          <Badge tone="neutral" title="Current page">
             {meta.tabTitle}
           </Badge>
           <Badge tone="neutral" title="Current agent">
@@ -429,7 +429,7 @@ export function ContextAgentSidebar({
               submit();
             }
           }}
-          aria-label="Message the Context Agent"
+          aria-label="Message the Kido Assistant"
           role="combobox"
           aria-expanded={Boolean(mentionToken && mentionMatches.length > 0)}
           aria-controls={mentionToken ? 'cl-mention-list' : undefined}
@@ -464,7 +464,7 @@ export function ContextAgentSidebar({
             onClick={() => {
               if (!selection) return;
               setAttachments((prev) => [...new Set([...prev, `${selection.kind}:${selection.id}`])]);
-              pushToast('Selection attached to context');
+              pushToast('Selection attached');
             }}
           >
             <Paperclip size={13} aria-hidden />

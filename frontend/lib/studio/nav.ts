@@ -3,7 +3,7 @@
  *
  * The rail switches which explorer groups are visible (IDE view containers).
  * Page metadata carries the title, the one-line purpose, the agent page-kind and
- * the page-specific Context Agent quick prompts defined in the product spec.
+ * the page-specific Kido Assistant quick prompts defined in the product spec.
  */
 import type { PageKind } from './types';
 
@@ -209,7 +209,7 @@ export interface PageMeta {
   tabTitle: string;
   purpose: string;
   pageKind: PageKind;
-  /** Context Agent empty-state suggestions for this page (spec §6.5). */
+  /** Kido Assistant empty-state suggestions for this page (spec §6.5). */
   quickPrompts: string[];
 }
 
@@ -243,7 +243,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'blueprint',
     title: 'Blueprint',
     tabTitle: 'Blueprint',
-    purpose: 'The canonical, machine-precise definition of this agent and its authority model.',
+    purpose: 'Every value the policy compiler reads: who the agent is, what it can touch, what it may do, and what the build must prove.',
     pageKind: 'blueprint',
     quickPrompts: [
       'Explain this field.',

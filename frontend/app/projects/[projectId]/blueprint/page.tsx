@@ -44,6 +44,54 @@ import { ApiError } from '@/lib/studio/api/client';
 import { EmptyState } from '@/components/studio/primitives';
 import type { Blueprint, BlueprintField, BlueprintSection, ValidationFinding } from '@/lib/studio/types';
 
+/**
+ * The Blueprint arrives as nineteen sections. Rendered one-per-heading that is
+ * nineteen numbered heads, nineteen card borders and nineteen summary
+ * sentences before any content — a wall you scroll rather than a document you
+ * read, however well each piece is styled.
+ *
+ * They are gathered into five, which is how the document actually reads: who
+ * the agent is, what it can touch, what it may do, what stays private, and what
+ * the build must prove. The grouping is presentation only — the sections, their
+ * fields and their ids are exactly what the backend sent.
+ */
+const SECTION_GROUPS: Array<{ id: string; label: string; members: string[] }> = [
+  { id: 'principal', label: 'Principal', members: ['identity', 'objective', 'ens'] },
+  { id: 'surface', label: 'Surface', members: ['protocols', 'assets', 'triggers', 'actions'] },
+  {
+    id: 'authority',
+    label: 'Authority',
+    members: ['permissions', 'autonomous-policy', 'escalation-policy', 'capability-policy', 'execution-networks'],
+  },
+  {
+    id: 'confidentiality',
+    label: 'Confidentiality & data',
+    members: ['confidential-policy', 'data-requirements', 'cre', 'ledger'],
+  },
+  {
+    id: 'contract',
+    label: 'Build contract',
+    members: ['simulation-requirements', 'generated-modules', 'security-assertions'],
+  },
+];
+
+/**
+ * Groups the sections without dropping any. A section the map has never heard
+ * of — a new one from the backend — lands in a trailing group rather than
+ * disappearing, which is the failure mode a hard-coded layout usually has.
+ */
+function groupSections(sections: BlueprintSection[]) {
+  const seen = new Set<string>();
+  const groups = SECTION_GROUPS.map((g) => {
+    const members = g.members.map((id) => sections.find((s) => s.id === id)).filter((s): s is BlueprintSection => !!s);
+    members.forEach((m) => seen.add(m.id));
+    return { ...g, sections: members };
+  }).filter((g) => g.sections.length > 0);
+
+  const rest = sections.filter((s) => !seen.has(s.id));
+  return rest.length > 0 ? [...groups, { id: 'other', label: 'Other', members: [], sections: rest }] : groups;
+}
+
 export default function BlueprintPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -308,30 +356,43 @@ export default function BlueprintPage() {
           </Card>
         </Section>
       ) : (
-        sections.map((section) => (
-          <Section key={section.id} label={`${section.index}. ${section.title}`}>
-            <Card>
-              <p className="cl-meta" style={{ marginBottom: 12 }}>
-                {section.summary}
-              </p>
-              <div className="cl-col" style={{ gap: 0 }}>
-                {section.fields.map((field) => (
-                  <FieldRow
-                    key={field.key}
-                    field={field}
-                    editing={editing}
-                    focused={focusField === field.key}
-                    registerRef={(el) => {
-                      fieldRefs.current[field.key] = el;
-                    }}
-                    onChange={(value) => setEdits((prev) => ({ ...prev, [field.key]: value }))}
-                    onSelect={() =>
-                      setSelection({ kind: 'blueprint-field', id: field.key, label: `${section.title} · ${field.label}` })
-                    }
-                  />
-                ))}
+        groupSections(sections).map((group) => (
+          /* The section head used to read "01  1. Identity" — the CSS counter
+             and the backend's own index both printing a number at the same
+             heading. The counter keeps it; the title is just the title. */
+          <Section key={group.id} label={group.label}>
+            {group.sections.map((section) => (
+              <div className="cl-subsection" key={section.id}>
+                {/* The summary was a paragraph at the top of every card,
+                    restating the heading above it. It is the caption on the
+                    sub-head now: nothing is lost, and the block opens with
+                    data rather than with a sentence about data. */}
+                <div className="cl-subsection-head">
+                  <span className="cl-label">{section.title}</span>
+                  <span className="cl-subsection-rule" />
+                  <span className="cl-meta cl-subsection-note">{section.summary}</span>
+                </div>
+                {/* No Card. A section rule followed immediately by a card
+                    border framed the same content twice. */}
+                <div className="cl-spec">
+                  {section.fields.map((field) => (
+                    <FieldRow
+                      key={field.key}
+                      field={field}
+                      editing={editing}
+                      focused={focusField === field.key}
+                      registerRef={(el) => {
+                        fieldRefs.current[field.key] = el;
+                      }}
+                      onChange={(value) => setEdits((prev) => ({ ...prev, [field.key]: value }))}
+                      onSelect={() =>
+                        setSelection({ kind: 'blueprint-field', id: field.key, label: `${section.title} · ${field.label}` })
+                      }
+                    />
+                  ))}
+                </div>
               </div>
-            </Card>
+            ))}
           </Section>
         ))
       )}
@@ -541,34 +602,24 @@ function FieldRow({
   const changed = Boolean(field.previousValue);
   const canEdit = editing && field.editable;
 
+  /* Same ruled row as the Composer's requirements and the Organization's
+     identity block — one pattern for a named value, instead of a third
+     hand-rolled grid with its own paddings. The change marker rides the row's
+     left edge, which is the track `open` already uses. */
   return (
     <div
+      className="cl-spec-row"
+      data-changed={changed ? '' : undefined}
+      data-focused={focused ? '' : undefined}
       ref={registerRef}
       onClick={onSelect}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(150px, 230px) minmax(0, 1fr)',
-        gap: 14,
-        alignItems: 'baseline',
-        padding: '9px 0 9px 12px',
-        borderBottom: '1px solid var(--cl-line)',
-        /* left-side change marker (spec §12) */
-        borderLeft: changed ? '2px solid var(--cl-warn)' : '2px solid transparent',
-        background: focused ? 'rgba(0, 66, 175, 0.09)' : undefined,
-        transition: 'background 0.4s ease',
-        scrollMarginTop: 90,
-      }}
+      style={{ scrollMarginTop: 90 }}
     >
-      <div style={{ fontSize: 12.5, color: 'var(--cl-ink-3)' }}>
-        {field.label}
-        {field.hint ? (
-          <div className="cl-meta" style={{ marginTop: 2, whiteSpace: 'normal' }}>
-            {field.hint}
-          </div>
-        ) : null}
+      <div className="cl-spec-key">
+        <span>{field.label}</span>
       </div>
 
-      <div style={{ minWidth: 0 }}>
+      <div className="cl-spec-val">
         {canEdit ? (
           <input
             className="cl-input"
@@ -577,10 +628,13 @@ function FieldRow({
             aria-label={field.label}
           />
         ) : (
-          <div className={field.mono ? 'cl-mono' : undefined} style={{ fontSize: 13.5, overflowWrap: 'anywhere' }}>
-            {field.value}
-          </div>
+          <span className={field.mono ? 'cl-spec-value cl-mono' : 'cl-spec-value'}>{field.value}</span>
         )}
+
+        {/* The hint used to sit under the label, in the narrow column, where a
+            one-line sentence wrapped to three. It says something about the
+            value, so it belongs beside it. */}
+        {field.hint ? <span className="cl-spec-note">{field.hint}</span> : null}
 
         {changed ? (
           <div style={{ marginTop: 6 }}>

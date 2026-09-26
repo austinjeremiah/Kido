@@ -1,5 +1,5 @@
 /**
- * @-mention resolution for the Context Agent (spec §6.2, §6.7).
+ * @-mention resolution for the Kido Assistant (spec §6.2, §6.7).
  *
  * Two rules from the spec drive the whole design here:
  *

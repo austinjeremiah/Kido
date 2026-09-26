@@ -999,8 +999,11 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   border-bottom: 1px solid var(--cl-line);
 }
 .cl-section-index {
+  /* Sized against the title rather than against the micro-labels: at 11px it
+     read as a footnote marker beside a 19px serif heading. A touch under the
+     title so the number is part of the head without competing with the word. */
   flex: 0 0 auto;
-  font-family: var(--mono); font-weight: 500; font-size: 11px; letter-spacing: 0.06em;
+  font-family: var(--mono); font-weight: 500; font-size: 16px; letter-spacing: 0.02em;
   color: var(--cl-brand);
 }
 /* display:none also suppresses the increment, which is what a plain section
@@ -1073,6 +1076,60 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 .cl-table tbody tr[data-clickable="true"] { cursor: pointer; }
 .cl-table-scroll { overflow: auto; max-height: 100%; }
 
+/* --- connection list -------------------------------------------------------
+   Who this node talks to. One row shape for both directions: a glyph in a
+   fixed gutter, the relationship, then the other node — so a mixed list of
+   incoming and outgoing reads down its columns instead of as two formats
+   sharing a box. */
+.cl-conns { display: flex; flex-direction: column; }
+.cl-conn {
+  display: grid;
+  grid-template-columns: 14px minmax(84px, 128px) minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--cl-line);
+}
+.cl-conn:last-child { border-bottom: none; }
+.cl-conn-dir { font-family: var(--mono); font-size: 12px; color: var(--cl-ink-3); }
+/* Incoming is the quieter direction: what this node does is the list's subject,
+   what is done to it is context. */
+.cl-conn[data-incoming] .cl-conn-dir,
+.cl-conn[data-incoming] .cl-conn-node { color: var(--cl-ink-3); }
+.cl-conn-verb {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--cl-ink-3); line-height: 1.6;
+}
+.cl-conn-node {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 9px;
+  min-width: 0; font-size: 13px; color: var(--cl-ink);
+}
+.cl-conn-note { flex: 1 1 100%; font-size: 12px; color: var(--cl-ink-3); }
+
+/* --- graph canvas ----------------------------------------------------------
+   A scoped palette for the architecture surface, the same technique the console
+   uses. Everything inside reads from the tokens already, so redefining six of
+   them turns the canvas over without restating a single node rule.
+
+   Deliberately kept as its own block: if the canvas should go cream instead,
+   it is these six values and nothing else. */
+.cl-graph {
+  /* Neutral, with a hair of warmth rather than the blue cast the first pass
+     had — #1d1d22 put blue five points above red and green, which on a large
+     flat field reads as navy however dark it is. */
+  --cl-canvas: #21201e;
+  --cl-canvas-dot: rgba(254, 241, 208, 0.14);
+
+  /* Nodes darker than the ground, and lifted off it by a border rather than by
+     a fill that barely differs from it. */
+  --cl-panel: #0d0d0c;
+  --cl-panel-2: #151513;
+  --cl-raised: #2a2926;
+
+  --cl-line: rgba(254, 241, 208, 0.2);
+  --cl-line-strong: rgba(254, 241, 208, 0.4);
+}
+
 /* --- principals ------------------------------------------------------------
    The agents of an organization, across the top of the page rather than in a
    list down one side. Each is a separate principal with its own identity,
@@ -1118,6 +1175,28 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
    is, before the values that describe it. */
 .cl-lead { font-size: 14.5px; line-height: 1.6; color: var(--cl-ink-2); max-width: 78ch; margin-bottom: 16px; }
 
+/* --- sub-sections ----------------------------------------------------------
+   A named block inside a section, for documents that arrive already divided
+   into more parts than a page can carry as headings — the Blueprint's nineteen.
+   The head is a mono label, a rule, and the part's own one-line summary as a
+   caption on the right, which is where that sentence belongs: it describes the
+   block, so it does not need a paragraph of its own inside it. */
+.cl-subsection { margin-bottom: 22px; }
+.cl-subsection:last-child { margin-bottom: 0; }
+.cl-subsection-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 4px; }
+.cl-subsection-head .cl-label { flex: 0 0 auto; color: var(--cl-ink-2); }
+.cl-subsection-rule { flex: 0 0 24px; height: 1px; background: var(--cl-line); align-self: center; }
+/* Shrinks before the label does, and drops away entirely once there is no room
+   for it — a caption that wraps to three lines is worse than no caption. */
+.cl-subsection-note {
+  flex: 0 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 12px;
+}
+@container cl-pane (max-width: 620px) {
+  .cl-subsection-note { display: none; }
+}
+
 /* --- spec rows -------------------------------------------------------------
    For a set of named values that were derived rather than entered: detected
    requirements, resolved limits, a policy readout. A <table> with a
@@ -1140,6 +1219,11 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
   transition: background 0.12s ease, border-color 0.12s ease;
 }
 .cl-spec-row[data-static] { cursor: default; }
+/* A row whose value differs from the published revision, and the row a finding
+   jumped you to. Both ride the same left track the `open` marker uses, so a
+   page never carries two competing edge colours. */
+.cl-spec-row[data-changed] { border-left-color: var(--cl-warn); }
+.cl-spec-row[data-focused] { background: var(--cl-sel); transition: background 0.4s ease; }
 .cl-spec-row:not([data-static]):hover { background: var(--cl-wash); border-left-color: var(--cl-line-strong); }
 /* Anything not yet established takes the brand edge, so a page of settled rows
    shows its one loose end down the left margin without reading the values. */
@@ -1161,12 +1245,27 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 .cl-spec-tick { grid-column: 2; width: 13px; height: 13px; color: var(--cl-pass); margin-top: 1px; }
 
 .cl-spec-val { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0; }
-.cl-spec-value { font-size: 14px; line-height: 1.5; color: var(--cl-ink); overflow-wrap: anywhere; }
+/* break-word, not anywhere. `anywhere` also shrinks the column's min-content
+   width, which let the value track collapse to almost nothing in a narrow
+   pane — and then broke inside short words to fit it: "30000m / s",
+   "cre- / confidenti / al". break-word still breaks a 66-character hash that
+   genuinely cannot fit on a line of its own, and leaves ordinary words alone. */
+.cl-spec-value { font-size: 14px; line-height: 1.5; color: var(--cl-ink); overflow-wrap: break-word; }
 .cl-spec-note { font-size: 12.5px; line-height: 1.5; color: var(--cl-ink-3); }
 
 @container cl-pane (max-width: 620px) {
   .cl-spec-row { grid-template-columns: minmax(0, 1fr); gap: 6px; }
 }
+
+/* The node inspector is a ~360px drawer, but the container query above is bound
+   to the centre *pane*, which is wide — so the drawer never qualified and kept
+   the two-column layout, spending 210px of 360 on the key. Inside a drawer the
+   pair always stacks. */
+.cl-drawer .cl-spec-row { grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 11px 4px 11px 10px; }
+.cl-drawer .cl-spec-key { grid-template-columns: minmax(0, 1fr) 14px; padding-top: 0; }
+.cl-drawer .cl-conn { grid-template-columns: 14px minmax(0, 1fr); }
+.cl-drawer .cl-conn-verb { grid-column: 2; }
+.cl-drawer .cl-conn-node { grid-column: 2; }
 
 .cl-list-row {
   display: flex; align-items: center; gap: 10px;

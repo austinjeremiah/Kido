@@ -18,7 +18,7 @@ import { ActivityRail, ProjectExplorer, type NavBadge } from './LeftWorkbench';
 import { EditorTabBar } from './EditorTabBar';
 import { BottomPanel } from './BottomPanel';
 import { StatusBar } from './StatusBar';
-import { ContextAgentSidebar } from './ContextAgentSidebar';
+import { AssistantSidebar } from './AssistantSidebar';
 import { AuthoringUnavailable, MonitorNav, isMonitorSegment } from './MonitoringMode';
 import { CommandPalette } from './CommandPalette';
 import { Modal } from '../dialogs';
@@ -310,7 +310,7 @@ export function Workbench({
               onReset={() => resetPanelSize('agent')}
             />
             <div style={{ width: sizes.agent, flex: `0 0 ${sizes.agent}px`, minWidth: 0, display: 'flex' }}>
-              <ContextAgentSidebar
+              <AssistantSidebar
                 projectId={project.id}
                 agent={agent}
                 segment={segment}
@@ -320,7 +320,7 @@ export function Workbench({
             </div>
           </>
         ) : agentOpen && agentDrawer ? (
-          <ContextAgentSidebar
+          <AssistantSidebar
             projectId={project.id}
             agent={agent}
             segment={segment}
@@ -332,8 +332,8 @@ export function Workbench({
             type="button"
             className="cl-icon-btn"
             onClick={toggleAgent}
-            title="Open Context Agent (⌘⇧A)"
-            aria-label="Open Context Agent"
+            title="Open Kido Assistant (⌘⇧A)"
+            aria-label="Open Kido Assistant"
             style={{
               alignSelf: 'flex-start',
               margin: 4,

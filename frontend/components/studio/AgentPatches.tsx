@@ -3,7 +3,7 @@
 /**
  * Pending agent patches for the current page (spec §6.4).
  *
- * When the user hits "Apply to draft" in the Context Agent, the proposal is
+ * When the user hits "Apply to draft" in the Kido Assistant, the proposal is
  * delivered here rather than written into the artifact. The distinction is the
  * whole point of the project-mutation tier: applying moves a proposal onto the
  * page that owns it, and a person still decides whether it becomes a revision.
