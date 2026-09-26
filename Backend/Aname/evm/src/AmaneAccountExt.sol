@@ -127,14 +127,11 @@ contract AmaneAccountExt is AmaneStorage {
         if (!leaseAdapters[src.leaseId][dest.adapterId] || !leaseAdapters[src.leaseId][transportId]) revert AmaneRejected(Codes.ACTION_ADAPTER_NOT_ALLOWED);
         if (!leaseAssets[src.leaseId][dest.asset].allowed) revert AmaneRejected(Codes.XCHAIN_WRONG_ASSET);
         _checkRecipient(src.leaseId, v, dest.actionKind, dest.recipient, dest.recipientLabel);
-        AdapterRegistry.Entry memory t = IAmaneSelf(address(this)).registry().get(transportId);
-        if (t.adapter == address(0) || !rootAdapters[v][transportId].allowed) revert AmaneRejected(Codes.ADAPTER_UNKNOWN);
-        if (t.actionKind != ActionKinds.BRIDGE) revert AmaneRejected(Codes.ADAPTER_KIND_MISMATCH);
-        if (t.adapter.codehash != t.codeHash) revert AmaneRejected(Codes.ADAPTER_CODE_CHANGED);
+        address adapter = _transport(transportId);
 
         address token = _asAddress(dest.asset);
         uint256 before = IERC20Minimal(token).balanceOf(address(this));
-        bytes32 payloadIntent = IAmaneTransport(t.adapter).redeem(transportData);
+        bytes32 payloadIntent = IAmaneTransport(adapter).redeem(transportData);
         if (payloadIntent != intent) revert AmaneRejected(Codes.XCHAIN_PAYLOAD_MISMATCH);
         uint256 arrived = IERC20Minimal(token).balanceOf(address(this)) - before;
         if (arrived == 0 || arrived < dest.minArrival) revert AmaneRejected(Codes.XCHAIN_BELOW_MINIMUM);
@@ -145,11 +142,52 @@ contract AmaneAccountExt is AmaneStorage {
 
     /// After its deadline an unspent reservation returns to the account's ordinary balance, which
     /// only the owner's controllers can withdraw. It never becomes spendable by the agent's intent.
+    /// After its deadline an unspent reservation is not returned to ordinary spending: it becomes
+    /// quarantined, movable only by a root-threshold withdrawal to a pinned recovery destination.
     function releaseReservation(bytes32 intent) external {
         Reservation memory r = reservations[intent];
         if (r.remaining == 0 || block.timestamp <= r.deadline) revert AmaneRejected(Codes.XCHAIN_NO_RESERVATION);
         delete reservations[intent];
-        reservedOf[_asAddress(r.asset)] -= r.remaining;
+        address token = _asAddress(r.asset);
+        quarantinedOf[token] += r.remaining;
+        emit CrossChainQuarantined(intent, token, r.remaining);
+    }
+
+    /// Destination-failure path. Once the committed destination can no longer be executed (its
+    /// deadline passed, or the lease expired or was revoked), the arrival is still redeemed from the
+    /// transport, but straight into quarantine. Before that point it is refused, so nobody can use
+    /// it to divert a deliverable arrival away from its reserved action.
+    function recoverArrival(ActionIntent calldata src, bytes calldata srcSig, DestSpec calldata dest, bytes32 transportId, bytes calldata transportData)
+        external
+        nonReentrant
+    {
+        if (src.accountId != IAmaneSelf(address(this)).accountId()) revert AmaneRejected(Codes.POLICY_WRONG_ACCOUNT);
+        if (src.actionKind != ActionKinds.BRIDGE) revert AmaneRejected(Codes.XCHAIN_NOT_A_BRIDGE_ACTION);
+        if (src.recipient != self32()) revert AmaneRejected(Codes.XCHAIN_WRONG_DESTINATION);
+        Lease memory l = leases[src.leaseId];
+        if (l.status == LEASE_ACTIVE && block.timestamp <= l.expiresAt && block.timestamp <= dest.deadline) revert AmaneRejected(Codes.XCHAIN_NO_RESERVATION);
+        bytes32 intent = AmaneHash.digest(src.hash());
+        if (l.agent == address(0) || AmaneSig.recover(intent, srcSig) != l.agent) revert AmaneRejected(Codes.ACTION_WRONG_AGENT);
+        if (src.planHash != DestSpecHash.hash(dest)) revert AmaneRejected(Codes.XCHAIN_SPEC_MISMATCH);
+        if (intentUsed[intent]) revert AmaneRejected(Codes.XCHAIN_INTENT_USED);
+        intentUsed[intent] = true;
+        address adapter = _transport(transportId);
+        address token = _asAddress(dest.asset);
+        uint256 before = IERC20Minimal(token).balanceOf(address(this));
+        if (IAmaneTransport(adapter).redeem(transportData) != intent) revert AmaneRejected(Codes.XCHAIN_PAYLOAD_MISMATCH);
+        uint256 arrived = IERC20Minimal(token).balanceOf(address(this)) - before;
+        if (arrived == 0) revert AmaneRejected(Codes.XCHAIN_BELOW_MINIMUM);
+        reservedOf[token] += arrived;
+        quarantinedOf[token] += arrived;
+        emit CrossChainQuarantined(intent, token, arrived);
+    }
+
+    function _transport(bytes32 transportId) private view returns (address) {
+        AdapterRegistry.Entry memory t = IAmaneSelf(address(this)).registry().get(transportId);
+        if (t.adapter == address(0) || !rootAdapters[policyVersion][transportId].allowed) revert AmaneRejected(Codes.ADAPTER_UNKNOWN);
+        if (t.actionKind != ActionKinds.BRIDGE) revert AmaneRejected(Codes.ADAPTER_KIND_MISMATCH);
+        if (t.adapter.codehash != t.codeHash) revert AmaneRejected(Codes.ADAPTER_CODE_CHANGED);
+        return t.adapter;
     }
 
     function _ownPolicyEndpoint(RootPolicy calldata p) private view returns (uint256 idx) {
@@ -198,7 +236,7 @@ contract AmaneAccountExt is AmaneStorage {
     function _checkRecipient(bytes32 leaseId, uint64 v, uint8 kind, bytes32 recipient, string calldata label) private view {
         if (kind == ActionKinds.REPAY) {
             if (!leaseBeneficiaries[leaseId][recipient] || rootBeneficiaryLabel[v][recipient] != keccak256(bytes(label))) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
-        } else if (kind == ActionKinds.PAY) {
+        } else if (kind == ActionKinds.PAY || kind == ActionKinds.BRIDGE) {
             if (!leaseRecipients[leaseId][recipient] || rootRecipientLabel[v][recipient] != keccak256(bytes(label))) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
         } else if (recipient != bytes32(0)) {
             revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);

@@ -121,7 +121,14 @@ contract AmaneAccount is AmaneStorage {
         _requireThreshold(AmaneHash.digest(x.hash()), sigs);
         opNonce = x.opNonce + 1;
         address to = _asAddress(x.destination);
-        _safeTransfer(_asAddress(x.assetId), to, x.amount);
+        address token = _asAddress(x.assetId);
+        // Recovery may take available and quarantined funds, never a live reservation.
+        uint256 live = reservedOf[token] - quarantinedOf[token];
+        if (IERC20Minimal(token).balanceOf(address(this)) - live < x.amount) revert AmaneRejected(Codes.XCHAIN_RESERVED_FUNDS);
+        uint256 q = x.amount < quarantinedOf[token] ? x.amount : quarantinedOf[token];
+        quarantinedOf[token] -= q;
+        reservedOf[token] -= q;
+        _safeTransfer(token, to, x.amount);
         emit Withdrawn(x.assetId, x.amount, to, x.opNonce);
     }
 
@@ -206,7 +213,7 @@ contract AmaneAccount is AmaneStorage {
         Reservation memory r = reservations[intent];
         if (r.remaining == 0) revert AmaneRejected(Codes.XCHAIN_NO_RESERVATION);
         if (block.timestamp > r.deadline) revert AmaneRejected(Codes.XCHAIN_EXPIRED);
-        if (a.leaseId != r.leaseId || a.planHash != intent || a.actionKind != r.actionKind || a.adapterId != r.adapterId || a.recipient != r.recipient || a.assetIn != r.asset || a.amountIn > r.remaining) {
+        if (a.leaseId != r.leaseId || (a.planHash != intent && r.actionKind != ActionKinds.BRIDGE) || a.actionKind != r.actionKind || a.adapterId != r.adapterId || a.recipient != r.recipient || a.assetIn != r.asset || a.amountIn > r.remaining) {
             revert AmaneRejected(Codes.XCHAIN_RESERVATION_MISMATCH);
         }
         reservations[intent].remaining = r.remaining - a.amountIn;
@@ -272,6 +279,10 @@ contract AmaneAccount is AmaneStorage {
     }
 
     function releaseReservation(bytes32) external {
+        _delegate();
+    }
+
+    function recoverArrival(ActionIntent calldata, bytes calldata, DestSpec calldata, bytes32, bytes calldata) external {
         _delegate();
     }
 

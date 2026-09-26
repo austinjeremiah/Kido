@@ -144,7 +144,10 @@ abstract contract AmaneStorage {
     }
     mapping(bytes32 => Reservation) public reservations;
     mapping(bytes32 => bool) public intentUsed;
+    /// Everything ordinary leases may not spend: live reservations plus quarantined arrivals.
     mapping(address => uint256) public reservedOf;
+    /// Part of reservedOf that only a root-threshold withdrawal to a pinned recovery destination can move.
+    mapping(address => uint256) public quarantinedOf;
 
     uint256 internal locked = 1;
 
@@ -154,6 +157,7 @@ abstract contract AmaneStorage {
     event Paused(uint64 pauseEpoch, bytes32 pauseId, address by);
     event Unpaused(uint64 pauseEpoch, bytes32 pauseId);
     event CrossChainReserved(bytes32 indexed intent, bytes32 indexed leaseId, address token, uint256 amount);
+    event CrossChainQuarantined(bytes32 indexed intent, address token, uint256 amount);
     event ActionExecuted(
         bytes32 indexed leaseId,
         uint64 indexed nonce,

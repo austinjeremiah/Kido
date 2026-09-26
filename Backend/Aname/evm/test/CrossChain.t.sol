@@ -207,7 +207,7 @@ contract CrossChainTest is AmaneBase {
         _receiveReject(src, s_, d, 100_000000, c_, Codes.XCHAIN_WRONG_DESTINATION);
     }
 
-    function test_XC_010_expired_reservation_released_to_owner_balance_only() public {
+    function test_XC_010_expired_reservation_released_into_quarantine() public {
         DestSpec memory d = _dest();
         ActionIntent memory src = _src(d, 1);
         bytes32 intent = _digest(src);
@@ -216,7 +216,8 @@ contract CrossChainTest is AmaneBase {
         acct.releaseReservation(intent);
         vm.warp(block.timestamp + 3601);
         acct.releaseReservation(intent);
-        assertEq(acct.reservedOf(address(usd)), 0);
+        assertEq(acct.reservedOf(address(usd)), 100_000000);
+        assertEq(acct.quarantinedOf(address(usd)), 100_000000);
         ActionIntent memory r = _pay(5, 1_000000);
         r.actionKind = 2; r.adapterId = repayId; r.adapterName = "Aave V3 Repay";
         r.assetOut = a32(address(vDebt)); r.recipient = a32(borrower); r.recipientLabel = LABEL; r.planHash = intent;
