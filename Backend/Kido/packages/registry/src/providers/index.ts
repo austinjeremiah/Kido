@@ -139,7 +139,7 @@ export const PROVIDERS: ProviderManifest[] = [
     capabilities: ["CONFIDENTIAL_COMPUTE", "PRIVATE_API_ACCESS", "SECRET_ACCESS_CONTROL", "DECISION_ONLY_OUTPUT"],
     version: "cre-sdk 1.22.0 / cre CLI v1.35.0",
     sdk: [{ package: "@chainlink/cre-sdk", version: "1.22.0" }],
-    deployments: { "ethereum-sepolia": { keystoneForwarder: "0xF8344CFd5c43616a4366C34E3EEE75af79a74482", mockForwarder: "0x15fC6ae953E024d975e77382eEeC56A9101f9F88" } },
+    deployments: { "ethereum-sepolia": { keystoneForwarder: "0xF8344CFd5c43616a4366C34E3EEE75af79a74482", mockForwarder: "0x15fC6ae953E024d975e77382eEeC56A9101f9F88", kidoReceiverMockForwarder: "0x41032ee6b7a635b16ead62d0bcc20a9be05a5164" } },
     trust: trust("chainlink-cre", {
       protects: ["private inputs and API credentials during workflow execution, per CRE's confidential compute model"],
       verifies: ["workflow execution reported by the DON"],
@@ -202,8 +202,10 @@ export const PROVIDERS: ProviderManifest[] = [
         keyServerMysten1: "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
         keyServerMysten2: "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8",
         committee3of5: "0xb012378c9f3799fb5b1a7083da74a4069e3c3f1c93de0b27212a5799ce1e1e98",
+        kidoReaderPolicyPackage: "0x7ca5b0ee2b1c7eec39e853078911532fab0c87398d9eaf5552eb7cd53ea3e022",
       },
     },
+    parameters: { keyServers: "keyServerMysten1,keyServerMysten2", threshold: 2, policyModule: "reader_policy" },
     trust: trust("seal", {
       protects: ["encrypted data readable only by parties an on-chain access policy approves"],
       verifies: ["access policy evaluated on-chain before key servers release shares"],

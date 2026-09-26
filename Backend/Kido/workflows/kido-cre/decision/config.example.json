@@ -1,0 +1,13 @@
+{
+  "schedule": "0 */5 * * * *",
+  "chainSelector": "16015286601757825753",
+  "receiverAddress": "0x0000000000000000000000000000000000000000",
+  "decisionKey": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "blueprintHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "thresholdSecretId": "KIDO_PRIVATE_THRESHOLD",
+  "apiSecretId": "KIDO_PRIVATE_API_TOKEN",
+  "apiUrl": "https://example.invalid/position",
+  "observationPath": "position.healthFactor",
+  "op": "LT",
+  "gasLimit": "500000"
+}

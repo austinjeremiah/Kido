@@ -37,8 +37,7 @@ lcov.info
 *.log
 logs/
 
-# --- foundry vendored deps (restore with: cd contracts && forge install foundry-rs/forge-std --no-git) ---
-contracts/lib/
+# --- foundry build output (forge-std is a submodule: git submodule update --init) ---
 contracts/out/
 contracts/cache/
 
@@ -62,3 +61,4 @@ reports/group-e/evidence/image/oci/
 # Studio credentials held under the Ledger Key Ring (wallet-cli ring encrypt). Ciphertext, but never committed.
 /secrets/
 .kido/
+move/*/build/

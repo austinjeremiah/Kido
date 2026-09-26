@@ -25,7 +25,8 @@
   "deployments": {
     "ethereum-sepolia": {
       "keystoneForwarder": "0xF8344CFd5c43616a4366C34E3EEE75af79a74482",
-      "mockForwarder": "0x15fC6ae953E024d975e77382eEeC56A9101f9F88"
+      "mockForwarder": "0x15fC6ae953E024d975e77382eEeC56A9101f9F88",
+      "kidoReceiverMockForwarder": "0x41032ee6b7a635b16ead62d0bcc20a9be05a5164"
     }
   },
   "trust": {

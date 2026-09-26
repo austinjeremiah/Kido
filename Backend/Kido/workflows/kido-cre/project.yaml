@@ -1,0 +1,5 @@
+# Sepolia only. The RPC comes from the environment; no mainnet chain is configured.
+staging-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: ${CRE_SECRET_RPC_SEPOLIA}

@@ -48,6 +48,8 @@ export interface ProviderManifest {
   /** Capabilities whose live status differs from the provider's (e.g. resolve live, register blocked). */
   capabilityStatus?: Record<string, { status: ProviderStatus; note: string }>;
   knowledgePack: string;
+  /** Provider-specific operating parameters (e.g. a threshold), kept as data rather than code. */
+  parameters?: Record<string, string | number>;
   /** Authority providers: repository path of the deployment manifest the runtime reads addresses from. */
   deploymentManifestRef?: string;
   /** Privacy providers: audiences that can see a protected value in plaintext at this provider. */
