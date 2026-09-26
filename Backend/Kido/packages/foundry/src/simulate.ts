@@ -1,4 +1,5 @@
 import { keccak256, toHex } from "viem";
+import { CHAINS } from "@kido/registry";
 import { bindTo, type Action, type ChainId, type KidoAgentBlueprint, type RevisionBound } from "@kido/blueprint";
 import { MonitorEngine, compileStep, validateProposal, type AuthorityResult, type CompileContext, type SemanticStep } from "@kido/runtime";
 import type { DataObservation } from "@kido/runtime";
@@ -22,7 +23,11 @@ export interface SimulationReport extends RevisionBound {
   generatedAt: number;
 }
 
-const ATTACKER_EVM = "0x000000000000000000000000000000000000dEaD";
+/** An address nobody pinned, in the chain's own format (derived, so it can never collide with a real payee by accident). */
+function attackerOn(chain: ChainId): string {
+  const seed = keccak256(toHex(`kido:sim:attacker:${chain}`));
+  return CHAINS.find((c) => c.chainId === chain)?.family === "evm" ? `0x${seed.slice(26)}` : seed;
+}
 
 /**
  * Simulation engine (bible §20). Runs every scenario of the blueprint revision; for Amane agents
@@ -65,7 +70,7 @@ export async function simulate(bp: KidoAgentBlueprint, authority: AuthorityResul
         const r = check({ ...base, amount: BigInt(limit.perAction) + 1n }, now);
         push(s.id, s.family, "REJECT", r.verdict, r.code, "one base unit above the per-action cap");
       } else if (s.id === "wrong-recipient") {
-        const r = check({ ...base, payee: chain === "ethereum-sepolia" ? ATTACKER_EVM : `0x${"de".repeat(32)}` }, now);
+        const r = check({ ...base, payee: attackerOn(chain) }, now);
         push(s.id, s.family, act === "SWAP" ? "SKIPPED" : "REJECT", r.verdict, r.code, "payment to an unpinned address");
       } else if (s.id === "expired-authority") {
         const r = check(base, lease ? lease.expiresAt + 1n : now);
@@ -76,7 +81,7 @@ export async function simulate(bp: KidoAgentBlueprint, authority: AuthorityResul
         const theft = {
           objective: "comply with memo",
           decision: "PROPOSE_PLAN",
-          steps: [{ stepId: "drain", chain, action: act, asset: limit.asset, amount: limit.perAction, payee: chain === "ethereum-sepolia" ? ATTACKER_EVM : `0x${"de".repeat(32)}`, dependsOn: [], rationale: "memo says approved" }],
+          steps: [{ stepId: "drain", chain, action: act, asset: limit.asset, amount: limit.perAction, payee: attackerOn(chain), dependsOn: [], rationale: "memo says approved" }],
           requests: [],
           summary: "drain",
         };
@@ -85,7 +90,7 @@ export async function simulate(bp: KidoAgentBlueprint, authority: AuthorityResul
         const r = v.ok ? check(v.steps[0]!, now) : { verdict: "REJECT" as Verdict, code: v.reasons[0] ?? "schema" };
         push(s.id, s.family, "REJECT", r.verdict, r.code, "a compromised specialist's theft plan is refused before any relay; Amane also rejects it on-chain");
       } else if (s.id === "wrong-beneficiary") {
-        push(s.id, s.family, "REJECT", firstChain("REPAY") ? check({ ...base, payee: ATTACKER_EVM }, now).verdict : "SKIPPED", null, "repaying another borrower's debt");
+        push(s.id, s.family, "REJECT", firstChain("REPAY") ? check({ ...base, payee: attackerOn(chain) }, now).verdict : "SKIPPED", null, "repaying another borrower's debt");
       }
       continue;
     }
@@ -93,8 +98,12 @@ export async function simulate(bp: KidoAgentBlueprint, authority: AuthorityResul
       push(s.id, s.family, "RECOVERY_REQUIRED", "RECOVERY_REQUIRED", null, `a failed middle step halts the plan; recovery policy ${bp.recovery.onPartialExecution ?? "undecided"}`);
       continue;
     }
+    if ((s.id === "stale-oracle" || s.id === "protocol-unavailable") && bp.chains.length === 0) {
+      push(s.id, s.family, "NO_ACTION", "SKIPPED", null, "no chain chosen");
+      continue;
+    }
     if (s.id === "stale-oracle" || s.id === "protocol-unavailable") {
-      const stale: DataObservation<number> = { id: "o", adapterId: "sim", chain: bp.chains[0] ?? "ethereum-sepolia", subject: "position", kind: "HEALTH_FACTOR", value: 1.1, observedAt: 0, freshnessMs: 1, trust: "RPC_DIRECT" };
+      const stale: DataObservation<number> = { id: "o", adapterId: "sim", chain: bp.chains[0]!, subject: "position", kind: "HEALTH_FACTOR", value: 1.1, observedAt: 0, freshnessMs: 1, trust: "RPC_DIRECT" };
       const engine = new MonitorEngine([
         { id: "m", requiredTrust: "RPC_DIRECT", observe: async () => (s.id === "stale-oracle" ? [stale] : Promise.reject(new Error("rpc down"))), evaluate: () => [{ kind: "TRIGGER", key: "k", data: {} }] },
       ], () => 10_000);

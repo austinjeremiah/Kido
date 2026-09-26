@@ -53,7 +53,9 @@ export function securityReview(bp: KidoAgentBlueprint, i: ReviewInputs): Securit
   if (a.bridgeAllowed) out.push(f("bridge.reservation", "reserved-asset-theft", "HIGH", "arrivals are not yet reserved on-chain by the destination endpoint; reservation is enforced by Kido's plan engine only", false));
 
   if (i.authority && !i.authority.ok) for (const b of i.authority.blockers) out.push(f(`authority.${b}`, "authority-compile", "CRITICAL", b));
-  if (i.authority?.ok) for (const x of i.authority.excludedActions) out.push(f(`adapter.${x.chain}.${x.action}`, "missing-execution-adapter", "HIGH", x.reason));
+  // An allowed action the chain cannot enforce means the agent would be built unable to do its job, or
+  // tempted to act outside Amane; either way it is not buildable until the adapter ships.
+  if (i.authority?.ok) for (const x of i.authority.excludedActions) out.push(f(`adapter.${x.chain}.${x.action}`, "missing-execution-adapter", "CRITICAL", x.reason));
 
   for (const adv of bp.identity.advertisedCapabilities) {
     const act = adv.replace(/^kido:/, "").toUpperCase();

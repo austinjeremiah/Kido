@@ -1,35 +1,47 @@
 import { keccak256, toHex } from "viem";
-import type { ChainId, KidoAgentBlueprint } from "@kido/blueprint";
+import type { Action, ChainId, KidoAgentBlueprint } from "@kido/blueprint";
 import { ActionKind, evmAssetId, suiAdapterId, suiAssetId, type AmaneDeploymentManifest, type Bytes32 } from "@kido/amane-bridge";
-import type { ProviderRegistry } from "@kido/registry";
+import { CHAINS, type ChainFamily, type ChainProfile, type ProviderRegistry } from "@kido/registry";
 import type { AuthorityEndpoint } from "@kido/runtime";
+
+/** Per chain family: how Amane identifies assets, adapters and simulation accounts. The manifest is keyed by family too. */
+const FAMILY: Record<ChainFamily, {
+  assetId: (ref: string) => Bytes32;
+  adapters: (m: AmaneDeploymentManifest) => { name: string; version: number; actionKind: string; adapterId: Bytes32 }[];
+  simAccount: (seed: Bytes32) => Bytes32;
+}> = {
+  evm: {
+    assetId: (ref) => evmAssetId(ref as `0x${string}`),
+    adapters: (m) => m.evm.adapters.map((a) => ({ name: a.name, version: a.version, actionKind: a.actionKind, adapterId: a.adapterId as Bytes32 })),
+    // An EVM account id is a left-padded 20-byte address.
+    simAccount: (seed) => `0x${"00".repeat(12)}${seed.slice(26)}` as Bytes32,
+  },
+  sui: {
+    assetId: (ref) => suiAssetId(ref),
+    adapters: (m) => m.sui.adapters.map((a) => ({
+      name: a.name,
+      version: a.version,
+      actionKind: a.actionKind,
+      adapterId: suiAdapterId({ chainRef: m.sui.chainRef, actionKind: ActionKind[a.actionKind as keyof typeof ActionKind], adapterVersion: a.version, adapterName: a.name, witnessType: a.witnessType }),
+    })),
+    simAccount: (seed) => seed,
+  },
+};
 
 /**
  * Amane endpoint facts for compiling and simulating authority. With `accounts` it describes real
  * deployed endpoints; without, symbolic accounts derived from the KidoAgentId (simulation only).
- * Adapters come from the Amane deployment manifest: an action without a shipped adapter is absent.
+ * Every adapter the Amane manifest lists is offered; an action without a shipped adapter is absent.
  */
-export function authorityEndpoints(bp: KidoAgentBlueprint, manifest: AmaneDeploymentManifest, reg: ProviderRegistry, accounts: Partial<Record<ChainId, Bytes32>> = {}): AuthorityEndpoint[] {
+export function authorityEndpoints(bp: KidoAgentBlueprint, manifest: AmaneDeploymentManifest, reg: ProviderRegistry, accounts: Partial<Record<ChainId, Bytes32>> = {}, chains: ChainProfile[] = CHAINS): AuthorityEndpoint[] {
   return bp.chains.map((chain) => {
-    const account = accounts[chain] ?? (chain === "ethereum-sepolia" ? (`0x${"00".repeat(12)}${keccak256(toHex(`sim:${bp.kidoAgentId}:${chain}`)).slice(26)}` as Bytes32) : keccak256(toHex(`sim:${bp.kidoAgentId}:${chain}`)));
-    const assets = Object.fromEntries(
-      reg.assetsOn(chain).map((a) => [a.symbol, { assetId: chain === "ethereum-sepolia" ? evmAssetId(a.ref as `0x${string}`) : suiAssetId(a.ref), decimals: a.decimals }]),
-    );
+    const profile = chains.find((c) => c.chainId === chain);
+    if (!profile) throw new Error(`no chain profile for ${chain}`);
+    const fam = FAMILY[profile.family];
+    const account = accounts[chain] ?? fam.simAccount(keccak256(toHex(`sim:${bp.kidoAgentId}:${chain}`)));
+    const assets = Object.fromEntries(reg.assetsOn(chain).map((a) => [a.symbol, { assetId: fam.assetId(a.ref), decimals: a.decimals }]));
     const adapters: AuthorityEndpoint["adapters"] = {};
-    if (chain === "ethereum-sepolia") {
-      const pay = manifest.evm.adapters.find((x) => x.actionKind === "PAY");
-      if (pay) adapters.PAY = { adapterId: pay.adapterId, adapterName: pay.name, adapterVersion: pay.version };
-    } else {
-      const pay = manifest.sui.adapters.find((x) => x.actionKind === "PAY");
-      if (pay) adapters.PAY = { adapterId: suiAdapterId({ chainRef: manifest.sui.chainRef, actionKind: ActionKind.PAY, adapterVersion: pay.version, adapterName: pay.name, witnessType: pay.witnessType }), adapterName: pay.name, adapterVersion: pay.version };
-    }
-    return {
-      chain,
-      chainRef: chain === "ethereum-sepolia" ? manifest.evm.chainRef : manifest.sui.chainRef,
-      account,
-      assets,
-      adapters,
-      recovery: { recipientId: account, label: "owner recovery" },
-    };
+    for (const a of fam.adapters(manifest)) adapters[a.actionKind as Action] = { adapterId: a.adapterId, adapterName: a.name, adapterVersion: a.version };
+    return { chain, family: profile.family, chainRef: manifest[profile.family].chainRef as Bytes32, account, assets, adapters, recovery: { recipientId: account, label: "owner recovery" } };
   });
 }

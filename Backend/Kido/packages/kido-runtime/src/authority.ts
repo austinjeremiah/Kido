@@ -18,6 +18,8 @@ import type { AdapterBinding, EndpointBinding } from "./compile.js";
 /** Chain-specific facts Kido needs to compile authority for one Amane endpoint. */
 export interface AuthorityEndpoint {
   chain: ChainId;
+  /** Address family of the chain; decides how recipients are encoded. */
+  family: "evm" | "sui";
   chainRef: Bytes32;
   account: Bytes32;
   /** asset symbol → Amane asset id and decimals */
@@ -47,9 +49,9 @@ export type AuthorityResult =
 
 const KIND: Partial<Record<Action, number>> = { PAY: ActionKind.PAY, SWAP: ActionKind.SWAP, REPAY: ActionKind.REPAY };
 
-function recipientId(chain: ChainId, address: string, account: Bytes32): Bytes32 {
+function recipientId(family: AuthorityEndpoint["family"], address: string, account: Bytes32): Bytes32 {
   if (address === "SELF") return account;
-  return chain === "ethereum-sepolia" ? addressToBytes32(address as `0x${string}`) : suiObjectToBytes32(address);
+  return family === "evm" ? addressToBytes32(address as `0x${string}`) : suiObjectToBytes32(address);
 }
 
 /** Decimal rate × 10^(decOut−decIn) as an exact fraction, for the owner floor in base units. */
@@ -87,7 +89,15 @@ export function compileAmaneAuthority(bp: KidoAgentBlueprint, endpoints: Authori
       continue;
     }
     const limits = a.limits.filter((l) => l.chain === chain);
-    if (limits.length === 0) blockers.push(`no limits for ${chain}`);
+    if (limits.length === 0) {
+      blockers.push(`no limits for ${chain}`);
+      continue;
+    }
+    const windows = new Set(limits.map((l) => l.windowSeconds));
+    if (windows.size !== 1) {
+      blockers.push(`limits on ${chain} must share one budget window`);
+      continue;
+    }
     const actions = a.allowedActions.filter((act) => {
       if (KIND[act] === undefined) return excludedActions.push({ chain, action: act, reason: "no Amane enforcement rule for this action" }), false;
       if (!ep.adapters[act]) return excludedActions.push({ chain, action: act, reason: `Amane adapter for ${act} not shipped on ${chain}` }), false;
@@ -100,8 +110,8 @@ export function compileAmaneAuthority(bp: KidoAgentBlueprint, endpoints: Authori
       crossChainTotal[l.asset] = (crossChainTotal[l.asset] ?? 0n) + BigInt(l.total);
       return { assetId: asset.assetId, maxPerAction: BigInt(l.perAction), maxPerEpoch: BigInt(l.perWindow), maxTotal: BigInt(l.total) };
     });
-    const payees = a.payees.filter((p) => p.chain === chain).map((p) => ({ recipientId: recipientId(chain, p.address, ep.account), label: p.label }));
-    const beneficiaries = a.beneficiaries.filter((p) => p.chain === chain).map((p) => ({ recipientId: recipientId(chain, p.address, ep.account), label: p.label }));
+    const payees = a.payees.filter((p) => p.chain === chain).map((p) => ({ recipientId: recipientId(ep.family, p.address, ep.account), label: p.label }));
+    const beneficiaries = a.beneficiaries.filter((p) => p.chain === chain).map((p) => ({ recipientId: recipientId(ep.family, p.address, ep.account), label: p.label }));
     const floors = actions.includes("SWAP")
       ? a.swapFloors.filter((f) => f.chain === chain).map((f) => {
           const ai = ep.assets[f.assetIn], ao = ep.assets[f.assetOut];
@@ -111,7 +121,7 @@ export function compileAmaneAuthority(bp: KidoAgentBlueprint, endpoints: Authori
         })
       : [];
     const adapters = actions.map((act) => ep.adapters[act]!);
-    policyEndpoints.push({ chainRef: ep.chainRef, account: ep.account, epochSeconds: BigInt(limits[0]?.windowSeconds ?? 3600), adapters, assets: assetLimits, recipients: payees, beneficiaries, swapFloors: floors, recoveryDestinations: [ep.recovery] });
+    policyEndpoints.push({ chainRef: ep.chainRef, account: ep.account, epochSeconds: BigInt([...windows][0]!), adapters, assets: assetLimits, recipients: payees, beneficiaries, swapFloors: floors, recoveryDestinations: [ep.recovery] });
     leaseEndpoints.push({ chainRef: ep.chainRef, account: ep.account, adapters: adapters.map((x) => x.adapterId), assets: assetLimits, recipients: payees.map((p) => p.recipientId), beneficiaries: beneficiaries.map((b) => b.recipientId) });
     bindings[chain] = {
       chain,
