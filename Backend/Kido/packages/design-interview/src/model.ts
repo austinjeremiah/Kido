@@ -1,4 +1,7 @@
-import { Agent, run } from "@openai/agents";
+import { Agent, run, setTracingDisabled } from "@openai/agents";
+
+// Prompts and outputs go to OpenAI's trace backend when tracing is on; off unless explicitly enabled (F-0405).
+setTracingDisabled(process.env.KIDO_OPENAI_TRACING !== "1");
 import { z } from "zod";
 import type { Choice, Ctx, RequirementDef } from "./catalog.js";
 import { parseByType, parseChains, parseObjectiveKind, parseProtocols } from "./parse.js";

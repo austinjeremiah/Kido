@@ -42,6 +42,8 @@ export interface ProviderManifest {
   status: ProviderStatus;
   /** Why the status is what it is, e.g. which environment a live test needs. */
   statusNote: string;
+  /** Capabilities whose live status differs from the provider's (e.g. resolve live, register blocked). */
+  capabilityStatus?: Record<string, { status: ProviderStatus; note: string }>;
   knowledgePack: string;
   /** Maps semantic actions to the adapter that executes them when Amane authority is selected. */
   execution?: { action: string; adapter: string; amaneAdapter: string | null; shipped: boolean }[];

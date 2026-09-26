@@ -30,7 +30,14 @@ describe("provider registry", () => {
     const s = reg.select({ kind: "privacy", chain: "sui-testnet", capabilities: ["CONFIDENTIAL_COMPUTE"], acceptStatus: ["VERIFIED_LIVE"] });
     expect(s.selected).toEqual([]);
     expect(s.uncovered).toEqual(["CONFIDENTIAL_COMPUTE"]);
-    expect(s.rejected.find((r) => r.providerId === "nautilus")!.reason).toMatch(/^status UNVERIFIED/);
+    expect(s.rejected.find((r) => r.providerId === "nautilus")!.reason).toMatch(/^status BLOCKED_ENV/);
+  });
+
+  it("per-capability status: SuiNS resolves live but live registration is refused with the blocker", () => {
+    expect(reg.select({ kind: "identity", chain: "sui-testnet", capabilities: ["RESOLVE"], acceptStatus: ["VERIFIED_LIVE"] }).selected.map((p) => p.providerId)).toEqual(["suins"]);
+    const r = reg.select({ kind: "identity", chain: "sui-testnet", capabilities: ["REGISTER"], acceptStatus: ["VERIFIED_LIVE"] });
+    expect(r.uncovered).toEqual(["REGISTER"]);
+    expect(r.rejected.find((x) => x.providerId === "suins")!.reason).toMatch(/BC-SUINS-1/);
   });
 
   it("selection prefers the smallest covering set", () => {

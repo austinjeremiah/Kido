@@ -29,6 +29,16 @@ export const PLANNING: ProviderStatus[] = ["VERIFIED_LIVE", "VERIFIED_DOCS", "UN
  * Chain → category → provider → capabilities registry (bible §11). Selection is a pure function of
  * required capabilities; no planner or interview code branches on provider names.
  */
+/** Capabilities of `p` whose own (per-capability) status is acceptable for this request. */
+function usable(p: ProviderManifest, req: SelectionRequest): string[] {
+  return p.capabilities.filter((c) => req.acceptStatus.includes(p.capabilityStatus?.[c]?.status ?? p.status));
+}
+
+function blockedReason(p: ProviderManifest, req: SelectionRequest): string | undefined {
+  const hit = req.capabilities.find((c) => p.capabilities.includes(c) && p.capabilityStatus?.[c] && !req.acceptStatus.includes(p.capabilityStatus[c]!.status));
+  return hit ? `${hit} is ${p.capabilityStatus![hit]!.status}: ${p.capabilityStatus![hit]!.note}` : undefined;
+}
+
 export class ProviderRegistry {
   constructor(readonly providers: ProviderManifest[] = PROVIDERS, readonly assets: AssetEntry[] = ASSETS) {
     const ids = new Set<string>();
@@ -67,7 +77,7 @@ export class ProviderRegistry {
       if (p.kind !== req.kind) return false;
       if (!p.chains.includes(req.chain)) return (rejected.push({ providerId: p.providerId, reason: `not available on ${req.chain}` }), false);
       if (!req.acceptStatus.includes(p.status)) return (rejected.push({ providerId: p.providerId, reason: `status ${p.status}: ${p.statusNote}` }), false);
-      if (!p.capabilities.some((c) => req.capabilities.includes(c))) return (rejected.push({ providerId: p.providerId, reason: "no required capability" }), false);
+      if (!usable(p, req).some((c) => req.capabilities.includes(c))) return (rejected.push({ providerId: p.providerId, reason: blockedReason(p, req) ?? "no required capability" }), false);
       return true;
     });
     const need = new Set(req.capabilities);
@@ -77,12 +87,12 @@ export class ProviderRegistry {
       let bestCover = 0;
       for (const p of candidates) {
         if (selected.includes(p)) continue;
-        const cover = p.capabilities.filter((c) => need.has(c)).length;
+        const cover = usable(p, req).filter((c) => need.has(c)).length;
         if (cover > bestCover) [best, bestCover] = [p, cover];
       }
       if (!best) break;
       selected.push(best);
-      for (const c of best.capabilities) need.delete(c);
+      for (const c of usable(best, req)) need.delete(c);
     }
     for (const p of candidates) if (!selected.includes(p)) rejected.push({ providerId: p.providerId, reason: "not needed: a smaller set already covers the requirement" });
     return { selected, uncovered: [...need], rejected };
