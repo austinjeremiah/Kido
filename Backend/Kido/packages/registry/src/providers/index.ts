@@ -336,7 +336,7 @@ export const PROVIDERS: ProviderManifest[] = [
     sources: [{ url: "https://cetus-1.gitbook.io/cetus-developer-docs", retrieved: R }],
     status: "VERIFIED_LIVE",
     statusNote: "objects verified via Sui GraphQL",
-    implementation: { status: "TESTNET_LIVE", proven: ["SWAP through the project Pool<AMUSD, AMSUI> via the frozen Amane Cetus adapter", "below-floor, over-cap, redirected, forged and post-revoke swaps rejected on-chain"], notProven: ["arbitrary pools", "multi-hop routes"], evidence: [".gauntlet/evidence/amane-v2-sui-*.json"] },
+    implementation: { status: "TESTNET_LIVE", proven: ["SWAP through the project Pool<AMUSD, AMSUI> via the frozen, pool-pinned Amane Cetus adapter", "a decoy pool for the same pair is refused on-chain by the adapter", "below-floor, over-cap, redirected, forged, wrong-coin, wrong-adapter, expired-lease and post-revoke swaps rejected on-chain", "end-to-end: interview → blueprint → Sui account → allocation monitor → deterministic swap → verified output"], notProven: ["arbitrary pools", "multi-hop routes"], evidence: [".gauntlet/evidence/amane-v2-sui-*.json"] },
     knowledgePack: "protocols/cetus-clmm",
     execution: [{ action: "SWAP", capability: "DEX_SWAP", adapter: "cetus-clmm-swap", amaneAdapter: "Cetus CLMM Pinned Swap", shipped: true }],
   },

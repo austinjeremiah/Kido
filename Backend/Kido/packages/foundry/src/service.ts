@@ -228,7 +228,7 @@ export class Foundry {
       const ad = fam.adapters.find((x) => x.actionKind === a.action && (!exec || x.name === exec.amaneAdapter));
       const pools = Object.values(fam.pools ?? {});
       const enforcement: string[] = ["action, adapter id, name and version must be in the owner-signed Root Policy and the active lease", "per-action, per-window and total budgets are debited on-chain"];
-      if (a.action === "SWAP") enforcement.push(...bp.authority.swapFloors.filter((f) => f.chain === a.chain).map((f) => `output must be at least ${f.minOutPerIn} ${f.assetOut} per ${f.assetIn}; Amane measures the output it received and reverts below the floor`), "swap output can only return to the account");
+      if (a.action === "SWAP") enforcement.push(...bp.authority.swapFloors.filter((f) => f.chain === a.chain).map((f) => `output must be at least ${f.minOutPerIn} ${f.assetOut} per ${f.assetIn}; Amane measures the output it received and reverts below the floor`), "swap output can only return to the account", ...(ad?.upstream?.poolPinnedOnChain ? [`only pool ${String(ad.upstream.pool)}: the adapter aborts on any other pool, enforced on-chain`] : a.action === "SWAP" ? ["pool choice is made by Kido's executor; the owner floor bounds any pool's price"] : []));
       if (a.action === "REPAY") enforcement.push("only the pinned beneficiary's debt can be repaid", "Amane measures the beneficiary's variable-debt-token balance before and after and requires the fall to match the amount spent (minimum ratio pinned in the policy)");
       if (a.action === "PAY") enforcement.push("payments only to payees pinned in the policy; delivery measured on-chain");
       return {

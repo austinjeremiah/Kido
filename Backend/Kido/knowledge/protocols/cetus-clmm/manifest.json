@@ -64,7 +64,7 @@
       "action": "SWAP",
       "capability": "DEX_SWAP",
       "adapter": "cetus-clmm-swap",
-      "amaneAdapter": "Cetus CLMM Swap",
+      "amaneAdapter": "Cetus CLMM Pinned Swap",
       "shipped": true
     }
   ]
