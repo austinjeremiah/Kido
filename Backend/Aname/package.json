@@ -1,0 +1,16 @@
+{
+  "name": "amane",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Amane - bounded financial authority for agents across EVM and Sui (testnet prototype, not audited)",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "workspaces": ["packages/core"],
+  "scripts": {
+    "test": "npm run test --workspaces && npm run test:evm && npm run test:sui",
+    "test:evm": "cd evm && forge test",
+    "test:sui": "cd sui/amane && sui move test",
+    "vectors": "npm run vectors -w @amane/core"
+  }
+}
