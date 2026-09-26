@@ -155,14 +155,13 @@ function Organization({ s }: { s: ProjectSummary }) {
                   <StatusBadge status={roleStatus(s, r.role)} />
                 </span>
                 <span className="cl-principal-role">{r.owns.length ? `Owns ${r.owns.join(', ')}` : 'Owns no actions — observes and reports'}</span>
-                {namesOf(s, r.role).length ? (
-                  <span className="cl-stack" style={{ gap: 4, margin: '6px 0 2px', minWidth: 0 }}>
-                    {namesOf(s, r.role).map((b) => <NameLine key={b.name} b={b} compact />)}
-                  </span>
-                ) : null}
-                <span className="cl-principal-foot">
-                  <span className="cl-num">{b ? b.contextChars.toLocaleString() : '—'}</span>
-                  <span className="cl-meta">context chars · {r.knowledgePacks.length} pack{r.knowledgePacks.length === 1 ? '' : 's'}{b?.missingPacks.length ? ` · ${b.missingPacks.length} missing` : ''}</span>
+                <span className="cl-principal-foot cl-stack" style={{ gap: 4, alignItems: 'flex-start', minWidth: 0 }}>
+                  {namesOf(s, r.role).length ? (
+                    namesOf(s, r.role).map((b) => <NameLine key={b.name} b={b} compact />)
+                  ) : (
+                    <span className="cl-meta">{bp.identity.public ? 'Names are planned when the blueprint compiles.' : 'No public name: this agent is internal.'}</span>
+                  )}
+                  {b?.missingPacks.length ? <span className="cl-meta" style={{ color: 'var(--cl-warn)' }}>{b.missingPacks.length} knowledge pack{b.missingPacks.length === 1 ? '' : 's'} missing</span> : null}
                 </span>
               </button>
             );
@@ -275,24 +274,6 @@ function RoleDetail({ s, sm, role }: { s: ProjectSummary; sm: SelfModel | undefi
           />
         </div>
         <div>
-          {namesOf(s, role.role).length ? (
-            <>
-              <div className="cl-label cl-spec-group">Identity</div>
-              <Spec
-                rows={namesOf(s, role.role).map((b) => ({
-                  key: b.name,
-                  label: b.providerId === 'ens' ? `ENS · ${chainLabel(b.chain)}` : `SuiNS · ${chainLabel(b.chain)}`,
-                  value: (
-                    <span className="cl-stack" style={{ gap: 4, minWidth: 0 }}>
-                      <span className="cl-mono" style={{ wordBreak: 'break-all' }}>{b.name}</span>
-                      <Badge tone={b.liveCapable !== false ? 'pass' : 'warn'}>{b.liveCapable !== false ? 'ready to publish' : 'blocked'}</Badge>
-                    </span>
-                  ),
-                  note: b.blockers?.length ? b.blockers.join('; ') : b.records && Object.keys(b.records).length ? `records: ${Object.entries(b.records).map(([k, v]) => `${k}=${v}`).join(', ')}` : 'discovery only',
-                }))}
-              />
-            </>
-          ) : null}
           <div className="cl-label cl-spec-group">Authority</div>
           <Spec
             rows={[
@@ -303,6 +284,28 @@ function RoleDetail({ s, sm, role }: { s: ProjectSummary; sm: SelfModel | undefi
           />
         </div>
       </div>
+      {namesOf(s, role.role).length ? (
+        <>
+          <div className="cl-label cl-spec-group" style={{ marginTop: 18 }}>Identity</div>
+          <div className="cl-card" style={{ overflowX: 'auto' }}>
+            <table className="cl-table">
+              <thead>
+                <tr><th>Service</th><th>Name</th><th>Status</th><th>Records</th></tr>
+              </thead>
+              <tbody>
+                {namesOf(s, role.role).map((b) => (
+                  <tr key={b.name}>
+                    <td>{b.providerId === 'ens' ? 'ENS' : 'SuiNS'} · {chainLabel(b.chain)}</td>
+                    <td className="cl-mono">{b.name}</td>
+                    <td><Badge tone={b.liveCapable !== false ? 'pass' : 'warn'}>{b.liveCapable !== false ? 'ready to publish' : 'blocked'}</Badge></td>
+                    <td className="cl-meta" style={{ whiteSpace: 'normal' }}>{b.blockers?.length ? b.blockers.join('; ') : b.records && Object.keys(b.records).length ? Object.entries(b.records).map(([k, v]) => `${k}=${v}`).join(' · ') : 'discovery only'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
     </Section>
   );
 }
