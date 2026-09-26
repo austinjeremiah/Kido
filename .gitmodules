@@ -1,0 +1,6 @@
+[submodule "Backend/Kido/contracts/lib/forge-std"]
+	path = Backend/Kido/contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "Backend/Aname/evm/lib/forge-std"]
+	path = Backend/Aname/evm/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
