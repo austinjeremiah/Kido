@@ -9,7 +9,9 @@ import {
   PriceMode,
   ZERO32,
   actionMask,
+  amaneDigest,
   amaneStructHash,
+  destSpecHash,
   suiAdapterId,
   suiAssetId,
   suiChainRef,
@@ -19,6 +21,7 @@ import {
   type AgentLease,
   type AmaneMessageMap,
   type AmanePrimaryType,
+  type DestSpec,
   type RootPolicy,
 } from '../src/index.js';
 import { hexBytes, moveExpr } from './move-emit.js';
@@ -253,6 +256,60 @@ add(
   both,
 );
 
+// ---------------------------------------------------------------- cross-chain fixtures (core v5)
+// One logical lease is active on both endpoints; the EVM endpoint is simulated by its bytes32 id.
+const bridgeAdapter = suiAdapterId({ chainRef, actionKind: ActionKind.BRIDGE, adapterVersion: 1, adapterName: 'Fixture Bridge', witnessType: `${PKG}::mock_bridge::MockBridgeV1` });
+const evmChainRef = keccak256(toHex('eip155:11155111'));
+const evmAccount = `0x${'0'.repeat(24)}ac000000000000000000000000000000000000e7` as Hex;
+const evmAdapter = keccak256(toHex('evm wormhole adapter'));
+const xLeaseId = keccak256(toHex('sui.lease.xchain'));
+const EVM_LABEL = 'Amane Sepolia endpoint';
+const xPolicy = policy(1n, (p) => {
+  p.allowedActions = actionMask(ActionKind.SWAP, ActionKind.PAY, ActionKind.BRIDGE);
+  p.endpoints[0]!.adapters.push({ adapterId: bridgeAdapter, adapterName: 'Fixture Bridge', adapterVersion: 1 });
+  p.endpoints[0]!.recipients.push({ recipientId: evmAccount, label: EVM_LABEL });
+});
+add('policy_v1_xchain', 'RootPolicy', xPolicy, both);
+add('lease_xchain', 'AgentLease', lease(controllerA, xLeaseId, (l) => {
+  l.allowedActions = actionMask(ActionKind.SWAP, ActionKind.PAY, ActionKind.BRIDGE);
+  l.endpoints[0]!.adapters = [payAdapter, bridgeAdapter];
+  l.endpoints[0]!.recipients = [merchant, evmAccount];
+}), [controllerA]);
+
+// Destination specs committed by source intents.
+const destPay: DestSpec = { actionKind: ActionKind.PAY, adapterId: payAdapter, recipient: merchant, recipientLabel: 'Merchant ✓ café', asset: usd, minArrival: 10_000000n, deadline: T0 + 600n };
+const destReturn: DestSpec = { actionKind: ActionKind.BRIDGE, adapterId: bridgeAdapter, recipient: evmAccount, recipientLabel: EVM_LABEL, asset: usd, minArrival: 10_000000n, deadline: T0 + 600n };
+const destAtEvm: DestSpec = { actionKind: ActionKind.PAY, adapterId: keccak256(toHex('evm pay adapter')), recipient: `0x${'0'.repeat(24)}${'4d'.repeat(20)}` as Hex, recipientLabel: 'Merchant', asset: keccak256(toHex('wrapped usd')), minArrival: 10_000000n, deadline: T0 + 600n };
+const destSpecs: [string, DestSpec][] = [['dest_pay', destPay], ['dest_return', destReturn], ['dest_pay_attacker', { ...destPay, recipient: `0x${'0'.repeat(62)}ee` as Hex }]];
+
+const bridgeOut = (nonce: bigint, patch: Partial<ActionIntent> = {}) =>
+  pay(nonce, 10_000000n, { leaseId: xLeaseId, actionKind: ActionKind.BRIDGE, adapterId: bridgeAdapter, adapterName: 'Fixture Bridge', assetOut: destAtEvm.asset, recipient: evmAccount, recipientLabel: EVM_LABEL, planHash: destSpecHash(destAtEvm), ...patch });
+add('bridge_out', 'ActionIntent', bridgeOut(50n), [agent]);
+add('bridge_out_unpinned', 'ActionIntent', bridgeOut(51n, { recipient: `0x${'0'.repeat(62)}ee` as Hex }), [agent]);
+add('bridge_out_over_cap', 'ActionIntent', bridgeOut(52n, { amountIn: 25_000001n }), [agent]);
+
+// Source intents signed on the EVM endpoint, arriving here.
+const srcIn = (nonce: bigint, dest: DestSpec, patch: Partial<ActionIntent> = {}): ActionIntent =>
+  pay(nonce, 10_000000n, { chainRef: evmChainRef, account: evmAccount, leaseId: xLeaseId, actionKind: ActionKind.BRIDGE, adapterId: evmAdapter, adapterName: 'Wormhole Bridge', assetIn: destAtEvm.asset, assetOut: usd, recipient: ACCOUNT_OBJECT, recipientLabel: 'Amane Sui endpoint', planHash: destSpecHash(dest), ...patch });
+const srcPay = srcIn(60n, destPay);
+const srcReturn = srcIn(61n, destReturn);
+add('src_pay', 'ActionIntent', srcPay, [agent]);
+add('src_return', 'ActionIntent', srcReturn, [agent]);
+add('src_pay_forged', 'ActionIntent', srcIn(62n, destPay), [attacker]);
+add('src_pay_other_endpoint', 'ActionIntent', srcIn(63n, destPay, { recipient: OTHER_OBJECT }), [agent]);
+add('src_pay_attacker_dest', 'ActionIntent', srcIn(64n, destSpecs[2]![1]), [agent]);
+const intentPay = amaneDigest('ActionIntent', srcPay);
+const intentReturn = amaneDigest('ActionIntent', srcReturn);
+add('pay_reserved', 'ActionIntent', pay(70n, 10_000000n, { leaseId: xLeaseId, planHash: intentPay }), [agent]);
+add('pay_reserved_partial', 'ActionIntent', pay(71n, 4_000000n, { leaseId: xLeaseId, planHash: intentPay }), [agent]);
+add('pay_reserved_too_much', 'ActionIntent', pay(72n, 10_000001n, { leaseId: xLeaseId, planHash: intentPay }), [agent]);
+add('pay_reserved_unbound', 'ActionIntent', pay(73n, 1_000000n, { leaseId: xLeaseId }), [agent]);
+add('pay_unreserved_xchain', 'ActionIntent', pay(74n, 1_000000n, { leaseId: xLeaseId }), [agent]);
+add('bridge_back_reserved', 'ActionIntent', bridgeOut(75n, { planHash: keccak256(toHex('next evm destination')) }), [agent]);
+add('bridge_back_elsewhere', 'ActionIntent', bridgeOut(76n, { recipient: merchant, recipientLabel: 'Merchant ✓ café' }), [agent]);
+add('pay_late_xchain', 'ActionIntent', pay(77n, 1_000000n, { leaseId: xLeaseId, deadline: T0 + 3000n }), [agent]);
+add('withdraw_ten', 'Withdraw', { ...withdraw(recovery), amount: 10_000000n }, both);
+
 const fns: string[] = [];
 for (const e of entries) {
   const sigs = await Promise.all(e.signers.map((s) => s.signTypedData(typedData(e.pt, e.msg as never) as never)));
@@ -265,6 +322,7 @@ const move = `// Generated by packages/core/scripts/generate-sui-scenarios.ts. D
 #[test_only]
 module amane::scenario_fixtures;
 
+use amane::account;
 use amane::eip712;
 
 public fun t0(): u64 { ${T0} }
@@ -280,6 +338,12 @@ public fun lease_id(): vector<u8> { ${hexBytes(leaseId)} }
 public fun issuer_lease_id(): vector<u8> { ${hexBytes(issuerLeaseId)} }
 public fun break_lease_id(): vector<u8> { ${hexBytes(breakLeaseId)} }
 public fun merchant(): address { @${merchant} }
+public fun xchain_lease_id(): vector<u8> { ${hexBytes(xLeaseId)} }
+public fun evm_account(): vector<u8> { ${hexBytes(evmAccount)} }
+public fun intent_pay(): vector<u8> { ${hexBytes(intentPay)} }
+public fun intent_return(): vector<u8> { ${hexBytes(intentReturn)} }
+public fun dest_at_evm_hash(): vector<u8> { ${hexBytes(destSpecHash(destAtEvm))} }
+${destSpecs.map(([n, d]) => `public fun ${n}(): account::DestSpec {\n    account::dest_spec(${d.actionKind}, ${hexBytes(d.adapterId)}, ${hexBytes(d.recipient)}, ${hexBytes(toHex(d.recipientLabel))}, ${hexBytes(d.asset)}, ${d.minArrival}, ${d.deadline})\n}`).join('\n')}
 public fun recovery(): address { @${recovery} }
 
 ${fns.join('\n\n')}
