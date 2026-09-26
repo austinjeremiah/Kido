@@ -21,6 +21,12 @@
         "decimals": 6,
         "testnetOnly": true,
         "mint": "open"
+      },
+      "AMDAI": {
+        "address": "0xa0b048f06e8c6bbede36011517e9ebb8e142eb09",
+        "decimals": 18,
+        "testnetOnly": true,
+        "mint": "open"
       }
     },
     "adapters": [
@@ -30,8 +36,76 @@
         "actionKind": "PAY",
         "address": "0xEAcCFbdE3c36558a4C9551a82356D8c9Ada96947",
         "adapterId": "0x054af67c914525329d954e6605df3b9dded90f1ed4832599252f40612ae62d13"
+      },
+      {
+        "name": "Aave V3 Repay",
+        "version": 1,
+        "actionKind": "REPAY",
+        "address": "0xb58c014c1fd617ee256bbf08ae11c294f6f168ca",
+        "adapterId": "0x418d6019fba7052f12576d0d8c62fc1803f298575c3142f3ad01f98d40a7a058",
+        "requiresCoreVersion": 2,
+        "upstream": {
+          "protocol": "aaveV3",
+          "pool": "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
+          "interestRateMode": 2
+        }
+      },
+      {
+        "name": "Uniswap V3 Swap",
+        "version": 1,
+        "actionKind": "SWAP",
+        "address": "0xa234ddbe6706ef80b053009b21fc47995649a581",
+        "adapterId": "0xf783f26f1362e6f266cdfbcf00f6de075ab6a5c1cdf6c5ba1e74ab8c28d51069",
+        "upstream": {
+          "protocol": "uniswapV3",
+          "router": "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E",
+          "fee": 3000
+        }
       }
-    ]
+    ],
+    "protocols": {
+      "aaveV3": {
+        "pool": "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
+        "dataProvider": "0x3e9708d80f7B3e43118013075F7e95CE3AB31F31",
+        "faucet": "0xC959483DBa39aa9E78757139af0e9a2EDEb3f42D",
+        "source": "Aave v3 Sepolia market (Pool revision 1)"
+      },
+      "uniswapV3": {
+        "factory": "0x0227628f3F023bb0B980b67D528571c95c6DaC1c",
+        "swapRouter02": "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E",
+        "positionManager": "0x1238536071E1c677A632429e3655c799b22cDA52",
+        "source": "Uniswap v3 Sepolia deployment"
+      }
+    },
+    "pools": {
+      "uniswapV3AmusdAmdai": {
+        "pool": "0xcC1Dd1eFED740Ca8fa980efd6C9253b7b9bB77CA",
+        "fee": 3000,
+        "token0": "0x7C4C9876af08676fCE8cfeCF1129Dc2F5D7d0828",
+        "token1": "0xa0b048f06e8c6bbede36011517e9ebb8e142eb09",
+        "liquidityTx": "0x294e39b74d988c103934d7bb586ce88f7fdbd74f33438291e554040543ec19b7",
+        "note": "project pool, 1:1 nominal, full range; demo liquidity only"
+      }
+    },
+    "accountCoreVersion": 2,
+    "releases": {
+      "v1": {
+        "sourceCommit": "7f83350db4ba7c3980ff681cfe497c399fb52530",
+        "actions": [
+          "SWAP",
+          "PAY"
+        ],
+        "status": "frozen; deployed accounts unchanged"
+      },
+      "v2": {
+        "actions": [
+          "SWAP",
+          "PAY",
+          "REPAY"
+        ],
+        "note": "new accounts deploy CORE_VERSION 2 bytecode from the SDK"
+      }
+    }
   },
   "sui": {
     "network": "sui-testnet",
