@@ -1,6 +1,7 @@
 #[test_only]
 /// BREAK adversarial suite for the Sui core. break_* tests assert the secure behaviour and fail
-/// while their finding is open; holds_* pin defences that hold today.
+/// while their finding is open; fixed_* are regressions for closed findings; holds_* pin
+/// defences that held from the start.
 module amane::break_tests;
 
 use amane::account::{Self, Account};
@@ -53,28 +54,31 @@ fun finish(s: Scenario, clock: Clock, a: Account) {
     s.end();
 }
 
-// ================================================================== BREAK
+// ================================================================== FIXED
 
-/// F-0200 (Sui parity): pause signatures are replayable within a pause epoch, so a relayer
-/// re-submits the incident-1 pause after incident-2, restoring last_pause_id, and the withheld
-/// incident-1 unpause then lifts the incident-2 pause. Once fixed, the replayed pause should
-/// abort; convert this test to expected_failure on that call.
-#[test]
-fun break_f0200_pause_replay_restores_last_pause_id() {
+/// F-0200 (Sui): pause ids are single-use, so replaying the incident-1 pause after incident-2
+/// aborts and cannot restore last_pause_id for a withheld incident-1 unpause.
+#[test, expected_failure(abort_code = account::EReplayPauseEpoch)]
+fun fixed_f0200_pause_replay_restores_last_pause_id() {
     let (s, clock, mut a) = ready_ctrl();
     a.pause(f::pause_b(), f::pause_b_sigs()[0], &clock); // incident-1
-    // owners sign unpause_0 (incident-1); the relayer withholds it
     a.pause(f::pause_a_incident2(), f::pause_a_incident2_sigs()[0], &clock); // incident-2
     a.pause(f::pause_b(), f::pause_b_sigs()[0], &clock); // relayer replays incident-1
-    a.unpause(f::unpause_0(), f::unpause_0_sigs(), &clock);
-    assert!(a.is_paused(), 0xB200);
     finish(s, clock, a);
 }
 
-/// F-0211 (Sui parity): bucket refill multiplies per_epoch by elapsed seconds before dividing,
-/// so a very large per_epoch aborts every debit after the first.
+#[test, expected_failure(abort_code = account::EReplayPauseEpoch)]
+fun fixed_f0200_withheld_unpause_after_replay_attempt() {
+    let (s, clock, mut a) = ready_ctrl();
+    a.pause(f::pause_b(), f::pause_b_sigs()[0], &clock);
+    a.pause(f::pause_a_incident2(), f::pause_a_incident2_sigs()[0], &clock);
+    a.unpause(f::unpause_0(), f::unpause_0_sigs(), &clock);
+    finish(s, clock, a);
+}
+
+/// F-0211 (Sui): refill no longer overflows for per_epoch near 2^256.
 #[test]
-fun break_f0211_refill_overflow_bricks_large_cap() {
+fun fixed_f0211_refill_overflow_bricks_large_cap() {
     let (mut s, mut clock) = setup();
     let mut a = s.take_shared<Account>();
     a.install_policy(f::policy_v1_huge_epoch(), f::policy_v1_huge_epoch_sigs(), &clock);

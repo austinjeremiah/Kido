@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import "../../src/AmaneTypes.sol";
 import {AmaneAccount} from "../../src/AmaneAccount.sol";
+import {Codes} from "../../src/AmaneCodes.sol";
 import {AdapterRegistry} from "../../src/AdapterRegistry.sol";
 import {AmaneTestToken} from "../../src/AmaneTestToken.sol";
 import {TransferPayAdapter} from "../../src/adapters/TransferPayAdapter.sol";
@@ -93,7 +94,7 @@ contract BreakBase is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function _rej(string memory code) internal pure returns (bytes memory) {
+    function _rej(uint16 code) internal pure returns (bytes memory) {
         return abi.encodeWithSelector(AmaneAccount.AmaneRejected.selector, code);
     }
 
@@ -396,7 +397,7 @@ contract BreakTest is BreakBase {
         lax.endpoints[0].assets[0].maxTotal = 500_000e6;
         bytes[] memory laxSigs = _policySigs(lax);
         vm.warp(T0 + 30 days);
-        vm.expectRevert(_rej("AMANE_POLICY_ACTIVATION_EXPIRED"));
+        vm.expectRevert(_rej(Codes.POLICY_ACTIVATION_EXPIRED));
         account.installPolicy(lax, laxSigs);
     }
 
@@ -405,7 +406,7 @@ contract BreakTest is BreakBase {
         RootPolicy memory p = _policy(2, address(account));
         p.parentPolicyHash = keccak256("some other lineage");
         bytes[] memory sigs = _policySigs(p);
-        vm.expectRevert(_rej("AMANE_POLICY_PARENT_MISMATCH"));
+        vm.expectRevert(_rej(Codes.POLICY_PARENT_MISMATCH));
         account.installPolicy(p, sigs);
     }
 
@@ -421,7 +422,7 @@ contract BreakTest is BreakBase {
         AgentLease memory l = _lease(L1, agent, ctrl[0], false);
         RevokeLease memory r = RevokeLease(ACCOUNT_ID, L1);
         bytes memory rs = _sign(issuerPk, h.revoke(r));
-        vm.expectRevert(_rej("AMANE_CONTROLLER_NOT_AUTHORIZED"));
+        vm.expectRevert(_rej(Codes.CONTROLLER_NOT_AUTHORIZED));
         account.revokeLease(r, rs);
         _activate(l, ctrlPk[0]);
     }
@@ -434,7 +435,7 @@ contract BreakTest is BreakBase {
         vm.warp(T0 + 1 days);
         (UnpauseAccount memory u, bytes[] memory us) = _unpauseSigs(p1.pauseId);
         account.unpause(u, us);
-        vm.expectRevert(_rej("AMANE_REPLAY_PAUSE_EPOCH"));
+        vm.expectRevert(_rej(Codes.REPLAY_PAUSE_EPOCH));
         account.pause(p2, s2);
     }
 
@@ -443,16 +444,15 @@ contract BreakTest is BreakBase {
         RootPolicy memory p = _policy(2, address(account));
         p.endpoints[0].swapFloors[0].minOutNumerator = 0;
         bytes[] memory sigs = _policySigs(p);
-        vm.expectRevert(_rej("AMANE_POLICY_BAD_FLOOR"));
+        vm.expectRevert(_rej(Codes.POLICY_BAD_FLOOR));
         account.installPolicy(p, sigs);
     }
 
-    // ================================================================== BREAK
+    // ================================================================== FIXED / ACCEPTED (cont.)
 
-    /// F-0200 (reopened): pause signatures are replayable within a pause epoch, so a relayer
-    /// re-submits the first pause to restore lastPauseId and then the withheld unpause lifts
-    /// the newer pause.
-    function test_BREAK_pause_replay_restores_last_pause_id() public {
+    /// F-0200: pause ids are single-use, so replaying the incident-1 pause after incident-2
+    /// cannot restore lastPauseId for a withheld incident-1 unpause.
+    function test_FIXED_F0200_pause_replay_restores_last_pause_id() public {
         _ctrlLease(L1);
         (PauseAccount memory p1, bytes memory s1) = _pauseSig(ctrlPk[0], keccak256("incident-1"));
         account.pause(p1, s1);
@@ -460,24 +460,18 @@ contract BreakTest is BreakBase {
         vm.warp(T0 + 1 days);
         (PauseAccount memory p2, bytes memory s2) = _pauseSig(ctrlPk[2], keccak256("incident-2"));
         account.pause(p2, s2);
-
-        // relayer: replay pause #1, then release the withheld unpause
-        try account.pause(p1, s1) {} catch {}
-        try account.unpause(u, us) {} catch {}
-        assertTrue(account.paused(), "incident-2 pause was lifted by an unpause that never saw it");
+        vm.expectRevert(_rej(Codes.REPLAY_PAUSE_EPOCH));
+        account.pause(p1, s1);
+        vm.expectRevert(_rej(Codes.REPLAY_PAUSE_EPOCH));
+        account.unpause(u, us);
+        assertTrue(account.paused());
     }
 
-    /// F-0204 (reopened): an adapter with no forbidden opcodes can still change meaning by
-    /// reading its routing from a mutable external contract; REPAY output is still unmeasured.
-    function test_BREAK_externally_routed_adapter_changes_meaning() public {
+    /// F-0204: an externally routed REPAY adapter registers (no banned opcode), but the core no
+    /// longer executes REPAY at all until a measured adapter exists.
+    function test_FIXED_F0204_externally_routed_repay_adapter() public {
         RepayRouteConfig cfg = new RepayRouteConfig();
-        RoutedRepayAdapter routed = new RoutedRepayAdapter(cfg);
-        bytes32 routedId;
-        try registry.register(address(routed)) returns (bytes32 id) {
-            routedId = id;
-        } catch {
-            return; // registry refuses externally-routed adapters: defended
-        }
+        bytes32 routedId = registry.register(address(new RoutedRepayAdapter(cfg)));
         RootPolicy memory p = _policy(2, address(account));
         AdapterRef[] memory refs = new AdapterRef[](p.endpoints[0].adapters.length + 1);
         for (uint256 i; i < refs.length - 1; ++i) refs[i] = p.endpoints[0].adapters[i];
@@ -491,32 +485,31 @@ contract BreakTest is BreakBase {
         l.endpoints[0].adapters = ads;
         _activate(l, ctrlPk[0]);
 
-        _exec(_repay(L1, 1, routedId, "Routed Repay", 10e6), agentPk);
-        assertEq(tokA.balanceOf(borrower), 10e6);
-
-        cfg.setOverride(thief); // same adapter id, same codehash, new destination
-        ActionIntent memory a = _repay(L1, 2, routedId, "Routed Repay", 100e6);
+        cfg.setOverride(thief);
+        ActionIntent memory a = _repay(L1, 1, routedId, "Routed Repay", 100e6);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert();
+        vm.expectRevert(_rej(Codes.ACTION_KIND_NOT_ALLOWED));
         account.executeAction(a, sig);
+        assertEq(tokA.balanceOf(thief), 0);
     }
 
-    /// F-0210: the token bucket still lets 2x maxPerEpoch leave within one epochSeconds window.
-    function test_BREAK_bucket_double_spend_within_one_epoch() public {
+    /// F-0210 (ACCEPTED): documented worst case is 2x maxPerEpoch in any epoch-length window.
+    /// Pins that bound: ~2x is reachable, nothing beyond it is.
+    function test_ACCEPTED_F0210_bucket_bound_is_2x_per_epoch_window() public {
         _ctrlLease(L1);
         _exec(_pay(L1, 1, 100e6), agentPk);
-        _exec(_pay(L1, 2, 100e6), agentPk); // 200e6 = maxPerEpoch at T0
+        _exec(_pay(L1, 2, 100e6), agentPk);
         vm.warp(T0 + EPOCH - 1);
-        // 3599s later: another ~200e6 is available, i.e. ~400e6 inside one 3600s window
         _exec(_pay(L1, 3, 100e6), agentPk);
-        ActionIntent memory a = _pay(L1, 4, 99e6);
+        _exec(_pay(L1, 4, 99e6), agentPk); // 399e6 inside 3599s, below the 400e6 bound
+        ActionIntent memory a = _pay(L1, 5, 1e6);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert();
+        vm.expectRevert(_rej(Codes.BUDGET_EPOCH));
         account.executeAction(a, sig);
     }
 
-    /// F-0211: refill arithmetic overflows for very large maxPerEpoch and bricks the asset.
-    function test_BREAK_bucket_refill_overflow_bricks_large_cap() public {
+    /// F-0211: refill no longer overflows for very large maxPerEpoch.
+    function test_FIXED_F0211_bucket_refill_overflow_bricks_large_cap() public {
         RootPolicy memory p = _policy(2, address(account));
         p.endpoints[0].assets[0] = AssetLimit(_b(address(tokA)), 100e6, type(uint256).max, type(uint256).max);
         _install(p, account);
@@ -535,7 +528,7 @@ contract BreakTest is BreakBase {
         AgentLease memory l = _lease(L1, agent, ctrl[0], false);
         l.endpoints[0].assets[0].maxPerEpoch = 200e6 + 1;
         bytes memory sig = _sign(ctrlPk[0], h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_CAP_EXCEEDS_ROOT"));
+        vm.expectRevert(_rej(Codes.LEASE_CAP_EXCEEDS_ROOT));
         account.activateLease(l, sig);
     }
 
@@ -543,7 +536,7 @@ contract BreakTest is BreakBase {
         AgentLease memory l = _lease(L1, agent, ctrl[0], false);
         l.allowedActions = MASK | (1 << 1);
         bytes memory sig = _sign(ctrlPk[0], h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_ACTION_NOT_IN_ROOT"));
+        vm.expectRevert(_rej(Codes.LEASE_ACTION_NOT_IN_ROOT));
         account.activateLease(l, sig);
     }
 
@@ -551,7 +544,7 @@ contract BreakTest is BreakBase {
         AgentLease memory l = _lease(L1, agent, issuer, true);
         l.endpoints[0].assets[0].maxTotal = 300e6 + 1;
         bytes memory sig = _sign(issuerPk, h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_CAP_EXCEEDS_ISSUER"));
+        vm.expectRevert(_rej(Codes.LEASE_CAP_EXCEEDS_ISSUER));
         account.activateLease(l, sig);
     }
 
@@ -559,7 +552,7 @@ contract BreakTest is BreakBase {
         AgentLease memory l = _lease(L1, agent, issuer, true);
         l.endpoints[0].assets[1].maxPerAction = 1; // tokB has no issuer limit
         bytes memory sig = _sign(issuerPk, h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_CAP_EXCEEDS_ISSUER"));
+        vm.expectRevert(_rej(Codes.LEASE_CAP_EXCEEDS_ISSUER));
         account.activateLease(l, sig);
     }
 
@@ -567,41 +560,41 @@ contract BreakTest is BreakBase {
         AgentLease memory l = _lease(L1, agent, issuer, true);
         l.expiresAt = l.validAfter + 3601;
         bytes memory sig = _sign(issuerPk, h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_LIFETIME_EXCEEDED"));
+        vm.expectRevert(_rej(Codes.LEASE_LIFETIME_EXCEEDED));
         account.activateLease(l, sig);
 
         l = _lease(L1, stranger, issuer, true);
         sig = _sign(issuerPk, h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_AGENT_NOT_ALLOWED"));
+        vm.expectRevert(_rej(Codes.LEASE_AGENT_NOT_ALLOWED));
         account.activateLease(l, sig);
     }
 
     function test_HOLDS_unlisted_issuer_rejected() public {
         AgentLease memory l = _lease(L1, agent, stranger, true);
         bytes memory sig = _sign(strangerPk, h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_ISSUER_NOT_AUTHORIZED"));
+        vm.expectRevert(_rej(Codes.LEASE_ISSUER_NOT_AUTHORIZED));
         account.activateLease(l, sig);
         // claimed issuer but signed by someone else
         l = _lease(L1, agent, issuer, true);
         sig = _sign(strangerPk, h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_ISSUER_NOT_AUTHORIZED"));
+        vm.expectRevert(_rej(Codes.LEASE_ISSUER_NOT_AUTHORIZED));
         account.activateLease(l, sig);
     }
 
     function test_HOLDS_agent_signs_own_lease_rejected() public {
         AgentLease memory l = _lease(L1, agent, agent, false);
         bytes memory sig = _sign(agentPk, h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_AGENT_IS_ISSUER"));
+        vm.expectRevert(_rej(Codes.LEASE_AGENT_IS_ISSUER));
         account.activateLease(l, sig);
         // agent signs a lease naming the real issuer
         l = _lease(L1, agent, issuer, true);
         sig = _sign(agentPk, h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_ISSUER_NOT_AUTHORIZED"));
+        vm.expectRevert(_rej(Codes.LEASE_ISSUER_NOT_AUTHORIZED));
         account.activateLease(l, sig);
         // controller as agent
         l = _lease(L1, ctrl[1], ctrl[0], false);
         sig = _sign(ctrlPk[0], h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_AGENT_IS_ISSUER"));
+        vm.expectRevert(_rej(Codes.LEASE_AGENT_IS_ISSUER));
         account.activateLease(l, sig);
     }
 
@@ -611,7 +604,7 @@ contract BreakTest is BreakBase {
         l.endpoints[0].recipients[0] = _b(merchant);
         l.endpoints[0].recipients[1] = _b(merchant);
         bytes memory sig = _sign(ctrlPk[0], h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_DUPLICATE_ENTRY"));
+        vm.expectRevert(_rej(Codes.LEASE_DUPLICATE_ENTRY));
         account.activateLease(l, sig);
 
         l = _lease(L1, agent, ctrl[0], false);
@@ -620,26 +613,26 @@ contract BreakTest is BreakBase {
         eps[1] = l.endpoints[0];
         l.endpoints = eps;
         sig = _sign(ctrlPk[0], h.lease(l));
-        vm.expectRevert(_rej("AMANE_LEASE_DUPLICATE_ENTRY"));
+        vm.expectRevert(_rej(Codes.LEASE_DUPLICATE_ENTRY));
         account.activateLease(l, sig);
     }
 
     function test_HOLDS_lease_replay_and_cross_account() public {
         AgentLease memory l = _ctrlLease(L1);
         bytes memory sig = _sign(ctrlPk[0], h.lease(l));
-        vm.expectRevert(_rej("AMANE_REPLAY_LEASE_ID"));
+        vm.expectRevert(_rej(Codes.REPLAY_LEASE_ID));
         account.activateLease(l, sig);
 
         address[] memory ctrls = new address[](3);
         for (uint256 i; i < 3; ++i) ctrls[i] = ctrl[i];
         AmaneAccount other = new AmaneAccount(ACCOUNT_ID, ctrls, 2, registry);
         _install(_policy(1, address(other)), other);
-        vm.expectRevert(_rej("AMANE_LEASE_WRONG_ENDPOINT"));
+        vm.expectRevert(_rej(Codes.LEASE_WRONG_ENDPOINT));
         other.activateLease(l, sig);
 
         ActionIntent memory a = _pay(L1, 1, 1e6);
         bytes memory asig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_WRONG_ENDPOINT"));
+        vm.expectRevert(_rej(Codes.ACTION_WRONG_ENDPOINT));
         other.executeAction(a, asig);
     }
 
@@ -648,13 +641,13 @@ contract BreakTest is BreakBase {
         ActionIntent memory a = _pay(L1, 1, 1e6);
         a.chainRef = keccak256("eip155:1");
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_WRONG_ENDPOINT"));
+        vm.expectRevert(_rej(Codes.ACTION_WRONG_ENDPOINT));
         account.executeAction(a, sig);
 
         a = _pay(L1, 1, 1e6);
         sig = _sign(agentPk, h.action(a));
         a.amountIn = 2e6; // executor mutates the amount
-        vm.expectRevert(_rej("AMANE_ACTION_WRONG_AGENT"));
+        vm.expectRevert(_rej(Codes.ACTION_WRONG_AGENT));
         account.executeAction(a, sig);
     }
 
@@ -663,7 +656,7 @@ contract BreakTest is BreakBase {
         ActionIntent memory a = _pay(L1, 7, 1e6);
         bytes memory sig = _sign(agentPk, h.action(a));
         account.executeAction(a, sig);
-        vm.expectRevert(_rej("AMANE_REPLAY_NONCE"));
+        vm.expectRevert(_rej(Codes.REPLAY_NONCE));
         account.executeAction(a, sig);
     }
 
@@ -691,7 +684,7 @@ contract BreakTest is BreakBase {
         _exec(_pay(L1, 2, 100e6), agentPk);
         ActionIntent memory a = _pay(L2, 1, 1);
         bytes memory sig = _sign(agent2Pk, h.action(a));
-        vm.expectRevert(_rej("AMANE_BUDGET_EPOCH"));
+        vm.expectRevert(_rej(Codes.BUDGET_EPOCH));
         account.executeAction(a, sig);
     }
 
@@ -702,7 +695,7 @@ contract BreakTest is BreakBase {
         _exec(_pay(L1, 2, 50e6), agentPk);
         ActionIntent memory a = _pay(L2, 1, 1);
         bytes memory sig = _sign(agent2Pk, h.action(a));
-        vm.expectRevert(_rej("AMANE_BUDGET_EPOCH"));
+        vm.expectRevert(_rej(Codes.BUDGET_EPOCH));
         account.executeAction(a, sig);
     }
 
@@ -715,7 +708,7 @@ contract BreakTest is BreakBase {
         _exec(_pay(L1, 4, 100e6), agentPk);
         ActionIntent memory a = _pay(L1, 5, 1e6);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_BUDGET_EPOCH"));
+        vm.expectRevert(_rej(Codes.BUDGET_EPOCH));
         account.executeAction(a, sig);
         // lease expired at T0+3600; a fresh lease draws on the same root total (500e6)
         vm.warp(T0 + 2 * EPOCH);
@@ -724,7 +717,7 @@ contract BreakTest is BreakBase {
         _exec(_pay(L2, 1, 100e6), agent2Pk);
         a = _pay(L2, 2, 1);
         sig = _sign(agent2Pk, h.action(a));
-        vm.expectRevert(_rej("AMANE_BUDGET_TOTAL"));
+        vm.expectRevert(_rej(Codes.BUDGET_TOTAL));
         account.executeAction(a, sig);
     }
 
@@ -735,10 +728,10 @@ contract BreakTest is BreakBase {
         account.pause(p, s);
         ActionIntent memory a = _pay(L1, 1, 1e6);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_ACCOUNT_PAUSED"));
+        vm.expectRevert(_rej(Codes.ACTION_ACCOUNT_PAUSED));
         account.executeAction(a, sig);
         (p, s) = _pauseSig(strangerPk, keccak256("incident-2"));
-        vm.expectRevert(_rej("AMANE_CONTROLLER_NOT_AUTHORIZED"));
+        vm.expectRevert(_rej(Codes.CONTROLLER_NOT_AUTHORIZED));
         account.pause(p, s);
     }
 
@@ -748,14 +741,14 @@ contract BreakTest is BreakBase {
         account.revokeLease(r, _sign(issuerPk, h.revoke(r)));
         ActionIntent memory a = _pay(L1, 1, 1e6);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_LEASE_NOT_ACTIVE"));
+        vm.expectRevert(_rej(Codes.LEASE_NOT_ACTIVE));
         account.executeAction(a, sig);
 
         AgentLease memory l2 = _lease(L2, agent, ctrl[0], false);
         RevokeLease memory r2 = RevokeLease(ACCOUNT_ID, L2);
         account.revokeLease(r2, _sign(ctrlPk[2], h.revoke(r2)));
         sig = _sign(ctrlPk[0], h.lease(l2));
-        vm.expectRevert(_rej("AMANE_REPLAY_LEASE_ID"));
+        vm.expectRevert(_rej(Codes.REPLAY_LEASE_ID));
         account.activateLease(l2, sig);
     }
 
@@ -763,7 +756,7 @@ contract BreakTest is BreakBase {
         _ctrlLease(L1);
         RevokeLease memory r = RevokeLease(ACCOUNT_ID, keccak256("x"));
         bytes memory rs = _sign(agentPk, h.revoke(r));
-        vm.expectRevert(_rej("AMANE_CONTROLLER_NOT_AUTHORIZED"));
+        vm.expectRevert(_rej(Codes.CONTROLLER_NOT_AUTHORIZED));
         account.revokeLease(r, rs);
     }
 
@@ -773,7 +766,7 @@ contract BreakTest is BreakBase {
         ActionIntent memory a = _pay(L1, 1, 1e6);
         a.policyVersion = 1;
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_POLICY_VERSION_MISMATCH"));
+        vm.expectRevert(_rej(Codes.POLICY_VERSION_MISMATCH));
         account.executeAction(a, sig);
     }
 
@@ -782,12 +775,12 @@ contract BreakTest is BreakBase {
         bytes32 d = h.policy(p);
         bytes[] memory sigs = new bytes[](1);
         sigs[0] = _sign(ctrlPk[0], d);
-        vm.expectRevert(_rej("AMANE_CONTROLLER_THRESHOLD"));
+        vm.expectRevert(_rej(Codes.CONTROLLER_THRESHOLD));
         account.installPolicy(p, sigs);
         sigs = new bytes[](2);
         sigs[0] = _sign(ctrlPk[0], d);
         sigs[1] = _sign(ctrlPk[0], d);
-        vm.expectRevert(_rej("AMANE_CONTROLLER_UNSORTED"));
+        vm.expectRevert(_rej(Codes.CONTROLLER_UNSORTED));
         account.installPolicy(p, sigs);
     }
 
@@ -796,13 +789,13 @@ contract BreakTest is BreakBase {
         ActionIntent memory a = _pay(L1, 1, 1e6);
         a.recipient = _b(thief);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_RECIPIENT_NOT_ALLOWED"));
+        vm.expectRevert(_rej(Codes.ACTION_RECIPIENT_NOT_ALLOWED));
         account.executeAction(a, sig);
 
         a = _pay(L1, 1, 1e6);
         a.recipientLabel = "Merchant ";
         sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_RECIPIENT_NOT_ALLOWED"));
+        vm.expectRevert(_rej(Codes.ACTION_RECIPIENT_NOT_ALLOWED));
         account.executeAction(a, sig);
     }
 
@@ -813,18 +806,16 @@ contract BreakTest is BreakBase {
         a.adapterId = evilSwapId;
         a.adapterName = "Evil Swap";
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ADAPTER_KIND_MISMATCH"));
+        vm.expectRevert(_rej(Codes.ADAPTER_KIND_MISMATCH));
         account.executeAction(a, sig);
     }
 
-    function test_HOLDS_repay_beneficiary_substitution_rejected() public {
+    /// F-0204: REPAY is not executed by the EVM core until a measured adapter exists.
+    function test_FIXED_F0204_repay_disabled_in_core() public {
         _ctrlLease(L1);
-        _exec(_repay(L1, 1, repayId, "Mock Repay", 5e6), agentPk);
-        assertEq(tokA.balanceOf(borrower), 5e6);
-        ActionIntent memory a = _repay(L1, 2, repayId, "Mock Repay", 5e6);
-        a.recipient = _b(thief);
+        ActionIntent memory a = _repay(L1, 1, repayId, "Mock Repay", 5e6);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_RECIPIENT_NOT_ALLOWED"));
+        vm.expectRevert(_rej(Codes.ACTION_KIND_NOT_ALLOWED));
         account.executeAction(a, sig);
     }
 
@@ -835,18 +826,18 @@ contract BreakTest is BreakBase {
         // adapter steals output, agent minOut 0: owner floor still applies
         ActionIntent memory a = _swap(L1, 2, evilSwapId, "Evil Swap", 10e6, 0);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_BELOW_MIN_OUT"));
+        vm.expectRevert(_rej(Codes.ACTION_BELOW_MIN_OUT));
         account.executeAction(a, sig);
         // 90% rate below the 95% floor
         a = _swap(L1, 2, badSwapId, "Fixture Swap", 10e6, 0);
         sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_BELOW_MIN_OUT"));
+        vm.expectRevert(_rej(Codes.ACTION_BELOW_MIN_OUT));
         account.executeAction(a, sig);
         // swap output to an explicit recipient is refused
         a = _swap(L1, 2, swapId, "Fixture Swap", 10e6, 0);
         a.recipient = _b(thief);
         sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_RECIPIENT_NOT_ALLOWED"));
+        vm.expectRevert(_rej(Codes.ACTION_RECIPIENT_NOT_ALLOWED));
         account.executeAction(a, sig);
     }
 
@@ -855,7 +846,7 @@ contract BreakTest is BreakBase {
         ActionIntent memory a = _swap(L1, 1, swapId, "Fixture Swap", 10e6, 0);
         a.assetOut = a.assetIn;
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_ASSET_NOT_ALLOWED"));
+        vm.expectRevert(_rej(Codes.ACTION_ASSET_NOT_ALLOWED));
         account.executeAction(a, sig);
     }
 
@@ -874,12 +865,12 @@ contract BreakTest is BreakBase {
         ActionIntent memory a = _pay(L1, 1, 1e6);
         a.adapterName = "Fixture Swap";
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_ADAPTER_NAME_MISMATCH"));
+        vm.expectRevert(_rej(Codes.ACTION_ADAPTER_NAME_MISMATCH));
         account.executeAction(a, sig);
         a = _pay(L1, 1, 1e6);
         a.adapterVersion = 2;
         sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_ADAPTER_NAME_MISMATCH"));
+        vm.expectRevert(_rej(Codes.ACTION_ADAPTER_NAME_MISMATCH));
         account.executeAction(a, sig);
     }
 
@@ -891,7 +882,7 @@ contract BreakTest is BreakBase {
         _activate(l, ctrlPk[0]);
         ActionIntent memory a = _pay(L1, 1, 1e6);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_ADAPTER_NOT_ALLOWED"));
+        vm.expectRevert(_rej(Codes.ACTION_ADAPTER_NOT_ALLOWED));
         account.executeAction(a, sig);
     }
 
@@ -903,7 +894,7 @@ contract BreakTest is BreakBase {
         ActionIntent memory a = _pay(L1, 1, 1e6);
         a.adapterId = reentrantId;
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ACTION_REENTRANT"));
+        vm.expectRevert(_rej(Codes.ACTION_REENTRANT));
         account.executeAction(a, sig);
     }
 
@@ -918,7 +909,7 @@ contract BreakTest is BreakBase {
         a = _pay(L1, 2, 1e6);
         a.assetIn = a.assetOut = _b(address(tokFalse));
         sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_ASSET_TRANSFER_FAILED"));
+        vm.expectRevert(_rej(Codes.ASSET_TRANSFER_FAILED));
         account.executeAction(a, sig);
 
         a = _pay(L1, 3, 1e6);
@@ -934,12 +925,12 @@ contract BreakTest is BreakBase {
         _activate(l, ctrlPk[0]);
         ActionIntent memory a = _pay(L1, 1, 1e6);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_LEASE_NOT_YET_VALID"));
+        vm.expectRevert(_rej(Codes.LEASE_NOT_YET_VALID));
         account.executeAction(a, sig);
         vm.warp(l.expiresAt + 1);
         a = _pay(L1, 1, 1e6);
         sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej("AMANE_LEASE_EXPIRED"));
+        vm.expectRevert(_rej(Codes.LEASE_EXPIRED));
         account.executeAction(a, sig);
     }
 
@@ -953,7 +944,7 @@ contract BreakTest is BreakBase {
         );
         bytes32 d = keccak256(abi.encodePacked(hex"1901", AmaneHash.domainSeparator(), structHash));
         (sigs[0], sigs[1]) = agent < ctrl[0] ? (_sign(agentPk, d), _sign(ctrlPk[0], d)) : (_sign(ctrlPk[0], d), _sign(agentPk, d));
-        vm.expectRevert(_rej("AMANE_CONTROLLER_NOT_AUTHORIZED"));
+        vm.expectRevert(_rej(Codes.CONTROLLER_NOT_AUTHORIZED));
         account.withdraw(w, sigs);
     }
 }
