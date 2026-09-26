@@ -189,6 +189,12 @@ function CreateFlow() {
   const toReview = () =>
     step(async () => {
       if (!projectId) return;
+      if (namesDirty && typedBase) {
+        const r = await kido.edit(projectId, 'identity.name', typedBase);
+        if (!r.accepted) throw new Error(r.note ?? 'that name was not accepted');
+        await kido.finalize(projectId);
+        say({ from: 'you', text: typedBase });
+      }
       const s = await refresh(projectId);
       goTo('REVIEW');
       say({
@@ -238,6 +244,18 @@ function CreateFlow() {
     if (projectId) setCosts(await kido.costs(projectId, { actionsPerMonth: next, leaseRenewalsPerMonth: nextRenewals }));
   };
 
+  // The names as they will be with what is typed now (the backend recompiles them on save).
+  const slugOf = (x: string) => x.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+  const typedBase = slugOf(label) && slugOf(org) ? `${slugOf(label)}.${slugOf(org)}` : null;
+  const savedBase = summary?.identityPlan.find((b) => !b.role)?.name.replace(/\.(eth|sui)$/, '') ?? null;
+  const namesDirty = Boolean(typedBase && savedBase && typedBase !== savedBase);
+  const previewPlan = summary && typedBase && savedBase
+    ? summary.identityPlan.map((b) => {
+        const rename = (n: string) => (n.endsWith(`${savedBase}.eth`) || n.endsWith(`${savedBase}.sui`) ? n.slice(0, n.length - savedBase.length - 4) + typedBase + n.slice(-4) : n);
+        return { ...b, name: rename(b.name), parent: b.parent ? rename(b.parent) : b.parent };
+      })
+    : summary?.identityPlan ?? [];
+
   const HEAD: Record<Stage, { title: string; body: string }> = {
     DESCRIBE: { title: 'What should this agent do?', body: 'Say it in your own words, or start from a template that asks only three questions.' },
     QUESTIONS: { title: 'A few things only you know', body: 'Answer in your own words, or pick one of the options.' },
@@ -272,7 +290,7 @@ function CreateFlow() {
             <p className="cl-body">{head.body}</p>
           </header>
 
-          <div className="kc-chat__scroll" ref={scroller}>
+          <div className="kc-chat__scroll" ref={scroller} data-lenis-prevent>
             {turns.map((t, i) => (
               <div key={i} className={`kc-turn kc-turn--${t.from}`}>
                 <p className="kc-turn__text">{t.text}</p>
@@ -290,7 +308,7 @@ function CreateFlow() {
               <div className="kf-identity-form">
                 <label><span className="cl-meta">Agent name</span><input className="cl-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="treasury" /></label>
                 <label><span className="cl-meta">Organization</span><input className="cl-input" value={org} onChange={(e) => setOrg(e.target.value)} placeholder="acmecorp" /></label>
-                <span className="cl-meta kf-identity-preview">{label && org ? `${label}.${org}.eth · ${label}.${org}.sui` : ' '}</span>
+                <span className="cl-meta kf-identity-preview">{typedBase ? `${typedBase}.eth · ${typedBase}.sui${namesDirty ? ' · not saved yet (saved when you continue)' : ''}` : ' '}</span>
               </div>
               <div className="kc-composer__row">
                 <button type="button" className="cl-btn" onClick={saveNames} disabled={busy}>Save names</button>
@@ -329,7 +347,7 @@ function CreateFlow() {
               if (ORDER.indexOf(id) <= ORDER.indexOf(furthest)) setStage(id);
             }}
           />
-          <div className="kc-stage">
+          <div className="kc-stage" data-lenis-prevent>
             {stage === 'DESCRIBE' ? (
               templates.length ? <TemplatePicker templates={templates} onUse={applyTemplate} busy={busy} /> : <EmptyState title="Nothing built yet" body="Describe the agent on the left and it takes shape here." />
             ) : !s ? null : stage === 'QUESTIONS' ? (
@@ -337,8 +355,8 @@ function CreateFlow() {
             ) : stage === 'IDENTITY' ? (
               <div className="kf-stack">
                 <NameCheck parent={org ? `${org.toLowerCase()}.eth` : null} full={label && org ? `${label.toLowerCase()}.${org.toLowerCase()}.eth` : null} />
-                <EnsProfile plan={s.identityPlan} />
-                <IdentityPane s={s} />
+                <EnsProfile plan={previewPlan} />
+                <IdentityPane s={s} plan={previewPlan} />
               </div>
             ) : stage === 'REVIEW' ? (
               <ReviewPane s={s} />

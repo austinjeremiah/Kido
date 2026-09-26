@@ -34,8 +34,8 @@ export function TemplatePicker({ templates, onUse, busy }: { templates: Intervie
 }
 
 /* ── identity ── */
-export function IdentityPane({ s }: { s: ProjectSummary }) {
-  const plan = s.identityPlan;
+export function IdentityPane({ s, plan: override }: { s: ProjectSummary; plan?: ProjectSummary['identityPlan'] }) {
+  const plan = override ?? s.identityPlan;
   const roots = plan.filter((b) => !b.role);
   const roles = [...new Set(plan.filter((b) => b.role).map((b) => b.role!))];
   if (!plan.length) return <p className="kf-meta">This agent has no public identity. Give it one on the left to publish ENS and SuiNS names.</p>;
@@ -230,7 +230,7 @@ export function CostsPane({ est, included, onToggle, actions, onActions, renewal
               </div>
               <span className="kf-cat">{CATEGORY[l.category]}{l.optional ? ' · recommended for mainnet' : ''}</span>
               <div className="kf-cost__price">
-                <span className="kf-cost__big">{usd(l.monthlyUsd)}</span><span className="kf-meta">/ month</span>
+                <span className="kf-cost__big">{l.items.length === 0 && l.model === 'PROVIDER_PRICED' ? 'By quote' : usd(l.monthlyUsd)}</span>{l.items.length === 0 && l.model === 'PROVIDER_PRICED' ? null : <span className="kf-meta">/ month</span>}
                 {l.oneTimeUsd ? <span className="kf-meta kf-cost__once">+ {usd(l.oneTimeUsd)} one-time</span> : null}
               </div>
               <p className="kf-body">{l.summary}</p>
@@ -267,8 +267,9 @@ export function CostsPane({ est, included, onToggle, actions, onActions, renewal
           <span className="kf-total__mid">{usd(once)}</span>
         </div>
         <div>
-          <span className="kf-label">Paid services</span>
-          <span className="kf-total__mid">{counted.filter((l) => l.paid).length} of {counted.length}</span>
+          <span className="kf-label">Services in the total</span>
+          <span className="kf-total__mid">{counted.filter((l) => l.paid).length} paid · {counted.filter((l) => !l.paid).length} no-fee</span>
+          <span className="kf-meta">{est.lines.filter((l) => l.optional && !included.has(l.id)).length ? `${est.lines.filter((l) => l.optional && !included.has(l.id)).length} optional add-ons not included` : 'every add-on included'}</span>
         </div>
       </div>
     </div>

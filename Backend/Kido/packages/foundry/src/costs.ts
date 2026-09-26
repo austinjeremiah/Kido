@@ -155,6 +155,18 @@ export function estimateCosts(bp: KidoAgentBlueprint, identity: PlannedBinding[]
     push({ id: naut.id, name: naut.name, category: "privacy", model: naut.model, items: [{ label: naut.hostKind!, usd: naut.hostPerHourUsd! * MARKET.hoursPerMonth, recurring: true, basis: `$${naut.hostPerHourUsd}/hour × ${MARKET.hoursPerMonth} hours` }], summary: naut.summary, reason: "Recommended for mainnet: evaluates the private threshold inside an attested enclave (today Kido's secret store holds it; Nautilus is local-only here)", optional: true, sources: naut.sources });
   }
 
+  // Other paid privacy options Kido integrates, offered when the agent keeps private values.
+  if (bp.privacy.required) {
+    const used = new Set(bp.privacy.providers.map((p) => p.providerId));
+    const addon = (id: string, reason: string) => {
+      const pr = PRICING[id];
+      if (!pr || used.has(id)) return;
+      push({ id, name: pr.name, category: "privacy", model: pr.model, items: [], summary: pr.summary, reason, optional: true, sources: pr.sources });
+    };
+    addon("seal", "Add-on: threshold-encrypt the private threshold with Seal key servers on Sui, so not even Kido's servers can read it (Sui only). No public list price: each key-server provider sets its own.");
+    addon("chainlink-cre", "Add-on: run the private check as a Chainlink CRE confidential workflow and deliver only the decision on-chain. Pricing is by arrangement with Chainlink; Kido's CRE access is not yet granted.");
+  }
+
   const required = lines.filter((l) => !l.optional);
   return {
     market: { ethUsd: MARKET.ethUsd, ethGasGwei: MARKET.ethGasGwei, suiTxUsd: MARKET.suiTxUsd, asOf: MARKET.asOf, sources: MARKET.sources },

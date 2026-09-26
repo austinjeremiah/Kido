@@ -459,10 +459,14 @@
 .kc-box[data-state="set"] .kc-box__state { color: var(--cl-pass); }
 
 /* The stage centres an empty state, but must not centre a full grid. */
-.kc-stage:has(.kc-boxes) {
+/* Tall panes start at the top: centred overflowing content in a scroll box would push its top
+   above the scroll origin, where it can never be scrolled back to. */
+.kc-stage:has(.kc-boxes),
+.kc-stage:has(.kf-stack) {
   align-items: flex-start;
   justify-content: flex-start;
 }
+.kc-stage > .kf-stack { width: 100%; }
 
 /* --- findings, approvals, files and suites --------------------------------
    One vertical list rather than the requirement grid: these are read in order
