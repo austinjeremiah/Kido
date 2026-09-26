@@ -1,0 +1,17 @@
+{
+  "name": "@kido/amane-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./src/index.ts", "default": "./src/index.ts" } },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run" },
+  "dependencies": {
+    "@amane/core": "file:../../../Aname/packages/core",
+    "@amane/sdk": "file:../../../Aname/packages/sdk",
+    "@contextlock/studio-events": "*",
+    "@mysten/sui": "2.33.1",
+    "viem": "2.56.9"
+  }
+}

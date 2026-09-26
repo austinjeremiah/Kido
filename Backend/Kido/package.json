@@ -9,6 +9,7 @@
     "node": ">=22"
   },
   "workspaces": [
+    "packages/amane-bridge",
     "packages/protocol",
     "packages/policy",
     "packages/adapters",
