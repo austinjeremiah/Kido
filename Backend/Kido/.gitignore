@@ -61,3 +61,4 @@ reports/group-e/evidence/image/oci/
 
 # Studio credentials held under the Ledger Key Ring (wallet-cli ring encrypt). Ciphertext, but never committed.
 /secrets/
+.kido/
