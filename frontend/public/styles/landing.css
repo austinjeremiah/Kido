@@ -298,12 +298,23 @@
 .solution,
 /* The closing block and the footer. Both were still the template's: a sign-off
    telling you to go and sleep, a link to the author's animation course, his
-   socials, and the challenge credit. None of it belongs to this product.
-
-   The page now simply ends on the pendulum. */
+   socials, and the challenge credit. None of it belongs to this product. */
 .ender,
 .footer,
-.footer-decor-solid {
+.footer-decor-solid,
+/* Everything after the shortcut-trap passage. The page ends there now, so the
+   three sections that followed it come out of the flow.
+
+   Hidden rather than deleted, as with every other retired section: the scene
+   engine resolves these nodes by selector when it constructs and keeps the
+   references, so removing them throws rather than simply showing less.
+
+   Note this also retires the spiral and the pendulum, which are inside
+   .onclock and .encouter. Drop either class from this list to have them back.
+   (.encouter is spelled that way in the original markup.) */
+.importance,
+.onclock,
+.encouter {
   display: none;
 }
 
@@ -331,25 +342,7 @@
    a round texture. A wordmark is 3:1, so the circle has to be undone entirely —
    clipping it to a disc would crop the word.
    ========================================================================== */
-.onclock__spiral__center.cl-ledger-center {
-  width: clamp(150px, 20vw, 330px);
-  aspect-ratio: auto;
-  border: none;
-  border-radius: 0;
-  overflow: visible;
-  display: grid;
-  place-items: center;
-  /* The ring's radiating lines converge here, so the mark needs to sit above
-     them rather than be threaded through. */
-  z-index: 3;
-}
-
-.cl-ledger {
-  width: 100%;
-  height: auto;
-  display: block;
-  filter: drop-shadow(0 0 26px rgba(8, 18, 74, 0.55));
-}
+.onclock__spiral__center
 
 /* ============================================================================
    Marks inside the pendulum balls
@@ -374,12 +367,12 @@
   object-fit: contain;
 }
 
-/* Sized per mark: the Chainlink hexagon is near-square, Ledger is a 3:1
-   wordmark, and ENS sits between the two. Each gets the width that leaves a
-   comfortable margin inside the disc rather than one shared value. */
-.cl-pend-mark--chain  { width: 46%; }
-.cl-pend-mark--ens    { width: 58%; }
-.cl-pend-mark--ledger { width: 66%; }
+/* Sized per mark rather than sharing one width: the Ethereum diamond is tall
+   and narrow, Sui and ENS are round. Each gets the width that leaves a
+   comfortable margin inside its disc. */
+.cl-pend-mark--eth { width: 34%; }
+.cl-pend-mark--ens { width: 58%; }
+.cl-pend-mark--sui { width: 62%; }
 
 /* All three pendulum balls take the white ground the middle one had, so the
    marks sit on a consistent disc rather than one floating on the page colour. */
@@ -687,4 +680,204 @@
 
 @media (max-width: 1000px) {
   .cl-slogan { bottom: clamp(3rem, 8vh, 6rem); }
+}
+
+/* ============================================================================
+   Entry screen — inverted
+   ----------------------------------------------------------------------------
+   Cream ground, black canvas, cream ink. Nothing below is restated in new
+   colours: --color and --soft are redefined on the screen itself, and every
+   rule that already refers to them follows. That covers the loop and its
+   trail, the chain marks, the protocol discs, the fingerprint (which takes
+   var(--color) from an inline stroke attribute), the dots, the eyebrow and the
+   line at the foot, in one place.
+
+   The knockout discs behind the badges and behind the mark are filled with
+   var(--soft) precisely so they match the canvas — redefining it is what keeps
+   them invisible after the flip rather than appearing as circles.
+
+   Delete this block to go back.
+   ========================================================================== */
+.preloader {
+  --color: #fef1d0;   /* ink, lines, marks — now cream */
+  --soft: #0a0a0d;    /* canvas and every knockout — now near-black */
+
+  /* Stated literally: the rule above has already reassigned --soft, so the
+     ground cannot be written in terms of it. */
+  background-color: #fef1d0;
+}
+
+/* The loop is cream on black now, where it was blue on cream. The same opacity
+   does not carry across an inversion — light on dark reads thinner than dark on
+   light at equal alpha, so both weights come up. */
+.preloader .cl-lobe { stroke-opacity: 0.3; }
+.preloader .cl-mesh__svg:has(.cl-side--evm:hover) .cl-lobe--evm,
+.preloader .cl-mesh__svg:has(.cl-side--sui:hover) .cl-lobe--sui { stroke-opacity: 0.75; }
+
+/* --- the hero sky, taken to black -----------------------------------------
+   The sky is not CSS. It is rendered by the Three.js scene into the .webgl
+   canvas, and the only canvas background rule in the sheets is scoped to two
+   other scenes entirely. Recolouring it at source means finding the right
+   material inside a minified bundle, which is a reliable way to break the
+   scene and a poor trade for a colour.
+
+   So the canvas is graded instead. Pulling saturation out takes the blue to
+   near-neutral and the exposure down takes it to black, while the landscape —
+   already close to white — survives as bone rather than cream.
+
+   One rule, reversible. Delete it to get the blue back.  */
+.webgl {
+  filter: saturate(0.08) brightness(0.62) contrast(1.12);
+}
+
+/* ============================================================================
+   The landing, inverted
+   ----------------------------------------------------------------------------
+   Black ground, cream ink, everywhere below the hero as well as in it. As with
+   the entry screen, nothing is restated in new colours: --soft and --color are
+   redefined and every rule that already refers to them follows, including the
+   universal `* { color: var(--color) }` in inline.css that paints most of the
+   page's text.
+
+   Scoped to body:has(.hero) rather than :root. Only the landing has a hero, so
+   the creation screen and the workbench — which read the same two variables for
+   their own frames — are left alone.
+   ========================================================================== */
+body:has(.hero) {
+  --soft: #0a0a0d;
+  --color: #fef1d0;
+}
+
+/* --- what an inversion breaks ---------------------------------------------
+   Two places hold a light ground of their own, so their contents were about to
+   become cream on near-white. Both keep the light disc and take dark ink back,
+   rather than losing the disc that gives them their shape. */
+
+/* The pendulum marks sit on a white disc by design — the logos need a
+   consistent ground rather than floating on the page colour. */
+body:has(.hero) .pendulum__ball__img { background-color: #fef1d0; }
+body:has(.hero) .cl-pend-mark path,
+body:has(.hero) .cl-pend-mark [fill] { fill: #0042af; }
+
+/* The hero's only call to action. Its ground was var(--soft), which has just
+   become the page colour — a black button on a black page. It takes the cream
+   directly and keeps dark ink. */
+body:has(.hero) .cl-hero-cta__primary {
+  background: #fef1d0;
+  border-color: #fef1d0;
+  color: #06070c;
+}
+body:has(.hero) .cl-hero-cta__primary:hover {
+  background: #fff;
+  border-color: #fff;
+}
+
+/* The paper grain is a luminosity tile tuned to lighten a cream page. Over
+   black it lifts the ground into grey, so it comes down to a whisper. */
+body:has(.hero) .pattern { opacity: 0.04; }
+
+/* --- ink that was already cream -------------------------------------------
+   The rules below set text in var(--soft) because they sit on a dark ground
+   and needed the cream. Redefining --soft flipped them to black on black.
+
+   They are the mirror image of the .pendulum and .cl-hero-cta fixes above: not
+   every use of a colour token is a surface. These are the ones where it was
+   ink, so they take cream literally and stop following the swap.
+
+   The entry screen is excluded. It runs its own inversion one level down and
+   already has the right values; letting this reach inside it would undo them. */
+body:has(.hero) :where(
+  .hero__title__h1,
+  .hero__subt__text,
+  .subtitle__text.importance__text,
+  .parag.importance__text,
+  .hero__scroll__text.importance__text,
+  .hero__subt__text.importance__text,
+  .insights__text.importance__text,
+  .section-blue .title_serif,
+  .section-blue .title_sans,
+  .cl-hero-lede,
+  .cl-hero-cta__secondary
+):not(.preloader *) {
+  color: #fef1d0;
+}
+
+body:has(.hero) .cl-hero-cta__secondary { border-color: #fef1d0; }
+
+/* --- the spiral centre ----------------------------------------------------
+   Kido's own mark, drawn rather than an image, so it takes the page ink and
+   inverts with everything else instead of needing a second file. */
+.cl-spiral-center {
+  display: grid;
+  place-items: center;
+}
+
+.cl-spiral-mark {
+  width: clamp(54px, 7vw, 108px);
+  height: auto;
+  display: block;
+}
+
+/* --- the blue sections -----------------------------------------------------
+   inline.css gives .section-blue its own ink:
+
+       .section-blue { --color: var(--soft); background: var(--dark-blue); }
+
+   It points --color at --soft precisely because it sits on a dark ground and
+   needs the cream. Flipping --soft took every one of those sections to black
+   ink, which is why a whole paragraph disappeared rather than a single rule
+   misbehaving.
+
+   Both halves are stated here: the ink literally, so it stops following the
+   swap, and the ground in the page's black, so the blue sections stop being
+   the one thing on the page that is still blue. */
+body:has(.hero) .section-blue {
+  --color: #fef1d0;
+  background: #0a0a0d;
+}
+
+/* --- the arc above the Sui section ----------------------------------------
+   A filled path in the markup carrying fill="var(--dark-blue)" — the one
+   remaining blue surface on the page, and the only one the two swapped tokens
+   never reached, because --dark-blue is a third variable they do not touch.
+
+   Matched on :not([stroke]) rather than by value: the two paths beside it in
+   the same SVG are strokes and must keep their lines. */
+body:has(.hero) .stats__top-decor path:not([stroke]) {
+  fill: #0a0a0d;
+}
+
+/* --- the Sui ring, smaller ------------------------------------------------
+   The ring is four sized things stacked — the cloud texture, the solid disc,
+   the dashed border and the mark inside — each with its own width and its own
+   small-screen variant. Rewriting eight numbers to shrink one object invites a
+   ratio going wrong at one breakpoint and not the other.
+
+   Scaling the container keeps every proportion exactly as drawn, and composes
+   cleanly with the transforms the engine writes onto the layers themselves,
+   since those sit on the children rather than here.
+
+   transform-origin is centred so it shrinks toward its own middle rather than
+   drifting off the lines that converge on it. */
+body:has(.hero) .stats__stats {
+  scale: 0.66;
+  transform-origin: center;
+}
+
+/* --- the wallet modal ------------------------------------------------------
+   RainbowKit renders into a portal on <body>, so inline.css's universal
+   `* { color: var(--color) }` reaches inside it and repaints every label. That
+   was survivable while --color was the blue; inverted, it is cream text on the
+   modal's own white sheet.
+
+   :where() keeps this at zero specificity. It therefore outranks the universal
+   selector on source order alone — this sheet loads last — while every real
+   rule RainbowKit ships still wins over it, so the modal keeps its own
+   hierarchy of primary, secondary and accent text rather than being flattened
+   to one colour by a fix for the first.
+
+   Unscoped deliberately: the same portal opens from the workbench, and the
+   universal rule is global. */
+:where([data-rk], [data-rk] *) {
+  color: var(--rk-colors-modalText, #25292e);
 }

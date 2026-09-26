@@ -38,6 +38,7 @@ export function PromptComposer({
   refuses,
   starters,
   allowEmpty,
+  initialValue,
 }: {
   onSubmit: (text: string) => void;
   placeholder?: string;
@@ -46,9 +47,18 @@ export function PromptComposer({
   starters?: boolean;
   /** Where an empty box is a valid answer in itself — "nothing to change". */
   allowEmpty?: boolean;
+  /** Text to open with, so returning to a step shows what was written there. */
+  initialValue?: string;
 }) {
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(initialValue ?? '');
   const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  /* Keyed on the value so it only ever runs forward: returning to a step
+     restores what was written there, and typing afterwards is not overwritten
+     by the prop on the next render. */
+  useEffect(() => {
+    setValue(initialValue ?? '');
+  }, [initialValue]);
 
   useEffect(() => {
     const el = ref.current;

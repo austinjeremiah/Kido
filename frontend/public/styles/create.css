@@ -9,15 +9,35 @@
 .kc {
   position: relative;
   min-height: 100svh;
-  background-color: var(--color, #0042af);
+  /* A shade under the cream the rest of the product uses. At full strength the
+     surround is the brightest thing on screen and pulls the eye off the canvas
+     it is meant to be framing. */
+  background-color: #f5e8c7;
 }
 
 .kc-canvas {
   position: absolute;
   inset: clamp(2rem, 6vh, 6rem) clamp(2rem, 4.6vw, 7rem);
   border-radius: clamp(26px, 2.9vw, 56px);
-  background-color: var(--soft, #fef1d0);
   overflow: hidden;
+
+  /* The canvas is also the .cl-studio scope, so flipping the workbench's own
+     tokens here turns every primitive inside it dark in one place — the input,
+     the buttons, the badges, the borders and all four inks — without a single
+     component rule being restated. Same element, later sheet, so these win. */
+  --cl-canvas: #0a0a0d;
+  --cl-panel: #101015;
+  --cl-panel-2: #16161c;
+  --cl-raised: #1d1d24;
+  --cl-line: rgba(254, 241, 208, 0.14);
+  --cl-line-strong: rgba(254, 241, 208, 0.3);
+  --cl-ink-heading: #fef1d0;
+  --cl-ink: #ece3cd;
+  --cl-ink-2: #c6bfad;
+  --cl-ink-3: #948e7f;
+  --cl-ink-inv: #0a0a0d;
+
+  background-color: var(--cl-canvas);
 
   /* grid-template-rows is stated explicitly rather than left implicit: an
      implicit row is auto-sized, and children with little content give it
@@ -351,7 +371,7 @@
   padding: 0.85rem 0.95rem;
   border: 1px solid var(--cl-line-strong);
   border-radius: 10px;
-  background: #fffdf6;
+  background: var(--cl-panel);
   transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
 }
 
@@ -480,7 +500,7 @@
   padding: 0.85rem 0.95rem;
   border: 1px solid var(--cl-line-strong);
   border-radius: 10px;
-  background: #fffdf6;
+  background: var(--cl-panel);
 }
 
 .kc-finding__head {
@@ -516,7 +536,7 @@
   padding: 0.85rem 0.95rem;
   border: 1px solid var(--cl-line-strong);
   border-radius: 10px;
-  background: #fffdf6;
+  background: var(--cl-panel);
   font-family: inherit;
   cursor: pointer;
   transition: border-color 0.2s ease, background 0.2s ease;
@@ -536,8 +556,8 @@
   margin-top: 1px;
   border: 1px solid var(--cl-line-strong);
   border-radius: 5px;
-  background: #fff;
-  color: #fff;
+  background: var(--cl-raised);
+  color: var(--cl-canvas);
   transition: background 0.2s ease, border-color 0.2s ease;
 }
 
@@ -558,7 +578,7 @@
   padding: 0.55rem 0.8rem;
   border: 1px solid var(--cl-line);
   border-radius: 8px;
-  background: #fffdf6;
+  background: var(--cl-panel);
   font-size: 12.5px;
   color: var(--cl-ink);
   animation: kc-file-in 0.35s ease-out both;
@@ -584,7 +604,7 @@
   padding: 0.7rem 0.9rem;
   border: 1px solid var(--cl-line);
   border-radius: 8px;
-  background: #fffdf6;
+  background: var(--cl-panel);
   animation: kc-file-in 0.35s ease-out both;
 }
 
@@ -604,4 +624,84 @@
 @media (prefers-reduced-motion: reduce) {
   .kc-file, .kc-suite { animation: none; }
   .kc-spin { animation: none; }
+}
+
+/* --- a step you can go back to -------------------------------------------
+   The whole step becomes the target, so the hit area matches what it looks
+   like. A step not yet reached is plain text rather than a disabled button:
+   a disabled control invites the click and then refuses it, where plain text
+   was never offering one. */
+.kc-rail__go {
+  display: inline-flex;
+  align-items: center;
+  gap: inherit;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+  border-radius: 999px;
+  transition: opacity 0.2s ease;
+}
+
+.kc-rail__go:hover { opacity: 0.65; }
+.kc-rail__go:focus-visible { outline: 2px solid var(--cl-ink); outline-offset: 3px; }
+
+/* --- what the flip leaves behind ------------------------------------------
+   The verdict palette in studio.css is mixed for ink on cream: the pass green
+   and the warn amber both sit around 4.5:1 there and drop under 3:1 on black.
+   Lifted, and their backgrounds cut, so a badge is legible without becoming a
+   block of colour on a dark sheet. */
+.kc-canvas {
+  --cl-pass: #4ade80;
+  --cl-pass-bg: rgba(74, 222, 128, 0.12);
+  --cl-warn: #fbbf24;
+  --cl-warn-bg: rgba(251, 191, 36, 0.12);
+  --cl-deny: #f87171;
+  --cl-deny-bg: rgba(248, 113, 113, 0.12);
+  --cl-sim: #a78bfa;
+  --cl-sim-bg: rgba(167, 139, 250, 0.12);
+  --cl-accent: #7aa7ff;
+}
+
+/* The two conversation bubbles were filled with the page's darkest ink so they
+   would read on cream. On black that is a bubble you cannot see, so they swap:
+   yours takes the cream, Kido's takes a raised panel. */
+.kc-turn--you {
+  background: var(--cl-ink-heading);
+  color: var(--cl-ink-inv);
+}
+
+.kc-turn--kido {
+  background: var(--cl-panel-2);
+  color: var(--cl-ink);
+  border: 1px solid var(--cl-line);
+}
+
+.kc-turn__note { border-top-color: var(--cl-line); }
+.kc-turn--you .kc-turn__note { border-top-color: rgba(10, 10, 13, 0.22); }
+
+/* The box being asked was the only filled one, in the blue that has become the
+   cream. It keeps that job with the inks reversed. */
+.kc-box[data-state="asking"] {
+  background: var(--cl-ink-heading);
+  border-color: var(--cl-ink-heading);
+  box-shadow: none;
+}
+
+.kc-box[data-state="asking"] .kc-box__label,
+.kc-box[data-state="asking"] .kc-box__wants,
+.kc-box[data-state="asking"] .kc-box__state,
+.kc-box[data-state="asking"] .kc-box__note {
+  color: var(--cl-ink-inv);
+}
+
+/* The primary button follows the same inversion as the bubble. */
+.kc-canvas .cl-btn-primary {
+  background: var(--cl-ink-heading);
+  border-color: var(--cl-ink-heading);
+  color: var(--cl-ink-inv);
 }

@@ -35,6 +35,18 @@ import { reviewOf, type Finding } from '@/lib/create/review';
 type Stage = 'DESCRIBE' | 'REQUIREMENTS' | 'BLUEPRINT' | 'SECURITY' | 'APPROVE' | 'BUILD' | 'TEST' | 'DONE';
 type Turn = { from: 'you' | 'kido'; text: string; note?: string };
 
+/** The run, in order — used to work out how far back one may jump. */
+const ORDER: Stage[] = ['DESCRIBE', 'REQUIREMENTS', 'BLUEPRINT', 'SECURITY', 'APPROVE', 'BUILD', 'TEST', 'DONE'];
+
+/** Which stage a rail step goes back to. Build and Tests are not navigable. */
+const STAGE_FOR: Partial<Record<CreateStepId, Stage>> = {
+  DESCRIBE: 'DESCRIBE',
+  REQUIREMENTS: 'REQUIREMENTS',
+  BLUEPRINT: 'BLUEPRINT',
+  SECURITY_REVIEW: 'SECURITY',
+  AWAITING_APPROVAL: 'APPROVE',
+};
+
 /** Which rail step each stage lights. */
 const RAIL: Record<Stage, CreateStepId> = {
   DESCRIBE: 'DESCRIBE',
@@ -64,6 +76,9 @@ const SUITES: Suite[] = [
 
 export default function CreatePage() {
   const [stage, setStage] = useState<Stage>('DESCRIBE');
+  /* How far the run has got, which is as far back as the rail can jump from.
+     Going back never rewinds it — the work already done still exists. */
+  const [furthest, setFurthest] = useState<Stage>('DESCRIBE');
   const [prompt, setPrompt] = useState('');
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -73,6 +88,13 @@ export default function CreatePage() {
   const [suites, setSuites] = useState<Suite[]>([]);
 
   const scroller = useRef<HTMLDivElement | null>(null);
+
+  /* Every stage change goes through here so the high-water mark can never be
+     missed, and so going back cannot lower it. */
+  const goTo = useCallback((next: Stage) => {
+    setStage(next);
+    setFurthest((f) => (ORDER.indexOf(next) > ORDER.indexOf(f) ? next : f));
+  }, []);
 
   /* Follow the conversation down as it grows. Without this the newest turn is
      appended below the fold and the pane simply looks like it stopped
@@ -91,13 +113,26 @@ export default function CreatePage() {
      unanswered, so answering simply shortens it. */
   const openQuestions = CLARIFYING_QUESTIONS.filter((q) => !answers[q.requirementId]);
   const current = stage === 'REQUIREMENTS' ? openQuestions[0] : undefined;
+  /* Revisiting the interview once every question is closed: there is nothing
+     left to ask, so the pane becomes a read-back with a way forward rather than
+     a composer wired to a question that does not exist. */
+  const reviewingAnswers = stage === 'REQUIREMENTS' && !current;
 
   /* ── 01 → 02 ───────────────────────────────────────────────────────── */
   const start = (text: string) => {
     setPrompt(text);
-    setStage('REQUIREMENTS');
-    const first = CLARIFYING_QUESTIONS[0];
-    say({ from: 'you', text }, { from: 'kido', text: first.question, note: first.why });
+    goTo('REQUIREMENTS');
+
+    /* Coming back to edit the description does not re-ask what has already been
+       answered. The next question is the first still open, and if none are, the
+       interview is simply already done. */
+    const next = CLARIFYING_QUESTIONS.find((q) => !answers[q.requirementId]);
+    say(
+      { from: 'you', text },
+      next
+        ? { from: 'kido', text: next.question, note: next.why }
+        : { from: 'kido', text: 'Noted. Every requirement is still captured, so nothing needs asking again.' },
+    );
   };
 
   /* ── 02 ────────────────────────────────────────────────────────────── */
@@ -112,7 +147,7 @@ export default function CreatePage() {
       return;
     }
 
-    setStage('BLUEPRINT');
+    goTo('BLUEPRINT');
     say(
       { from: 'you', text },
       {
@@ -137,7 +172,7 @@ export default function CreatePage() {
     }
     const review = reviewOf(answers);
     setFindings(review);
-    setStage('SECURITY');
+    goTo('SECURITY');
     say({
       from: 'kido',
       text: `The review is done: ${review.length} finding${review.length === 1 ? '' : 's'}, none of them blocking.`,
@@ -147,7 +182,7 @@ export default function CreatePage() {
 
   /* ── 04 → 05 ───────────────────────────────────────────────────────── */
   const fromSecurity = () => {
-    setStage('APPROVE');
+    goTo('APPROVE');
     say({
       from: 'kido',
       text:
@@ -160,7 +195,7 @@ export default function CreatePage() {
   /* ── 05 → 06 ───────────────────────────────────────────────────────── */
   const approve = () => {
     if (acknowledged.length !== findings.length) return;
-    setStage('BUILD');
+    goTo('BUILD');
     say({ from: 'you', text: 'Approved.' }, { from: 'kido', text: 'Generating the agent now.' });
   };
 
@@ -174,14 +209,14 @@ export default function CreatePage() {
       window.setTimeout(() => setFiles((prev) => [...prev, f]), (i + 1) * 420),
     );
     const finish = window.setTimeout(() => {
-      setStage('TEST');
+      goTo('TEST');
       say({ from: 'kido', text: 'Generated. Running the policy and simulation suites.' });
     }, (FILES.length + 1) * 420);
     return () => {
       timers.forEach(window.clearTimeout);
       window.clearTimeout(finish);
     };
-  }, [stage, say]);
+  }, [stage, say, goTo]);
 
   useEffect(() => {
     if (stage !== 'TEST') return;
@@ -190,7 +225,7 @@ export default function CreatePage() {
       window.setTimeout(() => setSuites((prev) => [...prev, s]), (i + 1) * 520),
     );
     const finish = window.setTimeout(() => {
-      setStage('DONE');
+      goTo('DONE');
       say({
         from: 'kido',
         text: 'Every suite passed. The agent exists — the workbench is open.',
@@ -201,7 +236,7 @@ export default function CreatePage() {
       timers.forEach(window.clearTimeout);
       window.clearTimeout(finish);
     };
-  }, [stage, say]);
+  }, [stage, say, goTo]);
 
   /* ── the left column's copy, per stage ─────────────────────────────── */
   const HEAD: Record<Stage, { title: string; body: string }> = {
@@ -262,6 +297,15 @@ export default function CreatePage() {
                 Open the workbench
               </Link>
             </div>
+          ) : reviewingAnswers ? (
+            <div className="kc-composer">
+              <div className="kc-composer__row">
+                <span className="cl-meta">Every requirement is captured</span>
+                <button type="button" className="cl-btn cl-btn-primary" onClick={() => goTo('BLUEPRINT')}>
+                  Continue
+                </button>
+              </div>
+            </div>
           ) : stage === 'SECURITY' ? (
             <div className="kc-composer">
               <div className="kc-composer__row">
@@ -296,12 +340,20 @@ export default function CreatePage() {
               refuses={current?.userMustDecide}
               starters={stage === 'DESCRIBE'}
               allowEmpty={stage === 'BLUEPRINT'}
+              initialValue={stage === 'DESCRIBE' ? prompt : ''}
             />
           )}
         </section>
 
         <section className="kc-half kc-half--right">
-          <CreateSteps current={RAIL[stage]} />
+          <CreateSteps
+            current={RAIL[stage]}
+            furthest={RAIL[furthest]}
+            onSelect={(id) => {
+              const target = STAGE_FOR[id];
+              if (target) setStage(target);
+            }}
+          />
           <div className="kc-stage">
             {stage === 'DESCRIBE' ? (
               <EmptyState
@@ -312,7 +364,16 @@ export default function CreatePage() {
               <RequirementBoxes answers={answers} currentId={current?.requirementId} />
             ) : stage === 'BLUEPRINT' ? (
               <BlueprintBoxes description={prompt} answers={answers} />
-            ) : stage === 'SECURITY' ? (
+            ) : reviewingAnswers ? (
+            <div className="kc-composer">
+              <div className="kc-composer__row">
+                <span className="cl-meta">Every requirement is captured</span>
+                <button type="button" className="cl-btn cl-btn-primary" onClick={() => goTo('BLUEPRINT')}>
+                  Continue
+                </button>
+              </div>
+            </div>
+          ) : stage === 'SECURITY' ? (
               <FindingList findings={findings} />
             ) : stage === 'APPROVE' ? (
               <ApprovalList
