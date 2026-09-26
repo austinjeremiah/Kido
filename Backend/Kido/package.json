@@ -9,6 +9,7 @@
     "node": ">=22"
   },
   "workspaces": [
+    "packages/blueprint",
     "packages/amane-bridge",
     "packages/kido-runtime",
     "packages/kido-agents",
