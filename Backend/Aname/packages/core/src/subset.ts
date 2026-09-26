@@ -173,6 +173,8 @@ export interface ActionCheckContext {
   now: bigint;
   chainRef: Bytes32;
   account: Bytes32;
+  /** The endpoint's core enforces REPAY (EVM account v2). v1 accounts and Sui endpoints do not. */
+  repay?: boolean;
 }
 
 // Stateless part of action validation. Budgets, replay and pause are chain state and are
@@ -214,8 +216,16 @@ export function assertActionIsSubset(policy: RootPolicy, lease: AgentLease, inte
     if (!le.recipients.some((r) => eq32(r, intent.recipient))) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
     const r = root.recipients.find((x) => eq32(x.recipientId, intent.recipient)) ?? fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
     if (r.label !== intent.recipientLabel) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'label mismatch');
+  } else if (intent.actionKind === ActionKind.REPAY && ctx.repay) {
+    if (!le.beneficiaries.some((b) => eq32(b, intent.recipient))) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'beneficiary');
+    const b = root.beneficiaries.find((x) => eq32(x.recipientId, intent.recipient)) ?? fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'beneficiary');
+    if (b.label !== intent.recipientLabel) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'label mismatch');
+    if (le.assets.some((a) => eq32(a.assetId, intent.assetOut))) fail('AMANE_ACTION_ASSET_NOT_ALLOWED', 'a debt token is never a spend asset');
+    if (!root.swapFloors.some((f) => eq32(f.assetIn, intent.assetIn) && eq32(f.assetOut, intent.assetOut))) fail('AMANE_ACTION_NO_PRICE_FLOOR', 'no pinned (asset, debt token) pair');
+    // The debt reduction is measured on-chain after the call; there is no output minimum to preflight.
+    effectiveMinOut = 0n;
   } else {
-    fail('AMANE_ACTION_KIND_NOT_ALLOWED', 'no v1 enforcement rule for this action kind');
+    fail('AMANE_ACTION_KIND_NOT_ALLOWED', 'no enforcement rule for this action kind on this endpoint');
   }
   return effectiveMinOut;
 }

@@ -78,6 +78,15 @@ export class AmaneEvmEndpoint {
     return { accountId, chainRef, policyVersion, policyHash, paused, pauseEpoch, lastPauseId, opNonce, controllers };
   }
 
+  /** Core release of this account: 2 enforces REPAY; accounts without the getter are v1. */
+  async coreVersion(): Promise<number> {
+    try {
+      return Number(await this.publicClient.readContract({ address: this.address, abi: amaneAccountAbi, functionName: 'CORE_VERSION' }));
+    } catch {
+      return 1;
+    }
+  }
+
   async leaseStatus(leaseId: Bytes32): Promise<number> {
     const l = (await this.publicClient.readContract({ address: this.address, abi: amaneAccountAbi, functionName: 'lease', args: [leaseId] })) as {
       status: number;

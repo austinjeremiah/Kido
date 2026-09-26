@@ -488,7 +488,10 @@ contract BreakTest is BreakBase {
         cfg.setOverride(thief);
         ActionIntent memory a = _repay(L1, 1, routedId, "Routed Repay", 100e6);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej(Codes.ACTION_KIND_NOT_ALLOWED));
+        // v2 REPAY measures the beneficiary's balance of a pinned debt token. This intent names the
+        // spend asset as the debt token, which is refused; a routed adapter against a real debt
+        // token is caught by the measurement (ProtocolAdapters.t.sol test_REPAY_006).
+        vm.expectRevert(_rej(Codes.ACTION_ASSET_NOT_ALLOWED));
         account.executeAction(a, sig);
         assertEq(tokA.balanceOf(thief), 0);
     }
@@ -811,11 +814,11 @@ contract BreakTest is BreakBase {
     }
 
     /// F-0204: REPAY is not executed by the EVM core until a measured adapter exists.
-    function test_FIXED_F0204_repay_disabled_in_core() public {
+    function test_FIXED_F0204_repay_without_a_debt_token_pair() public {
         _ctrlLease(L1);
         ActionIntent memory a = _repay(L1, 1, repayId, "Mock Repay", 5e6);
         bytes memory sig = _sign(agentPk, h.action(a));
-        vm.expectRevert(_rej(Codes.ACTION_KIND_NOT_ALLOWED));
+        vm.expectRevert(_rej(Codes.ACTION_ASSET_NOT_ALLOWED));
         account.executeAction(a, sig);
     }
 

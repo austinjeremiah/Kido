@@ -28,6 +28,10 @@ interface IERC20Minimal {
 /// Invariant: Action ⊆ Lease ⊆ RootPolicy. Every agent action is verified, budget-debited and
 /// nonce-marked before any token leaves the account, and output is measured by the account itself.
 contract AmaneAccount {
+    /// Core release. 2 adds REPAY (pinned beneficiary, measured debt reduction); v1 accounts do not
+    /// expose this getter.
+    uint32 public constant CORE_VERSION = 2;
+
     using AmaneHash for *;
 
     uint8 private constant PRICE_MODE_TESTNET_FIXED = 1;
@@ -398,7 +402,9 @@ contract AmaneAccount {
         _debitAll(a.leaseId, l, v, a.assetIn, a.amountIn);
 
         address tokenIn = _asAddress(a.assetIn);
-        amountOut = a.actionKind == ActionKinds.SWAP ? _swap(a, entry.adapter, tokenIn, minOut) : _deliver(a, entry.adapter, tokenIn);
+        if (a.actionKind == ActionKinds.SWAP) amountOut = _swap(a, entry.adapter, tokenIn, minOut);
+        else if (a.actionKind == ActionKinds.REPAY) amountOut = _repay(a, entry.adapter, tokenIn, v);
+        else amountOut = _deliver(a, entry.adapter, tokenIn);
 
         emit ActionExecuted(a.leaseId, a.nonce, a.adapterId, a.actionKind, a.amountIn, amountOut, a.planHash, a.planStep);
     }
@@ -477,6 +483,17 @@ contract AmaneAccount {
             uint256 required = (a.amountIn * f.num + f.den - 1) / f.den;
             return a.minAmountOut > required ? a.minAmountOut : required;
         }
+        if (a.actionKind == ActionKinds.REPAY) {
+            // Only a pinned beneficiary's debt, in a (asset, debt token) pair the controllers pinned.
+            if (!leaseBeneficiaries[a.leaseId][a.recipient]) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
+            if (rootBeneficiaryLabel[v][a.recipient] != keccak256(bytes(a.recipientLabel))) {
+                revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
+            }
+            // A debt token is never a spend asset, so a swap pair can never double as a repay pair.
+            if (leaseAssets[a.leaseId][a.assetOut].allowed) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
+            if (swapFloor[v][keccak256(abi.encode(a.assetIn, a.assetOut))].den == 0) revert AmaneRejected(Codes.ACTION_NO_PRICE_FLOOR);
+            return 0;
+        }
         if (a.actionKind == ActionKinds.PAY) {
             if (a.assetOut != a.assetIn) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
             if (!leaseRecipients[a.leaseId][a.recipient]) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
@@ -499,6 +516,24 @@ contract AmaneAccount {
         if (inBefore - inAfter > a.amountIn) revert AmaneRejected(Codes.ACTION_OVERSPENT);
         out = outAfter - outBefore;
         if (out < minOut) revert AmaneRejected(Codes.ACTION_BELOW_MIN_OUT);
+    }
+
+    /// REPAY: the adapter repays the beneficiary's debt and returns any unspent input. The core
+    /// measures both sides itself: input spent from the account, and the fall of the beneficiary's
+    /// balance of the pinned debt token, which must be at least spent × num / den.
+    function _repay(ActionIntent calldata a, address adapter, address tokenIn, uint64 v) private returns (uint256 reduced) {
+        address debtToken = _asAddress(a.assetOut);
+        address to = _asAddress(a.recipient);
+        uint256 inBefore = IERC20Minimal(tokenIn).balanceOf(address(this));
+        uint256 debtBefore = IERC20Minimal(debtToken).balanceOf(to);
+        _safeTransfer(tokenIn, adapter, a.amountIn);
+        IAmaneAdapter(adapter).execute(tokenIn, debtToken, a.amountIn, 0, to);
+        uint256 spent = inBefore - IERC20Minimal(tokenIn).balanceOf(address(this));
+        if (spent > a.amountIn) revert AmaneRejected(Codes.ACTION_OVERSPENT);
+        uint256 debtAfter = IERC20Minimal(debtToken).balanceOf(to);
+        reduced = debtBefore > debtAfter ? debtBefore - debtAfter : 0;
+        Floor memory f = swapFloor[v][keccak256(abi.encode(a.assetIn, a.assetOut))];
+        if (spent == 0 || reduced < (spent * f.num + f.den - 1) / f.den) revert AmaneRejected(Codes.ACTION_UNDER_DELIVERED);
     }
 
     function _deliver(ActionIntent calldata a, address adapter, address tokenIn) private returns (uint256 delivered) {
