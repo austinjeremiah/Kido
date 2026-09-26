@@ -5,8 +5,8 @@
   "displayName": "Wormhole",
   "version": "sdk 6.1.5",
   "researchDate": "2026-09-26",
-  "status": "VERIFIED_DOCS",
-  "statusNote": "core/token-bridge state verified live on both chains; no live transfer run yet (BE-WH-1)",
+  "status": "VERIFIED_LIVE",
+  "statusNote": "Sui ⇄ Sepolia round trip through Amane on both chains completed live 2026-09-26 (Token Bridge, payload-3)",
   "chains": [
     "ethereum-sepolia",
     "sui-testnet"

@@ -70,7 +70,7 @@ describe("Kido API", () => {
 
   it("exposes registry status and knowledge drift", async () => {
     const r = await call("GET", "/registry");
-    expect(r.json.providers.find((p: any) => p.providerId === "wormhole").status).toBe("VERIFIED_DOCS");
+    expect(r.json.providers.find((p: any) => p.providerId === "wormhole").status).toBe("VERIFIED_LIVE");
     expect((await call("GET", "/knowledge/drift")).json).toEqual({ drift: [], quarantined: [] });
   });
 });

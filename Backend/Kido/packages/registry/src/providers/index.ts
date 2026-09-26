@@ -420,10 +420,21 @@ export const PROVIDERS: ProviderManifest[] = [
         ? ["transport is never authority", "Sepolia↔Sui testnet route via Token Bridge with manual redeem; single testnet guardian", "NTT requires self-deployment and core exactly 6.1.4"]
         : ["transport is never authority", "Sepolia→Sui pathway supported but no ready token route (own OFT pair needed)", "Sui SDK depends on @mysten/sui 1.x JSON-RPC, which is shut down (F-0407)"],
       sources: [],
-      status: id === "wormhole" ? "VERIFIED_DOCS" : "BLOCKED_ENV",
-      statusNote: id === "wormhole" ? "core/token-bridge state verified live on both chains; no live transfer run yet (BE-WH-1)" : "BE-LZ-1: Sui SDK unusable without JSON-RPC",
+      status: id === "wormhole" ? "VERIFIED_LIVE" : "BLOCKED_ENV",
+      statusNote: id === "wormhole" ? "Sui ⇄ Sepolia round trip through Amane on both chains completed live 2026-09-26 (Token Bridge, payload-3)" : "BE-LZ-1: Sui SDK unusable without JSON-RPC",
       implementation: id === "wormhole"
-        ? { status: "NOT_IMPLEMENTED", proven: ["core and token-bridge state readable on both chains"], notProven: ["any transfer or message delivery"], evidence: [] }
+        ? {
+            status: "TESTNET_LIVE",
+            proven: [
+              "Amane BRIDGE Sui → Sepolia through the Amane Wormhole adapters; arrival reserved on Sepolia for the signed source intent",
+              "reserved BRIDGE Sepolia → Sui; arrival reserved on Sui and paid to the owner's pinned wallet",
+              "arrival after its committed deadline refused on the reserved path and quarantined; root 2-of-2 recovery on both chains",
+              "destination re-verifies source signature, DestSpec commitment, payload intent, asset, minimum, deadline and replay on-chain",
+              "transport carries only intent ‖ destination (no executable payload)",
+            ],
+            notProven: ["Wormhole NTT", "automatic relaying (VAAs are redeemed by Kido's relayer)", "mainnet guardian set (testnet has one guardian)"],
+            evidence: ["Amane packages/sdk/scripts/live-bridge-roundtrip.ts run 2026-09-26 (49/49 steps, 20 attacks)", ".gauntlet/evidence/bridge-roundtrip-*.json", "Kido packages/foundry/test/wormhole.test.ts (live VAA fixture)"],
+          }
         : { status: "BLOCKED_UPSTREAM", proven: [], notProven: ["any integration"], blocker: { type: "BLOCKED_UPSTREAM", actionRequired: "LayerZero Sui SDK support for the gRPC/@mysten/sui 2.x stack", evidence: "F-0407: Sui SDKs depend on @mysten/sui ^1.33 JSON-RPC, which is shut down" }, evidence: [] },
       knowledgePack: `transport/${id}`,
     }),

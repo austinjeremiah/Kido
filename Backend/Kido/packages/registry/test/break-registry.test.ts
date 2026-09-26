@@ -5,10 +5,13 @@ const reg = new ProviderRegistry();
 const LIVE = ["VERIFIED_LIVE" as const];
 
 describe("BREAK: status honesty", () => {
-  it("break_F0527_wormhole_token_transfer_counted_live_without_a_live_transfer", () => {
-    // Its own statusNote says "no live transfer run yet (BE-WH-1)".
+  it("fixed_F0527_wormhole_counted_live_only_with_a_live_transfer_on_record", () => {
+    // Live since the 2026-09-26 Amane round trip; the same provider without that record is not live.
     const s = reg.select({ kind: "transport", chain: "sui-testnet", capabilities: ["TOKEN_TRANSFER"], acceptStatus: LIVE });
-    expect(s.selected.map((p) => p.providerId)).not.toContain("wormhole");
+    expect(s.selected.map((p) => p.providerId)).toContain("wormhole");
+    expect(reg.get("wormhole")!.implementation.evidence.length).toBeGreaterThan(0);
+    const unproven = new ProviderRegistry(reg.providers.map((p) => (p.providerId === "wormhole" ? { ...p, status: "VERIFIED_DOCS" as const, implementation: { status: "NOT_IMPLEMENTED" as const, proven: [], notProven: ["any transfer"], evidence: [] } } : p)));
+    expect(unproven.select({ kind: "transport", chain: "sui-testnet", capabilities: ["TOKEN_TRANSFER"], acceptStatus: LIVE }).selected.map((p) => p.providerId)).not.toContain("wormhole");
   });
 
   it("break_F0528_unshipped_execution_adapter_counted_as_live_capability", () => {
