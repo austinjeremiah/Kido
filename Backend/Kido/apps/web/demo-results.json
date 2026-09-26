@@ -1,0 +1,222 @@
+{
+  "generatedAt": "2026-09-08T06:18:28.783Z",
+  "executor": "0x9ee2E72E2D7B91D9ddeD1313df5CFCb8E9316e23",
+  "creMode": "official-cli-simulator",
+  "ensName": "contextlock-20260906-a83dc9.eth",
+  "results": [
+    {
+      "id": "DEMO-ALLOW",
+      "title": "Autonomous low-risk rebalance",
+      "expectation": "executes with no human in the loop",
+      "outcome": "EXECUTED",
+      "trace": [
+        {
+          "stage": "REQUEST",
+          "ok": true,
+          "detail": "agent proposes: rebalance 500 USDC to treasury recipient"
+        },
+        {
+          "stage": "IDENTITY",
+          "ok": true,
+          "detail": "contextlock-20260906-a83dc9.eth resolves and is current"
+        },
+        {
+          "stage": "CRE",
+          "ok": true,
+          "detail": "ALLOW (ALLOW_POLICY_MATCH)",
+          "tx": "0xaa8e9efbc17061f136d4ec0ce65b8d64660a22e5428655be2a2554b37d58b12f"
+        },
+        {
+          "stage": "CAPABILITY",
+          "ok": true,
+          "detail": "minted, expires in 30min",
+          "tx": "0x0726fe5f8a91c1e698713bfd0a330be85a2e7f3a1d18038e52b430e801b8b59c"
+        },
+        {
+          "stage": "EXECUTION",
+          "ok": true,
+          "detail": "executed autonomously, no human",
+          "tx": "0xecee64ef744c4b8e6f2e817a1492b394951a57bdd36bc438de8a233ea5d15a80"
+        }
+      ],
+      "targetBefore": "17",
+      "targetAfter": "18",
+      "capabilityDigest": "0x0726fe5f8a91c1e698713bfd0a330be85a2e7f3a1d18038e52b430e801b8b59c",
+      "verdict": "ALLOW",
+      "reason": "ALLOW_POLICY_MATCH"
+    },
+    {
+      "id": "DEMO-DENY",
+      "title": "Prompt injection / treasury drain",
+      "expectation": "denied; attacker receives nothing",
+      "outcome": "BLOCKED",
+      "stoppedAt": "CRE",
+      "trace": [
+        {
+          "stage": "REQUEST",
+          "ok": true,
+          "detail": "COMPROMISED agent proposes: send 50,000 USDC to 0x...dEaD"
+        },
+        {
+          "stage": "IDENTITY",
+          "ok": true,
+          "detail": "identity is valid - the agent is who it says it is"
+        },
+        {
+          "stage": "CRE",
+          "ok": false,
+          "detail": "DENY (DENY_AMOUNT_TOO_HIGH) - private threshold",
+          "tx": "0xfd340ca119d118ecb426042952e05affc4a2f4ed565d5831a5b673151b8c1d2d"
+        },
+        {
+          "stage": "CAPABILITY",
+          "ok": false,
+          "detail": "no autonomous authority: verdict is not ALLOW"
+        },
+        {
+          "stage": "EXECUTION",
+          "ok": false,
+          "detail": "executor rejected: AuthorizationNotAllow"
+        }
+      ],
+      "targetBefore": "18",
+      "targetAfter": "18",
+      "verdict": "DENY",
+      "reason": "DENY_AMOUNT_TOO_HIGH",
+      "error": "AuthorizationNotAllow"
+    },
+    {
+      "id": "DEMO-MUTATE",
+      "title": "Capability mutation after issuance",
+      "expectation": "rejected: calldata is bound by hash",
+      "outcome": "BLOCKED",
+      "stoppedAt": "EXECUTION",
+      "trace": [
+        {
+          "stage": "REQUEST",
+          "ok": true,
+          "detail": "a legitimate 500 USDC capability is issued"
+        },
+        {
+          "stage": "CRE",
+          "ok": true,
+          "detail": "ALLOW",
+          "tx": "0x7c2fc0af29f8c898d2f6b46abe35b0df4b53321d302ccbfb6f753eae0e639c8a"
+        },
+        {
+          "stage": "CAPABILITY",
+          "ok": true,
+          "detail": "valid and signed",
+          "tx": "0xe71cdb149c0b920535b0176b4628f1b45e3332924cc470f5cdea1377686f9c59"
+        },
+        {
+          "stage": "EXECUTION",
+          "ok": false,
+          "detail": "attacker swapped recipient AND amount: CalldataHashMismatch"
+        }
+      ],
+      "targetBefore": "18",
+      "targetAfter": "18",
+      "error": "CalldataHashMismatch"
+    },
+    {
+      "id": "DEMO-REPLAY",
+      "title": "Replay a spent capability",
+      "expectation": "second submission rejected by nonce",
+      "outcome": "BLOCKED",
+      "stoppedAt": "EXECUTION",
+      "trace": [
+        {
+          "stage": "EXECUTION",
+          "ok": true,
+          "detail": "first execution succeeds",
+          "tx": "0xd248b208e75eaf3465f0af376573a1a3cbbc5b082fc01ab861cdc549fb1e671a"
+        },
+        {
+          "stage": "EXECUTION",
+          "ok": false,
+          "detail": "identical capability resubmitted: NonceUsed"
+        }
+      ],
+      "targetBefore": "18",
+      "targetAfter": "19",
+      "error": "NonceUsed",
+      "verdict": "callCount 19 then 19"
+    },
+    {
+      "id": "DEMO-ENS-REVOKE",
+      "title": "ENS revocation kills outstanding authority",
+      "expectation": "an unexpired, correctly signed capability stops working",
+      "outcome": "BLOCKED",
+      "stoppedAt": "IDENTITY",
+      "trace": [
+        {
+          "stage": "CAPABILITY",
+          "ok": true,
+          "detail": "valid, signed, UNEXPIRED",
+          "tx": "0x689bdf1b76644dea8902165c117b110903d3026f7f731e0c74bb3026c4de9a46"
+        },
+        {
+          "stage": "IDENTITY",
+          "ok": false,
+          "detail": "ENS role revoked -> token id regenerates -> identity changed",
+          "tx": "0x32d72d1394217f9a033fef1c74a1fb4cea13f59dcaf58d81af5115da1bbf15bc"
+        },
+        {
+          "stage": "EXECUTION",
+          "ok": false,
+          "detail": "executor rejected: IdentityNotCurrent"
+        },
+        {
+          "stage": "IDENTITY",
+          "ok": true,
+          "detail": "role restored and identity rebound - later scenes unaffected"
+        }
+      ],
+      "targetBefore": "19",
+      "targetAfter": "19",
+      "error": "IdentityNotCurrent"
+    },
+    {
+      "id": "DEMO-ESCALATE",
+      "title": "High-risk action requires human approval",
+      "expectation": "blocked without approval, executes with it",
+      "outcome": "EXECUTED",
+      "trace": [
+        {
+          "stage": "REQUEST",
+          "ok": true,
+          "detail": "agent proposes 5,000 USDC - above the private autonomous limit"
+        },
+        {
+          "stage": "CRE",
+          "ok": true,
+          "detail": "ESCALATE (ESCALATE_AMOUNT)",
+          "tx": "0xd9b73c207367980a8255eadda3f261f87a4df4674a50273afd2118894f1fef1d"
+        },
+        {
+          "stage": "EXECUTION",
+          "ok": false,
+          "detail": "without approval: HumanApprovalRequired"
+        },
+        {
+          "stage": "CAPABILITY",
+          "ok": true,
+          "detail": "approval recorded (STAND-IN key - NOT a Ledger device, BLK-002)",
+          "tx": "0x6cd8e2881fd2e4ff7ebb088eec1a940267cc8ee8060e96092470e625af3d5f99"
+        },
+        {
+          "stage": "EXECUTION",
+          "ok": true,
+          "detail": "executes only after approval",
+          "tx": "0xc6708926941599bb81d5023f524a7342fb34a38a962809c9641a726c35f3cc06"
+        }
+      ],
+      "targetBefore": "19",
+      "targetAfter": "20",
+      "capabilityDigest": "0xa5f5043bfc169d1dcd4197c65456b35b3636d1dc502452709b47366fb1fbb842",
+      "verdict": "ESCALATE",
+      "reason": "ESCALATE_AMOUNT"
+    }
+  ]
+}

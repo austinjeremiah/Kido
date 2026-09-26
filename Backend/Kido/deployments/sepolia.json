@@ -1,0 +1,103 @@
+{
+  "_comment": "Canonical ContextLock Sepolia deployment manifest. Single source of truth for every script, test and UI. Historical executors are retained because earlier phase evidence references them; only canonicalExecutor is used by default.",
+  "chainId": 11155111,
+  "network": "Ethereum Sepolia",
+  "sourceCommit": "0746e19e4fdc4a4b0f46fce11967812dea47df9e",
+  "recordedAtBlock": "11659255",
+  "timestamp": "2026-09-08T05:58:22Z",
+  "compiler": {
+    "solc": "0.8.28",
+    "evmVersion": "cancun",
+    "optimizer": true,
+    "optimizerRuns": 200,
+    "viaIR": true,
+    "bytecodeHash": "none"
+  },
+  "canonicalExecutor": {
+    "address": "0x9ee2E72E2D7B91D9ddeD1313df5CFCb8E9316e23",
+    "version": "v2",
+    "note": "Adds the ESCALATE-only human-approval check per ADR-001. ALLOW and DENY behaviour is byte-identical to v1. All demo scripts and the UI default to this address."
+  },
+  "historicalExecutors": [
+    {
+      "address": "0xe109686a0a10b0FC8f090F2bBd1424C50fE2920a",
+      "version": "v1",
+      "phases": [
+        "03",
+        "04",
+        "05",
+        "06"
+      ],
+      "note": "Retained so Phase 3-6 evidence stays reproducible. Has no approval registry, so ESCALATE simply reverts there. Not used by any default script."
+    }
+  ],
+  "contracts": {
+    "ContextLockPolicyRegistry": "0xCBd976E8BBbA70867d581A35e5a5CF1C2ed47F24",
+    "ContextLockAuthorizationRegistry": "0xFAD71bbcCfFdFbFA8B500bc9b8FF6F0C7F9De8e3",
+    "EnsAgentIdentityVerifier": "0xbD44B9A7491A3168F772Ca96433c17a0B18a6149",
+    "MockTreasuryTarget": "0xf20B833b26b981F8A2211473f46cf457430CE153",
+    "ContextLockGateway": "0xA2cD6003b092a4F4a69b86e75b60dcDD7737d9Bb",
+    "ContextLockCreConsumer": "0x0eAA86cDA5622A8384c3eC9F47aD129902A8123F",
+    "ContextLockApprovalRegistry": "0xD6E420734667382e49091072e9824902d6c93574",
+    "ContextLockExecutorV2": "0x9ee2E72E2D7B91D9ddeD1313df5CFCb8E9316e23"
+  },
+  "roles": {
+    "deployer": "0x93e0FCb0F71e83F3340264339BC5983C474635c5",
+    "policyAdmin": "0x93e0FCb0F71e83F3340264339BC5983C474635c5",
+    "capabilityIssuer": "0x37b91323fabe85eD356C1895D0b7A16c04867C2d",
+    "creAuthorizationWriter": "0x0eAA86cDA5622A8384c3eC9F47aD129902A8123F",
+    "creForwarder": {
+      "address": "0x6481F59038b2925AF0Ec22643E6e675c4Aec04a7",
+      "status": "STAND-IN",
+      "note": "No live DON has written to the consumer. Replaceable via setForwarder."
+    },
+    "relayer": "0x6481F59038b2925AF0Ec22643E6e675c4Aec04a7",
+    "agent": "0xA263b2cA150B5A1cA7bf08adF966B847c487F50f",
+    "ledgerApprover": {
+      "address": "0x0BEf5E5BB9f647147df4c1fd91AF16a37bB6c883",
+      "status": "STAND-IN - NOT LEDGER-HELD",
+      "note": "No physical device available (BLK-002). Replaceable via setApprover."
+    },
+    "funderNote": "The human-supplied key 0x6BD6Db75B56acE65019AA08FCAd4778808Da08bD is FUNDER ONLY and holds no protocol role."
+  },
+  "ens": {
+    "deploymentSet": "docs.ens.domains published set (see FND-008; two other live ENSv2 Sepolia deployments exist)",
+    "ETHRegistry": "0xbdc85dd5b15d7ecb354cd7cb6f2c50b4f2c4f0e2",
+    "ETHRegistrar": "0xa88553f454b77203b0d036a05c894d555eaaa2cc",
+    "PublicResolverV2": "0xe7B9A25607E02da8145E4eB1836CA539e53F11f7",
+    "UniversalResolverV2": "0x4a1817d13e9cf196f471725176355c1234b63c70",
+    "MockUSDC": "0x768f42455a2d082e23ceef7d51e5787c82d67a39",
+    "agentName": "contextlock-20260906-a83dc9.eth",
+    "node": "0x63d01c6138fb193c23428f06dc8df3f586dec2342fa8b37d628742b76066d341",
+    "labelhash": "0x63dbef5d415ab3319eb507cd9ccf909c6099cd8912dd4c5e093b7dec92caf5f8",
+    "labelId": "45167563548464372371267871489323564930560539045322615271368248379128849036792",
+    "nameOwner": "0x93e0FCb0F71e83F3340264339BC5983C474635c5",
+    "expiry": "1820241852",
+    "expiryIso": "2027-09-06T14:44:12.000Z",
+    "registrationTx": "0xbf1eb7294b45fa48ca7fb30ac24f7d540716d23f91fa977ea42245e87eb09705"
+  },
+  "cre": {
+    "mode": "official-cli-simulator",
+    "cliVersion": "v1.32.0",
+    "sdkVersion": "1.19.1",
+    "realTeeExecution": false,
+    "officialCliSimulation": true,
+    "liveCreDeployment": false,
+    "workflowBinaryHash": "800d0d561132d79476981e6297979ff51a18372b23bd8b0a0e891f32d10800e0",
+    "project": "workflows/cre-policy/contextlock-cre",
+    "note": "See docs/CRE_MODE_BASELINE.md. Registration of a TEE handler is not execution in one."
+  },
+  "ledger": {
+    "keyRingProvisioned": false,
+    "physicalApproval": false,
+    "clearSigningRendered": false,
+    "blocker": "BLK-002",
+    "note": "Integration software complete and tested; no hardware evidence exists."
+  },
+  "deploymentTransactions": {
+    "ensRegister": "0xbf1eb7294b45fa48ca7fb30ac24f7d540716d23f91fa977ea42245e87eb09705",
+    "identityBind": "0x6d36603d6682ae229c0c65a4a419e37c2a79cea03fc484bbbb29fdbdd7b348a5"
+  },
+  "blockExplorer": "https://sepolia.etherscan.io",
+  "secretsPolicy": "This file contains addresses, hashes and transaction identifiers only. No keys."
+}

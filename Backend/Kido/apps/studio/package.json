@@ -1,0 +1,38 @@
+{
+  "name": "@contextlock/studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "dev": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "@contextlock/policy": "*",
+    "@contextlock/protocol": "*",
+    "@contextlock/ledger": "*",
+    "@contextlock/studio-adapters": "*",
+    "@contextlock/studio-blueprint": "*",
+    "@contextlock/studio-control-plane": "*",
+    "@contextlock/studio-deploy": "*",
+    "@contextlock/studio-events": "*",
+    "@contextlock/studio-lab": "*",
+    "@contextlock/studio-network": "*",
+    "@contextlock/studio-org": "*",
+    "@contextlock/studio-plan": "*",
+    "@contextlock/studio-reality": "*",
+    "@contextlock/studio-simulation": "*",
+    "@contextlock/studio-strategy": "*",
+    "@contextlock/studio-templates": "*",
+    "@e2b/code-interpreter": "2.3.3",
+    "@openai/agents": "0.17.0",
+    "@openai/agents-extensions": "0.17.0",
+    "better-sqlite3": "12.4.1",
+    "fastify": "5.12.3",
+    "viem": "2.56.3",
+    "zod": "4.1.12"
+  }
+}

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ContextLock — Operator Console</title>
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="lock">&#9679;</span>
+    <div>
+      <h1>ContextLock</h1>
+      <p class="tag">Capability firewall for autonomous finance &mdash; Sepolia testnet</p>
+    </div>
+  </div>
+  <div class="chain" id="chainPill">connecting&hellip;</div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="dashboard" class="active">Dashboard</button>
+  <button data-tab="architecture">Architecture</button>
+  <button data-tab="lab">Attack Lab</button>
+  <button data-tab="agents">Agents</button>
+  <button data-tab="policies">Policies</button>
+  <button data-tab="requests">Capability Requests</button>
+  <button data-tab="audit">Audit Log</button>
+</nav>
+
+<main>
+  <!-- ─────────────── DASHBOARD ─────────────── -->
+  <section id="dashboard" class="tab active">
+    <div class="grid">
+      <div class="card">
+        <h2>ENS identity</h2>
+        <div id="ensPanel" class="kv">loading&hellip;</div>
+      </div>
+      <div class="card">
+        <h2>Chainlink CRE</h2>
+        <div id="crePanel" class="kv">loading&hellip;</div>
+      </div>
+      <div class="card">
+        <h2>Ledger</h2>
+        <div id="ledgerPanel" class="kv">loading&hellip;</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Security dashboard <span class="sub">live chain reads</span></h2>
+      <div id="securityPanel" class="kv">loading&hellip;</div>
+    </div>
+
+    <div class="card">
+      <h2>Deployed contracts <span class="sub">canonical executor highlighted</span></h2>
+      <table id="contractsTable"><tbody></tbody></table>
+    </div>
+
+    <div class="card">
+      <h2>Roles &amp; key separation</h2>
+      <p class="note">The agent is untrusted by design. It holds none of these keys, and no endpoint returns one.</p>
+      <table id="rolesTable"><tbody></tbody></table>
+    </div>
+  </section>
+
+  <!-- ─────────────── ARCHITECTURE ─────────────── -->
+  <section id="architecture" class="tab">
+    <div class="card">
+      <h2>Request flow</h2>
+      <p class="note">
+        The agent proposes. Three independent authorities answer <em>who</em>, <em>whether now</em>,
+        and <em>what exactly</em>. The executor is the only component that can turn an answer into a
+        transaction, and it re-checks all of them.
+      </p>
+      <div class="flow">
+        <div class="node agent">UNTRUSTED AGENT<span>proposes an intent<br />holds no key</span></div>
+        <div class="arrow">&darr;</div>
+        <div class="node broker">CONTEXTLOCK BROKER<span>typed adapter builds exact calldata<br />advisory only</span></div>
+        <div class="arrow">&darr;</div>
+        <div class="triple">
+          <div class="node ens">ENSv2<span>who is this agent<br /><b class="ok">LIVE</b></span></div>
+          <div class="node cre">CHAINLINK CRE<span>is this safe now<br /><b class="warn">SIMULATOR</b></span></div>
+          <div class="node ledger">LEDGER<span>secrets &amp; human gate<br /><b class="bad">PENDING HARDWARE</b></span></div>
+        </div>
+        <div class="arrow">&darr;</div>
+        <div class="verdicts">
+          <span class="badge allow">ALLOW</span>
+          <span class="badge escalate">ESCALATE</span>
+          <span class="badge deny">DENY</span>
+        </div>
+        <div class="split">
+          <div class="branch"><div class="arrow">&darr;</div><div class="node small">autonomous</div></div>
+          <div class="branch"><div class="arrow">&darr;</div><div class="node small ledger">Ledger human approval<br /><b class="bad">PENDING HARDWARE VALIDATION</b></div></div>
+          <div class="branch"><div class="arrow">&darr;</div><div class="node small bad-node">impossible &mdash; terminal</div></div>
+        </div>
+        <div class="arrow">&darr;</div>
+        <div class="node cap">EIP-712 CAPABILITY<span>one transaction, one nonce, short expiry</span></div>
+        <div class="arrow">&darr;</div>
+        <div class="node exec">CONTEXTLOCK EXECUTOR<span>reference monitor &mdash; re-checks everything on-chain</span></div>
+        <div class="arrow">&darr;</div>
+        <div class="node target">EXACT ACTION</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>What each sponsor actually does</h2>
+      <table class="wide"><tbody>
+        <tr><th>ENSv2</th><td><b class="ok">LIVE</b></td><td>The agent's identity <em>and</em> its revocation. The executor reads live registry state at execution time, so revoking a role kills an already-signed, unexpired capability.</td></tr>
+        <tr><th>Chainlink CRE</th><td><b class="warn">SIMULATOR</b></td><td>A confidential <code>handlerInTee</code> workflow decides ALLOW/ESCALATE/DENY using private thresholds. Verified in the official CLI simulator against real Sepolia events. <b>Not</b> a live deployment and <b>not</b> a real enclave.</td></tr>
+        <tr><th>Ledger</th><td><b class="bad">PENDING</b></td><td>Key Ring keeps a broker credential away from the agent; DMK gates high-risk actions behind a human. Software complete and tested; <b>no physical device was available</b> (BLK-002).</td></tr>
+      </tbody></table>
+    </div>
+  </section>
+
+  <!-- ─────────────── ATTACK LAB ─────────────── -->
+  <section id="lab" class="tab">
+    <div class="card">
+      <h2>Attack Lab</h2>
+      <p class="note">
+        Every scene below was run against <b>live Sepolia</b>. Each shows where the request was
+        stopped &mdash; not just that it failed. Re-run with <code>npm run demo:all</code>.
+      </p>
+      <div id="labMeta" class="meta"></div>
+      <div id="labScenes"></div>
+    </div>
+  </section>
+
+  <!-- ─────────────── AGENTS ─────────────── -->
+  <section id="agents" class="tab">
+    <div class="card">
+      <h2>Agent identity</h2>
+      <div id="agentPanel" class="kv">loading&hellip;</div>
+    </div>
+    <div class="card">
+      <h2>What the agent cannot reach</h2>
+      <p class="note">Enforced structurally, not by asking the model to behave. Verified by <code>npm run privilege-audit</code>.</p>
+      <ul class="denylist" id="denyList"></ul>
+    </div>
+  </section>
+
+  <!-- ─────────────── POLICIES ─────────────── -->
+  <section id="policies" class="tab">
+    <div class="card">
+      <h2>Public policy <span class="sub">on-chain, readable by anyone</span></h2>
+      <div id="policyPanel" class="kv">loading&hellip;</div>
+    </div>
+    <div class="card">
+      <h2>Private policy <span class="sub">confidential</span></h2>
+      <p class="note">
+        These parameters live in CRE secret storage and are read inside the confidential handler.
+        <b>Their values are deliberately not shown here, and never leave the enclave boundary.</b>
+        Only the parameter names and a commitment are public.
+      </p>
+      <table class="wide"><tbody>
+        <tr><th>autoLimit</th><td class="redacted">confidential</td><td>autonomous ceiling</td></tr>
+        <tr><th>escalationLimit</th><td class="redacted">confidential</td><td>above this, DENY outright</td></tr>
+        <tr><th>maxSlippageBps</th><td class="redacted">confidential</td><td>market execution quality</td></tr>
+        <tr><th>maxVolatilityBps</th><td class="redacted">confidential</td><td>above this, escalate</td></tr>
+        <tr><th>minLiquidity</th><td class="redacted">confidential</td><td>depth floor</td></tr>
+        <tr><th>minHealthFactorBps</th><td class="redacted">confidential</td><td>lending safety</td></tr>
+        <tr><th>proprietaryRiskThreshold</th><td class="redacted">confidential</td><td>composite score</td></tr>
+      </tbody></table>
+      <div class="kv" id="policyCommit"></div>
+    </div>
+  </section>
+
+  <!-- ─────────────── REQUESTS ─────────────── -->
+  <section id="requests" class="tab">
+    <div class="card">
+      <h2>Capability requests <span class="sub">from the last demo run</span></h2>
+      <table class="wide" id="requestsTable"><thead><tr>
+        <th>Scene</th><th>Verdict</th><th>Outcome</th><th>Stopped at</th><th>Capability digest</th><th>Reason</th>
+      </tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <!-- ─────────────── AUDIT ─────────────── -->
+  <section id="audit" class="tab">
+    <div class="card">
+      <h2>Audit timeline</h2>
+      <p class="note">Reconstructed from the demo trace. Every stage, every transaction hash, in order.</p>
+      <div id="auditTimeline"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>ContextLock &mdash; ETHOnline 2026 &mdash; Sepolia testnet only &mdash; not audited</span>
+  <span id="footerStatus"></span>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

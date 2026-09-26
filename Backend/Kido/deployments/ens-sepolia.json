@@ -1,0 +1,32 @@
+{
+  "_comment": "Live ENSv2 Sepolia agent identity for ContextLock. Registered by scripts/ens-register.ts using the disposable DEPLOYER wallet. ENS deployment set chosen per reports/phase-03/findings/FND-008.",
+  "chainId": 11155111,
+  "network": "Ethereum Sepolia",
+  "name": "contextlock-20260906-a83dc9.eth",
+  "label": "contextlock-20260906-a83dc9",
+  "labelhash": "0x63dbef5d415ab3319eb507cd9ccf909c6099cd8912dd4c5e093b7dec92caf5f8",
+  "node": "0x63d01c6138fb193c23428f06dc8df3f586dec2342fa8b37d628742b76066d341",
+  "labelId": "45167563548464372371267871489323564930560539045322615271368248379128849036792",
+  "tokenIdAtRegistration": "45167563548464372371267871489323564930560539045322615271368248379126386262016",
+  "owner": "0x93e0FCb0F71e83F3340264339BC5983C474635c5",
+  "expiry": "1820241852",
+  "expiryIso": "2027-09-06T14:44:12.000Z",
+  "resolver": "0xe7B9A25607E02da8145E4eB1836CA539e53F11f7",
+  "ensDeployment": {
+    "set": "docs.ens.domains published (see FND-008)",
+    "ethRegistry": "0xbdc85dd5b15d7ecb354cd7cb6f2c50b4f2c4f0e2",
+    "ethRegistrar": "0xa88553f454b77203b0d036a05c894d555eaaa2cc",
+    "publicResolverV2": "0xe7B9A25607E02da8145E4eB1836CA539e53F11f7",
+    "mockUsdc": "0x768f42455a2d082e23ceef7d51e5787c82d67a39"
+  },
+  "priceBaseUnits": "8000021",
+  "priceHuman": "8.000021 MockUSDC",
+  "transactions": {
+    "mint": "0x4e2aeb830b24af693091604c4a130642016b6ae6d9f04027a5c93050a7cf5e30",
+    "approve": "0x71cd01a963f033b50265c03dc8b84e04c5ba59426c1f8e27dee5a805e4760171",
+    "commit": "0x28a80a9cb94426ec63ec0b8197d4cbbfd60e9045b38daf26d4f71c0fb098fb58",
+    "register": "0xbf1eb7294b45fa48ca7fb30ac24f7d540716d23f91fa977ea42245e87eb09705"
+  },
+  "blocks": { "commit": 11647895, "register": 11647902 },
+  "note": "labelId and tokenId differ: ENSv2 embeds version counters in the token id, which is regenerated on role changes and on re-registration. ContextLock's identity hash commits to the token id, so an ENS role change is itself an identity change."
+}

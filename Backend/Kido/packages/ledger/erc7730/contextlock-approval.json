@@ -1,0 +1,81 @@
+{
+  "$schema": "https://eips.ethereum.org/assets/eip-7730/erc7730-v1.schema.json",
+  "context": {
+    "$id": "ContextLock Approval",
+    "contract": {
+      "abi": [
+        {
+          "type": "function",
+          "name": "submitApproval",
+          "stateMutability": "nonpayable",
+          "inputs": [
+            { "name": "capabilityDigest", "type": "bytes32" },
+            { "name": "expiresAt", "type": "uint64" },
+            { "name": "signature", "type": "bytes" }
+          ],
+          "outputs": []
+        }
+      ],
+      "deployments": [
+        { "chainId": 11155111, "address": "0x0000000000000000000000000000000000000000" }
+      ]
+    },
+    "eip712": {
+      "domain": { "name": "ContextLockApproval", "version": "1" },
+      "schemas": [
+        {
+          "primaryType": "ContextLockApproval",
+          "types": {
+            "EIP712Domain": [
+              { "name": "name", "type": "string" },
+              { "name": "version", "type": "string" },
+              { "name": "chainId", "type": "uint256" },
+              { "name": "verifyingContract", "type": "address" }
+            ],
+            "ContextLockApproval": [
+              { "name": "capabilityDigest", "type": "bytes32" },
+              { "name": "approver", "type": "address" },
+              { "name": "expiresAt", "type": "uint64" }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "owner": "ContextLock",
+    "info": {
+      "legalName": "ContextLock (ETHOnline 2026 testnet demo)",
+      "url": "https://github.com/contextlock",
+      "deploymentDate": "2026-09-06"
+    }
+  },
+  "display": {
+    "formats": {
+      "ContextLockApproval": {
+        "intent": "Approve high-risk agent action",
+        "fields": [
+          {
+            "path": "capabilityDigest",
+            "label": "Capability",
+            "format": "raw"
+          },
+          {
+            "path": "approver",
+            "label": "Approver",
+            "format": "addressName",
+            "params": { "types": ["wallet"] }
+          },
+          {
+            "path": "expiresAt",
+            "label": "Approval expires",
+            "format": "date",
+            "params": { "encoding": "timestamp" }
+          }
+        ],
+        "required": ["capabilityDigest", "approver", "expiresAt"],
+        "excluded": []
+      }
+    }
+  }
+}

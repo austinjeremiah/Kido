@@ -1,0 +1,16 @@
+# Nothing that could carry a credential goes into the build context. The build context is the most
+# overlooked leak path in container security: a `.env` copied in at layer 3 and deleted at layer 4
+# is still in the image.
+.env
+.env.*
+**/.env
+**/*.pem
+**/*.key
+**/id_rsa*
+.cre
+.aws
+node_modules
+dist
+studio.db*
+deployments
+reports

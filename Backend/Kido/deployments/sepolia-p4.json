@@ -1,0 +1,42 @@
+{
+  "_comment": "Phase 4 additions to the existing Sepolia deployment. The executor, policy registry, ENS identity verifier and mock target from Phase 3 are REUSED UNCHANGED \u2014 their interfaces were unaffected by the CRE integration, which is the purpose of the IContextLockAuthorizationRegistry seam.",
+  "chainId": 11155111,
+  "network": "Ethereum Sepolia",
+  "sourceCommit": "5827626f3df6cc79f9048cb22252a895c10cd7d5",
+  "timestamp": "2026-09-06T15:56:01Z",
+  "contextlock": {
+    "ContextLockGateway": "0xA2cD6003b092a4F4a69b86e75b60dcDD7737d9Bb",
+    "ContextLockCreConsumer": "0x0eAA86cDA5622A8384c3eC9F47aD129902A8123F"
+  },
+  "authorizationWriter": {
+    "before": "0x6481F59038b2925AF0Ec22643E6e675c4Aec04a7 (trusted test EOA, Phases 1-2)",
+    "after": "0x0eAA86cDA5622A8384c3eC9F47aD129902A8123F (ContextLockCreConsumer)",
+    "note": "The EOA can no longer mint authorizations directly; CRE-007 proves this on-chain."
+  },
+  "creForwarder": {
+    "address": "0x6481F59038b2925AF0Ec22643E6e675c4Aec04a7",
+    "status": "STAND-IN",
+    "note": "In a live deployment this is the Chainlink forwarder that has already verified DON consensus signatures. No live DON has written to this consumer. See reports/phase-04/blockers/BLK-001. The address is settable via setForwarder so the real forwarder can replace it without redeploying the executor or registry."
+  },
+  "creMode": "simulator",
+  "creModeNote": "OFFICIAL Chainlink CRE simulator (cre workflow simulate), triggered by real CapabilityRequested events on Sepolia. NOT a live CRE network deployment and NOT a real AWS Nitro enclave \u2014 Deploy Access is not enabled and Confidential Workflows remains invite-only private beta. See reports/phase-04/CRE_MODE.md.",
+  "gatewayNote": "Redeployed after FND-010 (write-once request record blocked re-evaluation and enabled griefing).",
+  "creSimulator": {
+    "cliVersion": "v1.32.0",
+    "project": "workflows/cre-policy/contextlock-cre",
+    "workflowBinaryHash": "800d0d561132d79476981e6297979ff51a18372b23bd8b0a0e891f32d10800e0",
+    "teeConstraintAnnouncedBySimulator": "AWS Nitro in us-west-2",
+    "triggerTransactions": {
+      "ALLOW_500": "0x62753fddb9c92d2ff9989c430e2ca47224f992ac3243eb77bea05eda21679843",
+      "ESCALATE_5000": "0x313dd7a4c4117ce70282cc9ec2efaeecdaeb35a1fc6a89f508d1eaef3c628a78",
+      "DENY_50000": "0xef74c0bfaf5809d39467b3157aa314c468ff39b576c3e85505bd13447c15f9e8"
+    },
+    "results": {
+      "scene1": "ALLOW:ALLOW_POLICY_MATCH:LOW",
+      "scene2": "ESCALATE:ESCALATE_AMOUNT:MEDIUM",
+      "scene3": "DENY:DENY_AMOUNT_TOO_HIGH:HIGH",
+      "scene4": "ESCALATE:ESCALATE_RISK:HIGH",
+      "scene5": "DENY:DENY_SLIPPAGE:HIGH"
+    }
+  }
+}

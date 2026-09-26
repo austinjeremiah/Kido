@@ -1,0 +1,24 @@
+# ==========================================================================
+# CRE PROJECT SETTINGS FILE
+# ==========================================================================
+# This workflow does not read from or write to a chain — the RPCs below are
+# here so you can extend Step 4 into an on-chain `writeReport` without extra
+# setup. See the README's "Customization" section.
+staging-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: ${CRE_SECRET_RPC_SEPOLIA}
+
+# ==========================================================================
+# ContextLock is testnet-only. `ethereum-mainnet` was listed here as a convenience RPC and has
+# been removed: the CRE CLI reads this file directly, so ContextLock's own write fences — which
+# refuse a production chain at ten named layers — do not sit in front of it. A mainnet RPC
+# configured for a workflow the CLI can build and deploy is the one mainnet path in this repository
+# that the product's guards cannot see, and the boundary is worth more than the convenience.
+#
+# Mainnet DATA is still reachable. Phase 27's Mainnet Reality Engine reads mainnet through
+# ContextLock's own READ_ONLY_SOURCE path, where the role makes the read/write distinction explicit.
+production-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: ${CRE_SECRET_RPC_SEPOLIA}

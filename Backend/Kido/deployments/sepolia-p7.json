@@ -1,0 +1,31 @@
+{
+  "_comment": "Phase 7 additions. Per ADR-001 the executor gained an ESCALATE-only human-approval check; executor state is immutable so this is a new deployment. Policy registry, authorization registry and ENS identity verifier are REUSED unchanged.",
+  "chainId": 11155111,
+  "network": "Ethereum Sepolia",
+  "sourceCommit": "c64f2bd3dbb09a5fff81f5f51ccd3a3428a3c7cb",
+  "timestamp": "2026-09-06T18:30:22Z",
+  "contextlock": {
+    "ContextLockApprovalRegistry": "0xD6E420734667382e49091072e9824902d6c93574",
+    "ContextLockExecutorV2": "0x9ee2E72E2D7B91D9ddeD1313df5CFCb8E9316e23"
+  },
+  "reused": {
+    "ContextLockPolicyRegistry": "0xCBd976E8BBbA70867d581A35e5a5CF1C2ed47F24",
+    "ContextLockAuthorizationRegistry": "0xFAD71bbcCfFdFbFA8B500bc9b8FF6F0C7F9De8e3",
+    "EnsAgentIdentityVerifier": "0xbD44B9A7491A3168F772Ca96433c17a0B18a6149",
+    "MockTreasuryTarget": "0xf20B833b26b981F8A2211473f46cf457430CE153"
+  },
+  "priorExecutor": {
+    "address": "0xe109686a0a10b0FC8f090F2bBd1424C50fE2920a",
+    "note": "Phase 3-6 executor, kept addressable so earlier phase evidence remains reproducible. It has no approval registry, so ESCALATE simply reverts there."
+  },
+  "approver": {
+    "address": "0x0BEf5E5BB9f647147df4c1fd91AF16a37bB6c883",
+    "status": "STAND-IN - NOT A LEDGER-HELD ADDRESS",
+    "note": "No physical Ledger is attached to this machine (BLK-002). This is a locally generated disposable key used ONLY to exercise the contract logic. It is distinct from the deployer and the capability issuer, and the deploy script asserts both. On real hardware, setApprover would point at the device-derived address; no contract change is needed."
+  },
+  "clearSigning": {
+    "descriptor": "packages/ledger/erc7730/contextlock-approval.json",
+    "status": "device_unavailable",
+    "physicallyRendered": false
+  }
+}

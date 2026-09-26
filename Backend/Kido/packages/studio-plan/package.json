@@ -1,0 +1,25 @@
+{
+  "name": "@contextlock/studio-plan",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@contextlock/studio-adapters": "*",
+    "viem": "2.56.3",
+    "zod": "4.1.12",
+    "@contextlock/studio-network": "*"
+  }
+}

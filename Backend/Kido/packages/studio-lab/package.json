@@ -1,0 +1,32 @@
+{
+  "name": "@contextlock/studio-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@contextlock/studio-blueprint": "*",
+    "@contextlock/studio-network": "*",
+    "@contextlock/studio-reality": "*",
+    "@contextlock/studio-control-plane": "*",
+    "@contextlock/studio-orchestrator": "*",
+    "@contextlock/studio-cre-sim": "*",
+    "@contextlock/studio-adapters": "*",
+    "zod": "4.1.12",
+    "@contextlock/policy": "*",
+    "@contextlock/protocol": "*",
+    "viem": "2.56.3"
+  }
+}

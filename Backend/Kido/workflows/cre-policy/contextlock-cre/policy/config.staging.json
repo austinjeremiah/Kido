@@ -1,0 +1,8 @@
+{
+  "chainSelector": "16015286601757825753",
+  "gatewayAddress": "0xA2cD6003b092a4F4a69b86e75b60dcDD7737d9Bb",
+  "consumerAddress": "0x0eAA86cDA5622A8384c3eC9F47aD129902A8123F",
+  "policySecretId": "CONTEXTLOCK_PRIVATE_POLICY",
+  "riskApiSecretId": "CONTEXTLOCK_RISK_API_TOKEN",
+  "riskApiUrl": "https://httpbin.org/base64/eyJvYnNlcnZlZEF0VW5peCI6MTc4ODg0NjEyOCwic2xpcHBhZ2VCcHMiOjEyLCJ2b2xhdGlsaXR5QnBzIjoxNTAsImxpcXVpZGl0eSI6IjEiLCJoZWFsdGhGYWN0b3JCcHMiOjE4MDAwfQ=="
+}
