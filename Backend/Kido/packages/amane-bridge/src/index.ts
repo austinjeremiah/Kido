@@ -10,6 +10,8 @@ export {
   type AmaneDeploymentManifest,
   type TypedDataSigner,
   type WormholeSuiRoute,
+  amaneAccountAbi,
+  amaneAccountBytecode,
 } from "@amane/sdk";
 export {
   ActionKind,
@@ -30,6 +32,10 @@ export {
   suiObjectToBytes32,
   amaneDigest,
   destSpecHash,
+  typedData,
+  type PauseAccount,
+  type UnpauseAccount,
+  type RevokeLease,
   type DestSpec,
   type ActionIntent,
   type AgentLease,

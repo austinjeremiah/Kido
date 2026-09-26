@@ -10,7 +10,6 @@
  * WalletConnect-based wallets are unavailable until it is set.
  */
 import { getDefaultConfig, getDefaultWallets } from '@rainbow-me/rainbowkit';
-import { ledgerWallet } from '@rainbow-me/rainbowkit/wallets';
 import { baseSepolia, mainnet, sepolia } from 'wagmi/chains';
 import { http } from 'wagmi';
 
@@ -25,18 +24,11 @@ export function isExecutionChain(chainId: number | undefined): boolean {
   return chainId !== undefined && EXECUTION_CHAIN_IDS.includes(chainId);
 }
 
-/**
- * The wallets offered by the connect dialog: RainbowKit's defaults plus Ledger, which signs
- * escalation approvals on the device through Ledger Live (WalletConnect; needs the project id).
- * A Ledger paired to MetaMask works through the MetaMask entry as well.
- */
-const wallets = [
-  ...getDefaultWallets().wallets,
-  { groupName: 'Hardware', wallets: [ledgerWallet] },
-];
+/** The wallets offered by the connect dialog: RainbowKit's defaults. */
+const wallets = [...getDefaultWallets().wallets];
 
 export const wagmiConfig = getDefaultConfig({
-  appName: 'Kido Studio',
+  appName: 'Kido',
   // RainbowKit requires a non-empty id; the guard above is what the UI reports on.
   projectId: WALLETCONNECT_PROJECT_ID || 'kido-studio-local',
   wallets,

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { bindTo, blueprintHash, buildBlockers, isStale, nextRevision, type KidoAgentBlueprint, type RevisionBound } from "@kido/blueprint";
@@ -26,6 +26,8 @@ export interface BuildArtifact extends RevisionBound {
 
 export interface ProjectRecord {
   projectId: string;
+  /** Display name chosen by the user; defaults to a shortened objective. */
+  name?: string;
   createdAt: number;
   interview: InterviewState;
   revisions: KidoAgentBlueprint[];
@@ -34,6 +36,18 @@ export interface ProjectRecord {
   security: SecurityReport | null;
   simulation: SimulationReport | null;
   build: BuildArtifact | null;
+  /** Wallet-driven deployment state (JSON-safe: bigints stored as { $big }). */
+  deployment?: unknown;
+  /** Lifecycle and on-chain events, newest last. */
+  events?: ProjectEvent[];
+}
+
+export interface ProjectEvent {
+  at: number;
+  type: string;
+  chain?: string;
+  detail: string;
+  tx?: string;
 }
 
 export class FileProjectStore {
@@ -43,11 +57,52 @@ export class FileProjectStore {
   save(p: ProjectRecord) {
     writeFileSync(join(this.dir, `${p.projectId}.json`), JSON.stringify(p, null, 2));
   }
+  list(): ProjectRecord[] {
+    return readdirSync(this.dir)
+      .filter((f) => /^proj_[\w-]+\.json$/.test(f))
+      .map((f) => JSON.parse(readFileSync(join(this.dir, f), "utf8")) as ProjectRecord)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
   load(projectId: string): ProjectRecord {
     const f = join(this.dir, `${projectId}.json`);
     if (!existsSync(f)) throw new Error(`unknown project ${projectId}`);
     return JSON.parse(readFileSync(f, "utf8")) as ProjectRecord;
   }
+}
+
+export type ProjectStage = "INTERVIEW" | "BLUEPRINT" | "REVIEWED" | "SIMULATED" | "BUILT";
+
+export interface ProjectRow {
+  projectId: string;
+  name: string;
+  objective: string;
+  createdAt: number;
+  stage: ProjectStage;
+  revision: number | null;
+  kidoAgentId: string | null;
+  chains: string[];
+  agents: string[];
+}
+
+type Freshness = { freshness: "CURRENT" | "STALE" | "NONE" };
+
+export interface ProjectSummary extends ProjectRow {
+  interview: {
+    question: Question | null;
+    transcript: InterviewState["transcript"];
+    warnings: string[];
+    questionsAsked: number;
+    requirements: { key: string; topic: string; critical: boolean; status: string; value: unknown; confirmed: boolean }[];
+    unresolved: unknown;
+  };
+  blueprint: KidoAgentBlueprint | null;
+  blueprintHash: string | null;
+  blockers: ReturnType<typeof buildBlockers>;
+  privacyPlan: PrivacyPlan | null;
+  identityPlan: PlannedBinding[];
+  security: (SecurityReport & Freshness) | null;
+  simulation: (SimulationReport & Freshness) | null;
+  build: (BuildArtifact & Freshness) | null;
 }
 
 export class LifecycleError extends Error {
@@ -80,12 +135,97 @@ export class Foundry {
     this.knowledge = d.knowledge ?? KnowledgeBase.load();
   }
 
-  async create(objective: string): Promise<{ projectId: string; question: Question | null }> {
+  async create(objective: string, name?: string): Promise<{ projectId: string; question: Question | null }> {
     const projectId = `proj_${randomUUID().slice(0, 12)}`;
     const iv = await DesignInterview.start(projectId, randomUUID(), objective, this.d.model);
     const question = iv.next();
-    this.d.store.save({ projectId, createdAt: Date.now(), interview: iv.state, revisions: [], privacyPlan: null, identityPlan: [], security: null, simulation: null, build: null });
+    this.d.store.save({ projectId, ...(name?.trim() ? { name: name.trim() } : {}), createdAt: Date.now(), interview: iv.state, revisions: [], privacyPlan: null, identityPlan: [], security: null, simulation: null, build: null });
     return { projectId, question };
+  }
+
+  /** Raw record access for services layered on the lifecycle (deployment, activity). */
+  loadRecord(projectId: string): ProjectRecord {
+    return this.d.store.load(projectId);
+  }
+  saveRecord(p: ProjectRecord) {
+    this.d.store.save(p);
+  }
+  get manifest(): AmaneDeploymentManifest {
+    return this.d.amaneManifest;
+  }
+
+  rename(projectId: string, name: string) {
+    const p = this.d.store.load(projectId);
+    p.name = name.trim();
+    this.d.store.save(p);
+    return { projectId, name: p.name };
+  }
+
+  /** Every project, newest first, as list rows. */
+  projects(): ProjectRow[] {
+    return this.d.store.list().map((p) => this.row(p));
+  }
+
+  /**
+   * One project's full lifecycle state for a client: interview (pending question, transcript,
+   * resolved requirements), the current blueprint revision, and the review, simulation and build
+   * artifacts with whether each is current for that revision. Private values never appear: the
+   * interview state stores only references to them.
+   */
+  summary(projectId: string): ProjectSummary {
+    const p = this.d.store.load(projectId);
+    const iv = DesignInterview.restore(p.interview, this.d.model);
+    const question = iv.state.finalized ? null : iv.next();
+    if (!iv.state.finalized) {
+      p.interview = iv.state;
+      this.d.store.save(p);
+    }
+    const bp = p.revisions.at(-1) ?? null;
+    const fresh = (a: RevisionBound | null) => (a && bp ? (isStale(a, bp) ? "STALE" : "CURRENT") : "NONE");
+    return {
+      ...this.row(p),
+      interview: {
+        question,
+        transcript: iv.state.transcript,
+        warnings: iv.state.warnings,
+        questionsAsked: iv.state.questionsAsked,
+        requirements: Object.values(iv.state.resolutions).map((r) => ({ key: r.key, topic: r.topic, critical: r.critical, status: r.status, value: r.value ?? null, confirmed: r.confirmed })),
+        unresolved: iv.unresolved(),
+      },
+      blueprint: bp,
+      blueprintHash: bp ? blueprintHash(bp) : null,
+      blockers: bp ? buildBlockers(bp, this.registry.gateFacts()) : [],
+      privacyPlan: p.privacyPlan,
+      identityPlan: p.identityPlan,
+      security: p.security ? { ...p.security, freshness: fresh(p.security) } : null,
+      simulation: p.simulation ? { ...p.simulation, freshness: fresh(p.simulation) } : null,
+      build: p.build ? { ...p.build, freshness: fresh(p.build) } : null,
+    };
+  }
+
+  private row(p: ProjectRecord): ProjectRow {
+    const bp = p.revisions.at(-1) ?? null;
+    const current = (a: RevisionBound | null) => Boolean(a && bp && !isStale(a, bp));
+    const stage: ProjectStage = !bp
+      ? "INTERVIEW"
+      : current(p.build)
+        ? "BUILT"
+        : current(p.simulation) && p.simulation!.passed
+          ? "SIMULATED"
+          : current(p.security)
+            ? "REVIEWED"
+            : "BLUEPRINT";
+    return {
+      projectId: p.projectId,
+      name: p.name ?? (bp?.objective.summary ?? p.interview.objective).slice(0, 60),
+      objective: p.interview.objective,
+      createdAt: p.createdAt,
+      stage,
+      revision: bp?.revision ?? null,
+      kidoAgentId: bp?.kidoAgentId ?? null,
+      chains: bp?.chains ?? [],
+      agents: bp?.agents.map((a) => a.role) ?? [],
+    };
   }
 
   next(projectId: string): Question | null {

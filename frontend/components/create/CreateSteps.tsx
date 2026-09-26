@@ -25,9 +25,8 @@ export const CREATE_STEPS = [
   { id: 'REQUIREMENTS', label: 'Requirements' },
   { id: 'BLUEPRINT', label: 'Blueprint' },
   { id: 'SECURITY_REVIEW', label: 'Security' },
-  { id: 'AWAITING_APPROVAL', label: 'Approve' },
+  { id: 'SIMULATION', label: 'Simulation' },
   { id: 'BUILD', label: 'Build' },
-  { id: 'TEST', label: 'Tests' },
 ] as const;
 
 export type CreateStepId = (typeof CREATE_STEPS)[number]['id'];
@@ -38,7 +37,7 @@ const NAVIGABLE = new Set<CreateStepId>([
   'REQUIREMENTS',
   'BLUEPRINT',
   'SECURITY_REVIEW',
-  'AWAITING_APPROVAL',
+  'SIMULATION',
 ]);
 
 export function CreateSteps({

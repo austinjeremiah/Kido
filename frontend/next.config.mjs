@@ -19,9 +19,9 @@ const nextConfig = {
   outputFileTracingRoot: here,
 
   /*
-   * The Studio API. Every `/api/*` request the browser makes is proxied to it on the server side, so
-   * the app is same-origin with its backend: no CORS, and the build's SSE stream is a plain
-   * same-origin EventSource. Point STUDIO_API_URL elsewhere to run against a remote API.
+   * The Kido API (Backend/Kido, `npm run kido:api`). Every `/api/*` request the browser makes is
+   * proxied to it on the server side, so the app is same-origin with its backend and needs no CORS.
+   * Point KIDO_API_URL elsewhere to run against a remote API.
    */
   /*
    * Stylesheets in /public are served with max-age=0, which lets the browser
@@ -36,7 +36,7 @@ const nextConfig = {
   },
 
   async rewrites() {
-    const api = (process.env.STUDIO_API_URL ?? 'http://127.0.0.1:4310').replace(/\/$/, '');
+    const api = (process.env.KIDO_API_URL ?? 'http://127.0.0.1:4310').replace(/\/$/, '');
     return [{ source: '/api/:path*', destination: `${api}/api/:path*` }];
   },
 

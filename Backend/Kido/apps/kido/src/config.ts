@@ -3,7 +3,12 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { isAddress } from "viem";
 import { loadAmaneManifest } from "@kido/amane-bridge";
 import { OpenAIInterviewModel, RuleBasedInterviewModel, type InterviewModel } from "@kido/design-interview";
-import { FileProjectStore, Foundry } from "@kido/foundry";
+import { FileProjectStore, Foundry, WalletDeployments } from "@kido/foundry";
+import { createPublicClient, http, type Hex } from "viem";
+import { sepolia } from "viem/chains";
+import { SuiGrpcClient } from "@mysten/sui/grpc";
+import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
+import { rpcUrl } from "@kido/registry";
 
 export interface KidoConfig {
   dataDir: string;
@@ -44,4 +49,21 @@ export function interviewModel(c: KidoConfig): InterviewModel {
 
 export function createFoundry(c: KidoConfig): Foundry {
   return new Foundry({ store: new FileProjectStore(c.dataDir), model: interviewModel(c), amaneManifest: loadAmaneManifest(c.amaneManifestPath), signers: c.signers });
+}
+
+/**
+ * Wallet-driven deployment. The owner's wallet deploys and signs; Kido needs only its lease issuer
+ * key (KIDO_ISSUER_KEY), the agent's address (KIDO_AGENT_ADDRESS) and, for Sui, a gas relayer
+ * (KIDO_SUI_RELAYER_KEY). Each missing piece makes the matching step report BLOCKED_ENV.
+ */
+export function createDeployments(foundry: Foundry, env: NodeJS.ProcessEnv = process.env): WalletDeployments {
+  const issuerKey = env.KIDO_ISSUER_KEY as Hex | undefined;
+  const agent = env.KIDO_AGENT_ADDRESS && isAddress(env.KIDO_AGENT_ADDRESS) ? env.KIDO_AGENT_ADDRESS : undefined;
+  return new WalletDeployments({
+    foundry,
+    evm: { publicClient: createPublicClient({ chain: sepolia, transport: http(rpcUrl("ethereum-sepolia", env)) }) as never },
+    ...(env.KIDO_SUI_RELAYER_KEY ? { sui: { client: new SuiGrpcClient({ network: "testnet", baseUrl: rpcUrl("sui-testnet", env) }) as never, relayer: Ed25519Keypair.fromSecretKey(env.KIDO_SUI_RELAYER_KEY) as never } } : {}),
+    ...(issuerKey ? { issuer: privateKeyToAccount(issuerKey) } : {}),
+    ...(agent ? { agent } : {}),
+  });
 }

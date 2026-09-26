@@ -6,3 +6,4 @@ export * from "./deploy.js";
 export * from "./runtime-builder.js";
 export * from "./sui.js";
 export * from "./wormhole.js";
+export * from "./wallet-deploy.js";

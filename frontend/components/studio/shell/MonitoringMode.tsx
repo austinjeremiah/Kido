@@ -20,10 +20,9 @@ import { useRouter } from 'next/navigation';
 import { Activity, ArrowRight, FileText, Gauge, ShieldCheck } from 'lucide-react';
 import { Badge, StatusBadge } from '../primitives';
 import { useStudioProject } from '@/lib/studio/api/project-context';
-import { policyStatusOf, runtimeStatusOf } from '@/lib/studio/api/adapters/operate';
 
 /** Segments that remain useful and safe on a small screen. */
-export const MONITOR_SEGMENTS = ['overview', 'activity', 'control-plane', 'policies', 'runtime', 'reports'] as const;
+export const MONITOR_SEGMENTS = ['overview', 'activity', 'policies', 'runtime', 'reports'] as const;
 
 export function isMonitorSegment(segment: string): boolean {
   return (MONITOR_SEGMENTS as readonly string[]).includes(segment);
@@ -32,7 +31,7 @@ export function isMonitorSegment(segment: string): boolean {
 const NAV = [
   { segment: 'overview', label: 'Overview', icon: Gauge },
   { segment: 'activity', label: 'Activity', icon: Activity },
-  { segment: 'control-plane', label: 'Alerts', icon: ShieldCheck },
+  { segment: 'policies', label: 'Authority', icon: ShieldCheck },
   { segment: 'reports', label: 'Reports', icon: FileText },
 ];
 
@@ -46,8 +45,8 @@ export function MonitorNav({
   segment: string;
 }) {
   const router = useRouter();
-  const { overview } = useStudioProject();
-  const openAlerts = overview?.alerts.open ?? 0;
+  const { problems } = useStudioProject();
+  const openAlerts = problems.length;
 
   return (
     <nav className="cl-monitor-nav" aria-label="Monitoring navigation">
@@ -64,7 +63,7 @@ export function MonitorNav({
           >
             <Icon size={17} aria-hidden />
             <span>{item.label}</span>
-            {item.segment === 'control-plane' && openAlerts > 0 ? (
+            {item.segment === 'overview' && openAlerts > 0 ? (
               <span className="cl-monitor-nav-count">{openAlerts}</span>
             ) : null}
           </button>
@@ -76,9 +75,9 @@ export function MonitorNav({
 
 /** Compact policy/runtime status — the "simple status" §46 asks for. */
 export function MonitorStatus() {
-  const { overview, deploymentId } = useStudioProject();
-  const policyState = deploymentId ? policyStatusOf(overview) : 'UNKNOWN';
-  const runtimeState = deploymentId ? runtimeStatusOf(overview?.panels.runtime.state) : 'STOPPED';
+  const { kido } = useStudioProject();
+  const policyState = kido?.stage === 'BUILT' ? 'READY' : 'UNKNOWN';
+  const runtimeState = 'STOPPED';
   return (
     <div className="cl-monitor-status">
       <div className="cl-monitor-status-row">
