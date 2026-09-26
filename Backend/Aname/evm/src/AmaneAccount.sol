@@ -20,7 +20,7 @@ import {
     Withdraw
 } from "./AmaneTypes.sol";
 import {AdapterRegistry, IAmaneAdapter} from "./AdapterRegistry.sol";
-import {AmaneStorage, IAmaneTransport, IERC20Minimal} from "./AmaneStorage.sol";
+import {AmaneStorage, IAmaneBridge, IAmaneTransport, IERC20Minimal} from "./AmaneStorage.sol";
 import {Codes} from "./AmaneCodes.sol";
 
 /// Non-upgradeable Amane endpoint for one logical account on one EVM chain.
@@ -231,7 +231,8 @@ contract AmaneAccount is AmaneStorage {
         if (block.timestamp > l.expiresAt) revert AmaneRejected(Codes.LEASE_EXPIRED);
         if (block.timestamp > a.deadline) revert AmaneRejected(Codes.ACTION_EXPIRED);
 
-        if (AmaneSig.recover(AmaneHash.digest(a.hash()), agentSig) != l.agent) {
+        bytes32 digest = AmaneHash.digest(a.hash());
+        if (AmaneSig.recover(digest, agentSig) != l.agent) {
             revert AmaneRejected(Codes.ACTION_WRONG_AGENT);
         }
         if (nonceUsed[a.leaseId][a.nonce]) revert AmaneRejected(Codes.REPLAY_NONCE);
@@ -254,6 +255,7 @@ contract AmaneAccount is AmaneStorage {
         }
         if (a.actionKind == ActionKinds.SWAP) amountOut = _swap(a, entry.adapter, tokenIn, minOut);
         else if (a.actionKind == ActionKinds.REPAY) amountOut = _repay(a, entry.adapter, tokenIn, v);
+        else if (a.actionKind == ActionKinds.BRIDGE) amountOut = _bridge(a, entry.adapter, tokenIn, digest);
         else amountOut = _deliver(a, entry.adapter, tokenIn);
 
         emit ActionExecuted(a.leaseId, a.nonce, a.adapterId, a.actionKind, a.amountIn, amountOut, a.planHash, a.planStep);
@@ -371,6 +373,14 @@ contract AmaneAccount is AmaneStorage {
             if (swapFloor[v][keccak256(abi.encode(a.assetIn, a.assetOut))].den == 0) revert AmaneRejected(Codes.ACTION_NO_PRICE_FLOOR);
             return 0;
         }
+        if (a.actionKind == ActionKinds.BRIDGE) {
+            // Only to another endpoint of this account that the owner pinned as a recipient; the
+            // destination endpoint enforces what the funds may be used for (planHash = dest spec).
+            if (!leaseRecipients[a.leaseId][a.recipient] || rootRecipientLabel[v][a.recipient] != keccak256(bytes(a.recipientLabel))) {
+                revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
+            }
+            return 0;
+        }
         if (a.actionKind == ActionKinds.PAY) {
             if (a.assetOut != a.assetIn) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
             if (!leaseRecipients[a.leaseId][a.recipient]) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
@@ -409,6 +419,18 @@ contract AmaneAccount is AmaneStorage {
         reduced = debtBefore > debtAfter ? debtBefore - debtAfter : 0;
         Floor memory f = swapFloor[v][keccak256(abi.encode(a.assetIn, a.assetOut))];
         if (spent == 0 || reduced < (spent * f.num + f.den - 1) / f.den) revert AmaneRejected(Codes.ACTION_UNDER_DELIVERED);
+    }
+
+    /// BRIDGE: the adapter hands exactly amountIn to the transport with payload (intent, destination
+    /// account). The account measures that exactly amountIn left and the adapter kept nothing.
+    function _bridge(ActionIntent calldata a, address adapter, address tokenIn, bytes32 intent) private returns (uint256) {
+        uint256 inBefore = IERC20Minimal(tokenIn).balanceOf(address(this));
+        _safeTransfer(tokenIn, adapter, a.amountIn);
+        IAmaneBridge(adapter).bridge(tokenIn, a.amountIn, a.recipient, intent);
+        if (inBefore - IERC20Minimal(tokenIn).balanceOf(address(this)) != a.amountIn || IERC20Minimal(tokenIn).balanceOf(adapter) != 0) {
+            revert AmaneRejected(Codes.ACTION_OVERSPENT);
+        }
+        return a.amountIn;
     }
 
     function _deliver(ActionIntent calldata a, address adapter, address tokenIn) private returns (uint256 delivered) {

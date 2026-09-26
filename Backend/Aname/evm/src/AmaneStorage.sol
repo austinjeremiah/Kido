@@ -32,6 +32,12 @@ interface IERC20Minimal {
 
 /// A BRIDGE transport adapter redeems a delivery proof, sends the tokens to the calling account and
 /// returns the intent digest the delivery carries. It never decides what the funds may be used for.
+/// Outbound half of a transport adapter: sends `amount` of `token` (already transferred to it) to
+/// the destination endpoint `recipient`, carrying `intent` so the destination can verify it.
+interface IAmaneBridge {
+    function bridge(address token, uint256 amount, bytes32 recipient, bytes32 intent) external;
+}
+
 interface IAmaneTransport {
     function redeem(bytes calldata data) external returns (bytes32 intent);
 }
