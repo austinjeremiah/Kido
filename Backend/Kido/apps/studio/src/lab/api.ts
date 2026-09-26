@@ -48,7 +48,7 @@ export interface LabApiDeps {
   readInputs: (projectId: string) => Promise<LabInputs | null>;
   readBlueprint: (projectId: string) => Promise<ContextLockAgentBlueprint | null>;
   /** Which credential is held where (env or Ledger Key Ring); never a value. Optional. */
-  readProtectedSources?: () => Promise<Array<{ name: string; source: "ledger-key-ring" | "env" | "absent"; ring: { keyName: string; status: string } | null; note: string }>>;
+  readProtectedSources?: () => Promise<Array<{ name: string; source: "env" | "absent"; note: string }>>;
   readCapabilities: () => Promise<{
     mainnetReadAvailable: boolean;
     archiveDepth: "ARCHIVE" | "RECENT_STATE_ONLY" | "UNKNOWN" | null;

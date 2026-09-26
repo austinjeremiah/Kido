@@ -222,7 +222,6 @@ export function devLabDeps(db: DB): DevLabDeps {
       (await studioSecretSources()).map((v) => ({
         name: v.name,
         source: v.source,
-        ring: v.ring ? { keyName: v.ring.keyName, status: v.ring.status } : null,
         note: describeSource(v),
       })),
 

@@ -13,7 +13,6 @@
   "dependencies": {
     "@contextlock/policy": "*",
     "@contextlock/protocol": "*",
-    "@contextlock/ledger": "*",
     "@contextlock/studio-adapters": "*",
     "@contextlock/studio-blueprint": "*",
     "@contextlock/studio-control-plane": "*",
