@@ -2,7 +2,7 @@
   "schemaVersion": "amane.deployment/v1",
   "environment": "testnet",
   "status": "TESTNET PROTOTYPE - NOT AUDITED",
-  "sourceCommit": "02f7e4e01639986d985c5af48104fa066f9ed727",
+  "sourceCommit": "b284c8c2ceb805504fb728b80c4583c6f02792d9",
   "signingDomain": {
     "name": "Amane",
     "version": "1",
@@ -37,10 +37,10 @@
     "network": "sui-testnet",
     "chainIdentifier": "4c78adac",
     "chainRef": "0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe",
-    "packageId": "0x5ec4977bc1f4d2139f88d49e84eb9f6e5883e52474ea9ea2ac12b04db5e9667a",
-    "publishDigest": "DumSuUjajyDKQzyezLuZBTvVi2R7kqXqfyuesRpRKnFD",
+    "packageId": "0x243719f94d7db75918a21103d33868a7f994fc62ffd1619a1c2458b413132755",
+    "publishDigest": "BUb9f1AVT9aPeW7YfLzDizATnaxvXuQ56UdgykdeTvnm",
     "upgradeAuthority": "FROZEN",
-    "freezeDigest": "AuT76hi357HkXeR5dDBcJwtquQGmswMcrcuDbvdWuV8V",
+    "freezeDigest": "5VHjev5u4X4Mtw5g1u1m6kuBgeHkzy63a2YhXrVbBYkx",
     "toolchain": "sui 1.80.1",
     "tokens": {
       "packageId": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6",
@@ -62,11 +62,15 @@
         "name": "Transfer Pay",
         "version": 1,
         "actionKind": "PAY",
-        "witnessType": "0x5ec4977bc1f4d2139f88d49e84eb9f6e5883e52474ea9ea2ac12b04db5e9667a::account::TransferPayV1",
+        "witnessType": "0x243719f94d7db75918a21103d33868a7f994fc62ffd1619a1c2458b413132755::account::TransferPayV1",
         "native": true
       }
     ],
     "superseded": [
+      {
+        "packageId": "0x5ec4977bc1f4d2139f88d49e84eb9f6e5883e52474ea9ea2ac12b04db5e9667a",
+        "reason": "budget debited before recipient check: correct outcome, less precise rejection code; frozen, do not use"
+      },
       {
         "packageId": "0xb4e65840df2bb53172fa6ccdf12d3a7f0470d6c72f6b25afcb2070001f8a4665",
         "reason": "replayable pause id within an epoch (F-0200 reopened) and refill overflow (F-0211); frozen, do not use"
