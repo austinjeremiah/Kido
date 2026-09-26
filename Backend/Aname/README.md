@@ -1,64 +1,98 @@
 # Amane
 
-**Bounded financial authority for software agents — enforced on-chain, natively, on Ethereum and Sui.**
+**Move tokens on Sui with an Ethereum key — no Sui wallet, no SUI balance.**
 
-Amane is an SDK and a pair of on-chain cores (Solidity and Move) that let an account delegate *narrow, revocable, budgeted* spending power to an automated agent. The agent can sign actions; the chain decides whether each one is inside the authority the owner granted. Nothing the agent, its model, its relayer or a bridge says can widen that authority.
+Amane is an SDK and a pair of on-chain account contracts (Move on Sui, Solidity on Ethereum). You control a Sui account holding tokens by signing with the Ethereum key you already have. An agent — a bot, a script, an AI — can be given a small, time-limited allowance to spend from it, and the chain itself enforces the limits.
 
-> **Status:** testnet prototype (Ethereum Sepolia, Sui Testnet). **Not audited.** Use testnet assets only.
-
-```
-Action  ⊆  Lease  ⊆  RootPolicy  ⊆  Account
-agent      issuer    owner (threshold)
-```
+> **Status:** testnet prototype (Sui Testnet, Ethereum Sepolia). **Not audited.** Use testnet assets only.
 
 ---
 
 ## Contents
 
-- [Why Amane](#why-amane)
+- [How it works in 30 seconds](#how-it-works-in-30-seconds)
+- [Use case: a payroll agent on Sui](#use-case-a-payroll-agent-on-sui)
 - [Features](#features)
-- [Architecture](#architecture)
-  - [Authority model](#authority-model)
-  - [Enforcement pipeline](#enforcement-pipeline)
-  - [Adapters](#adapters)
-  - [Cross-chain: BRIDGE, reservations, quarantine](#cross-chain-bridge-reservations-quarantine)
-  - [Signatures and hashing](#signatures-and-hashing)
-- [Packages](#packages)
-- [Installation](#installation)
 - [Quick start](#quick-start)
-- [SDK reference](#sdk-reference)
-- [Deployments](#deployments)
-- [Live testnet proof](#live-testnet-proof)
-- [Threat model](#threat-model)
-- [Testing](#testing)
-- [Deploying your own](#deploying-your-own)
-- [Known limitations](#known-limitations)
-- [Repository layout](#repository-layout)
-- [License](#license)
+- [Architecture](#architecture)
+- [Packages](#packages) · [Installation](#installation) · [SDK reference](#sdk-reference)
+- [Deployments](#deployments) · [Live testnet proof](#live-testnet-proof)
+- [Threat model](#threat-model) · [Testing](#testing) · [Known limitations](#known-limitations)
 
 ---
 
-## Why Amane
+## How it works in 30 seconds
 
-Agents that move money fail in predictable ways: a prompt injection, a stale price, a bug in a planner, a compromised hot key, a malicious relayer, a bridge message that says "and now send it to me". Off-chain guardrails only help while the off-chain system is honest.
+```
+  You (Ethereum key)          Agent (Ethereum key)            Relayer (anyone)
+  sign the rules once   ──►   signs "pay 10 AMUSD to X"  ──►  submits it to Sui,
+                                                               pays the SUI gas
+                                                                     │
+                                                                     ▼
+                                              Amane account on Sui (holds the tokens)
+                                              checks signature + rules, then pays X
+```
 
-Amane moves the guardrail into the account itself. The owner signs a **root policy** once. Agents receive short-lived **leases** carved out of that policy. Every **action** an agent signs is checked by the account contract (EVM) or account object (Sui) against the lease and the policy **before any value moves**, and the delivered result is **measured**, not trusted.
+1. **Your tokens live in an Amane account on Sui** — a shared object, not a wallet.
+2. **You sign the rules with an Ethereum key**: which assets, how much per payment / per hour / in total, and to whom.
+3. **An agent signs individual actions**, also with an Ethereum key.
+4. **Anyone relays them.** The relayer pays the SUI gas and can delay a transaction, but it cannot change the amount or the recipient, or spend anything: the Sui contract verifies the Ethereum signatures itself.
 
-Amane answers exactly one question — *what is this agent physically allowed to do?* — and leaves *what it should do* to whatever system sits above it.
+So neither you nor your agent needs a Sui wallet, a Sui key or SUI for gas. Recipients just need a Sui address.
+
+## Use case: a payroll agent on Sui
+
+A small team keeps its stablecoin treasury on Sui and wants a bot to pay contractors every week.
+
+| Without Amane | With Amane |
+|---|---|
+| The bot holds a Sui wallet key and a SUI balance for gas | The bot holds only an Ethereum signing key; a relayer pays gas |
+| If the bot is hacked or tricked, it can empty the wallet | It can only pay the **three pinned contractors**, up to **500 AMUSD per payment** and **2,000 AMUSD per week** |
+| Stopping it means racing the attacker to move funds | **Any one founder can pause it** with one signature; the lease also expires on its own |
+| Recovering funds depends on whoever holds the key | Only **2 of 2 founders** can withdraw, and only to the team's pinned cold address |
+
+What the team does:
+
+```ts
+// 1. Founders sign the rules once (Ethereum keys, 2-of-2).
+const policy = { /* AMUSD: 500 per payment, 2,000 per week; recipients: 3 contractors; recovery: cold address */ };
+await sui.installPolicy(policy, await signThreshold([founderA, founderB], 'RootPolicy', policy));
+
+// 2. Give the bot a one-month lease inside those rules.
+await sui.activateLease(lease, await signAmane(founderA, 'AgentLease', lease));
+
+// 3. Every Friday the bot signs a payment; the relayer submits it.
+const outcome = await sui.pay(AMUSD, payAlice, await signAmane(bot, 'ActionIntent', payAlice));
+// → EXECUTED, or REJECTED_BY_AMANE with a precise reason (e.g. AMANE_BUDGET_EPOCH)
+```
+
+The same account can also send funds to Ethereum and back through Wormhole, and a payment that arrives there can only be spent the way the agent committed to before it left (see [Cross-chain](#cross-chain-bridge-reservations-quarantine)).
 
 ## Features
 
-- **Owner-signed root policy** per account, per chain endpoint: allowed action kinds, adapters (by immutable id), assets with per-action / per-epoch / total caps, pinned recipients and beneficiaries, owner price floors, recovery destinations, delegated lease issuers and their caps.
-- **Agent leases** that are strict subsets of the policy, with validity windows and their own budgets. Issuers are bounded by aggregate caps across everything they issue.
-- **Typed agent actions** — `SWAP`, `PAY`, `REPAY`, `BRIDGE` — each bound to an exact endpoint, lease, nonce, adapter, asset, amount, recipient, deadline and plan step.
-- **Measured settlement**: swap output is measured into the account against `max(agentMin, amountIn × ownerFloor)`; payments by recipient balance change; debt repayment by the beneficiary's debt reduction; bridge sends by exact balance delta with zero adapter residue.
-- **Token-bucket budgets** in token base units, debited only after every authorization check has passed, before funds move.
-- **Pause / unpause / revoke / withdraw**: any one controller can pause (relayable by anyone, so it cannot be censored); lifting a pause, withdrawing and policy changes need the controller threshold; withdrawals only to pinned recovery destinations.
-- **Immutable, admin-free cores and adapters**: one non-upgradeable contract per EVM account; Sui packages published and frozen.
-- **Cross-chain authority** (EVM core v3, Sui core v5): an agent-signed `BRIDGE` commits to a destination spec; arrivals are **reserved** for that one intent on the destination chain and can only be spent by the action it committed to. Undeliverable arrivals go to **quarantine** for root recovery.
-- **Wormhole Token Bridge transport** on both chains, carrying only a 64-byte commitment — never an executable payload.
-- **One signature, both chains**: EIP-712 typed data verified identically in Solidity and Move, with golden vectors shared across TypeScript, Solidity and Move.
-- **Honest outcomes**: the SDK distinguishes `EXECUTED`, `REJECTED_BY_AMANE` (with a stable numeric code), `NONCE_CONSUMED` and `OPERATIONAL_FAILURE`, and can land a rejected action on-chain so every reported rejection has a receipt.
+**Control**
+- **Ethereum keys on Sui** — owners and agents sign EIP-712 messages; the Move contract verifies secp256k1 signatures natively.
+- **Gasless for you and your agent** — any relayer submits and pays SUI gas, with no authority over the account.
+- **Owner rules** — per asset: max per action, per epoch and in total; allowed actions; pinned recipients; recovery addresses.
+- **Agent leases** — short-lived, revocable allowances that are always a subset of the owner rules.
+
+**Safety**
+- **Checked on-chain, before funds move** — signature, lease, recipient and budget are all verified by the account contract.
+- **Measured results** — swap output and delivered amounts are measured, not taken on trust.
+- **Pause, revoke, recover** — one owner can pause; the owner threshold withdraws, and only to pinned addresses.
+- **Immutable** — no admin keys; Sui packages are frozen after publishing.
+
+**Actions**
+- **Pay** a pinned recipient, **swap** on Cetus (Sui) or Uniswap (Ethereum), **repay** Aave debt (Ethereum), **bridge** between Sui and Ethereum via Wormhole.
+
+**Cross-chain**
+- **One account, two chains** — the same signed rules installed on Sui and Ethereum.
+- **Reserved arrivals** — bridged funds can only be used for the action the agent committed to before sending.
+- **Safe failure** — late or undeliverable transfers are locked for owner recovery, never left for the agent.
+
+**Developer experience**
+- **TypeScript SDK** for both chains, with clear outcomes: `EXECUTED`, `REJECTED_BY_AMANE` (with a stable code), `NONCE_CONSUMED`, `OPERATIONAL_FAILURE`.
+- **Rejections cost no gas** — every call is simulated first.
 
 ---
 
