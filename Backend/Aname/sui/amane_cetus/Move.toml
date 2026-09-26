@@ -1,0 +1,11 @@
+[package]
+name = "amane_cetus"
+edition = "2024"
+license = "MIT"
+
+[dependencies]
+amane = { local = "../amane" }
+CetusClmm = { git = "https://github.com/CetusProtocol/cetus-contracts.git", subdir = "packages/cetus_clmm", rev = "testnet-v0.0.2" }
+
+[addresses]
+amane_cetus = "0x0"

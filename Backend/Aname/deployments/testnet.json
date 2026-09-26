@@ -1,0 +1,335 @@
+{
+  "schemaVersion": "amane.deployment/v1",
+  "environment": "testnet",
+  "status": "TESTNET PROTOTYPE - NOT AUDITED",
+  "sourceCommit": "7f83350db4ba7c3980ff681cfe497c399fb52530",
+  "signingDomain": {
+    "name": "Amane",
+    "version": "1",
+    "chainId": 11155111
+  },
+  "evm": {
+    "network": "ethereum-sepolia",
+    "chainId": 11155111,
+    "chainRef": "0xafa90c317deacd3d68f330a30f96e4fa7736e35e8d1426b2e1b2c04bce1c2fb7",
+    "adapterRegistry": "0xE268eB1B45efFf327509c65d7CBc0ec9e26Eee02",
+    "accountDeployment": "per-account constructor (non-upgradeable); see packages/sdk",
+    "upgradeAuthority": "NONE",
+    "assets": {
+      "AMUSD": {
+        "address": "0x7C4C9876af08676fCE8cfeCF1129Dc2F5D7d0828",
+        "decimals": 6,
+        "testnetOnly": true,
+        "mint": "open"
+      },
+      "AMDAI": {
+        "address": "0xa0b048f06e8c6bbede36011517e9ebb8e142eb09",
+        "decimals": 18,
+        "testnetOnly": true,
+        "mint": "open"
+      },
+      "wAMUSD": {
+        "address": "0x943DD202b17d10013F3D9221925c9F85Ff752544",
+        "decimals": 6,
+        "note": "Wormhole-wrapped Sui AMUSD (Token Bridge attestation); testnet demo asset",
+        "origin": {
+          "chain": "sui-testnet",
+          "coinType": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amusd::AMUSD"
+        }
+      },
+      "aaveUSDC": {
+        "address": "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",
+        "decimals": 6,
+        "note": "Aave v3 Sepolia listed test USDC (faucet); read from the pool reserves"
+      }
+    },
+    "adapters": [
+      {
+        "name": "Transfer Pay",
+        "version": 1,
+        "actionKind": "PAY",
+        "address": "0xEAcCFbdE3c36558a4C9551a82356D8c9Ada96947",
+        "adapterId": "0x054af67c914525329d954e6605df3b9dded90f1ed4832599252f40612ae62d13"
+      },
+      {
+        "name": "Aave V3 Repay",
+        "version": 1,
+        "actionKind": "REPAY",
+        "address": "0xb58c014c1fd617ee256bbf08ae11c294f6f168ca",
+        "adapterId": "0x418d6019fba7052f12576d0d8c62fc1803f298575c3142f3ad01f98d40a7a058",
+        "requiresCoreVersion": 2,
+        "upstream": {
+          "protocol": "aaveV3",
+          "pool": "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
+          "interestRateMode": 2
+        }
+      },
+      {
+        "name": "Uniswap V3 Swap",
+        "version": 1,
+        "actionKind": "SWAP",
+        "address": "0xa234ddbe6706ef80b053009b21fc47995649a581",
+        "adapterId": "0xf783f26f1362e6f266cdfbcf00f6de075ab6a5c1cdf6c5ba1e74ab8c28d51069",
+        "upstream": {
+          "protocol": "uniswapV3",
+          "router": "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E",
+          "fee": 3000
+        }
+      },
+      {
+        "name": "Wormhole Bridge",
+        "version": 1,
+        "actionKind": "BRIDGE",
+        "address": "0x88b1953f16c06976fcb6575aacb317a5917db7a6",
+        "adapterId": "0xf642e8278cf0d477635175de7c6af632d8bc8216399a447cb9b6f1be0f3551af",
+        "deployTx": "0x3869d6dbf237ecb1f75e57cf263aafd5b45b5796ee6b18d6ac66f917fef4d5ac",
+        "peer": {
+          "chain": "sui-testnet",
+          "wormholeChainId": 21,
+          "emitterCap": "0xc245eb1df3ba85fd8b38e1b9bddc1e7ff7a80df49793bfb477969da7cc368087",
+          "bridge": "0xf3ddf8b59325f108f57ac07ed2146824b5bf9f4232ca616fc5f4749c5bcec8f2"
+        }
+      }
+    ],
+    "protocols": {
+      "aaveV3": {
+        "pool": "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
+        "dataProvider": "0x3e9708d80f7B3e43118013075F7e95CE3AB31F31",
+        "faucet": "0xC959483DBa39aa9E78757139af0e9a2EDEb3f42D",
+        "source": "Aave v3 Sepolia market (Pool revision 1)"
+      },
+      "uniswapV3": {
+        "factory": "0x0227628f3F023bb0B980b67D528571c95c6DaC1c",
+        "swapRouter02": "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E",
+        "positionManager": "0x1238536071E1c677A632429e3655c799b22cDA52",
+        "source": "Uniswap v3 Sepolia deployment"
+      },
+      "wormhole": {
+        "chainId": 10002,
+        "core": "0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78",
+        "tokenBridge": "0xDB5492265f6038831E89f495670FF909aDe94bd9",
+        "vaaApi": "https://api.testnet.wormholescan.io/api/v1/vaas"
+      }
+    },
+    "pools": {
+      "uniswapV3AmusdAmdai": {
+        "pool": "0xcC1Dd1eFED740Ca8fa980efd6C9253b7b9bB77CA",
+        "fee": 3000,
+        "token0": "0x7C4C9876af08676fCE8cfeCF1129Dc2F5D7d0828",
+        "token1": "0xa0b048f06e8c6bbede36011517e9ebb8e142eb09",
+        "liquidityTx": "0x294e39b74d988c103934d7bb586ce88f7fdbd74f33438291e554040543ec19b7",
+        "note": "project pool, 1:1 nominal, full range; demo liquidity only"
+      },
+      "uniswapV3WamusdUsdc": {
+        "pool": "0x51AfE27E484eDFcc8A8c80C7C4CE075185e2e521",
+        "fee": 3000,
+        "token0": "0x943DD202b17d10013F3D9221925c9F85Ff752544",
+        "token1": "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",
+        "createTx": "0x7017db6c3ea94a00547c87118ab48096e6b428701c97a4f7c31f0ab6e8a9adcc",
+        "liquidityTx": "0x4bc2b40eb785eea34ccef566badaa2de74755cd5a1923c058f3b617056d7ed00",
+        "tickLower": -120,
+        "tickUpper": 0,
+        "note": "demo pool: one-sided Aave faucet USDC just below 1:1; wAMUSD → USDC only"
+      }
+    },
+    "accountCoreVersion": 3,
+    "releases": {
+      "v1": {
+        "sourceCommit": "7f83350db4ba7c3980ff681cfe497c399fb52530",
+        "actions": [
+          "SWAP",
+          "PAY"
+        ],
+        "status": "frozen; deployed accounts unchanged"
+      },
+      "v2": {
+        "actions": [
+          "SWAP",
+          "PAY",
+          "REPAY"
+        ],
+        "note": "new accounts deploy CORE_VERSION 2 bytecode from the SDK"
+      },
+      "v3": {
+        "actions": [
+          "SWAP",
+          "PAY",
+          "REPAY",
+          "BRIDGE"
+        ],
+        "accountExt": "0x0a2feab8333c866251b2036fc86e4f35bac0401a",
+        "extDeployTx": "0x977dc4b68f28c665ac155f3db0c63169b65f396b05fc57d6093c485537189a55",
+        "note": "new accounts deploy CORE_VERSION 3 bytecode from the SDK with the shared extension; cross-chain arrivals reserved per signed intent, quarantine and root recovery"
+      }
+    },
+    "accountExt": "0x0a2feab8333c866251b2036fc86e4f35bac0401a"
+  },
+  "sui": {
+    "network": "sui-testnet",
+    "chainIdentifier": "4c78adac",
+    "chainRef": "0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe",
+    "packageId": "0x243719f94d7db75918a21103d33868a7f994fc62ffd1619a1c2458b413132755",
+    "publishDigest": "BUb9f1AVT9aPeW7YfLzDizATnaxvXuQ56UdgykdeTvnm",
+    "upgradeAuthority": "FROZEN",
+    "freezeDigest": "5VHjev5u4X4Mtw5g1u1m6kuBgeHkzy63a2YhXrVbBYkx",
+    "toolchain": "sui 1.80.1",
+    "tokens": {
+      "packageId": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6",
+      "AMUSD": {
+        "coinType": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amusd::AMUSD",
+        "decimals": 6,
+        "faucet": "0x232ad349f9b1907f13f65a1eda95890f21d90e84d4ee9f97ea919b5589e2fd3f",
+        "testnetOnly": true
+      },
+      "AMSUI": {
+        "coinType": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amsui::AMSUI",
+        "decimals": 9,
+        "faucet": "0xbabc71a3e1e56fe4e694b8d38543530c2988415328987b117f24d3d109880895",
+        "testnetOnly": true
+      }
+    },
+    "adapters": [
+      {
+        "name": "Transfer Pay",
+        "version": 1,
+        "actionKind": "PAY",
+        "witnessType": "0x243719f94d7db75918a21103d33868a7f994fc62ffd1619a1c2458b413132755::account::TransferPayV1",
+        "native": true
+      },
+      {
+        "name": "Cetus CLMM Swap",
+        "version": 1,
+        "actionKind": "SWAP",
+        "witnessType": "0x067100a0b331d6e97f8134a92b2d782af2382a2ebc7ba9e21afd93577af3b88d::cetus_swap::CetusSwapV1",
+        "package": "0x067100a0b331d6e97f8134a92b2d782af2382a2ebc7ba9e21afd93577af3b88d",
+        "publishDigest": "3nkdVQqPXJfFaXEbwh9QFRwAcU8Kr8f5qXG78GHYZZhk",
+        "upgradeAuthority": "FROZEN",
+        "freezeDigest": "3U7DK811RcspPUUDQLauxJkbwAEiV78joj9PvKLUCc53",
+        "upstream": {
+          "protocol": "cetusClmm",
+          "poolPinnedOnChain": false
+        },
+        "module": "cetus_swap"
+      },
+      {
+        "name": "Cetus CLMM Pinned Swap",
+        "version": 1,
+        "actionKind": "SWAP",
+        "witnessType": "0x8d7f91354955c956a7820e276ef678efe7a3da7fcb8eb2c1d4871302eb5758b8::pinned_swap::CetusPinnedSwapV1",
+        "package": "0x8d7f91354955c956a7820e276ef678efe7a3da7fcb8eb2c1d4871302eb5758b8",
+        "module": "pinned_swap",
+        "publishDigest": "8CaQpn7tJZaxnEvKsyqJ37DjXoevKezfuzbZEwxpTXZt",
+        "upgradeAuthority": "FROZEN",
+        "upstream": {
+          "protocol": "cetusClmm",
+          "pool": "0x3f0397909cce1ded2d1502dbc2ae9e2b37170026083f42bd5a85bccf55947eac",
+          "poolPinnedOnChain": true
+        }
+      },
+      {
+        "name": "Wormhole Bridge",
+        "version": 1,
+        "actionKind": "BRIDGE",
+        "core": "v5",
+        "witnessType": "0x615e2b23ffc8ba04e5428e6232b11bc259e221d3774ae5847796660a2940d14b::wormhole_bridge::WormholeBridgeV1",
+        "package": "0x615e2b23ffc8ba04e5428e6232b11bc259e221d3774ae5847796660a2940d14b",
+        "module": "wormhole_bridge",
+        "publishDigest": "5Fa8EeEwgcgTxWRghD2erNB6rnGRr4mAmHsHMrYFhhB2",
+        "freezeDigest": "DaCy2Uc6MRDVs4wgJUL2fHYhpJkNbFDDMSTjCizPhjLj",
+        "upgradeAuthority": "FROZEN",
+        "upstream": {
+          "protocol": "wormhole"
+        },
+        "instance": {
+          "bridge": "0xf3ddf8b59325f108f57ac07ed2146824b5bf9f4232ca616fc5f4749c5bcec8f2",
+          "emitterCap": "0xc245eb1df3ba85fd8b38e1b9bddc1e7ff7a80df49793bfb477969da7cc368087",
+          "createTx": "59SwwqUYDV8tJae2BThakNDEV3nkCFd94PhvqPShuKyQ",
+          "peer": {
+            "chain": "ethereum-sepolia",
+            "wormholeChainId": 10002,
+            "adapter": "0x88b1953f16c06976fcb6575aacb317a5917db7a6"
+          }
+        }
+      },
+      {
+        "name": "Cetus CLMM Pinned Swap",
+        "version": 1,
+        "actionKind": "SWAP",
+        "core": "v5",
+        "witnessType": "0x4b2dcb1486e72e3d2dbef6da86f4a2b80f3251bf36f8cf7028056a5830334c7f::pinned_swap::CetusPinnedSwapV1",
+        "package": "0x4b2dcb1486e72e3d2dbef6da86f4a2b80f3251bf36f8cf7028056a5830334c7f",
+        "module": "pinned_swap",
+        "publishDigest": "4fXXwwFhrcSL7Jvkq59xCEfsDHE5M1NhH4P5ZzyZZDnK",
+        "freezeDigest": "ChJWC8asGkUmyrmrfbEMUjU8JM9ggrxXCNGpKF4NkjCZ",
+        "upgradeAuthority": "FROZEN",
+        "upstream": {
+          "protocol": "cetusClmm",
+          "pool": "0x3f0397909cce1ded2d1502dbc2ae9e2b37170026083f42bd5a85bccf55947eac",
+          "poolPinnedOnChain": true
+        }
+      }
+    ],
+    "superseded": [
+      {
+        "packageId": "0x5ec4977bc1f4d2139f88d49e84eb9f6e5883e52474ea9ea2ac12b04db5e9667a",
+        "reason": "budget debited before recipient check: correct outcome, less precise rejection code; frozen, do not use"
+      },
+      {
+        "packageId": "0xb4e65840df2bb53172fa6ccdf12d3a7f0470d6c72f6b25afcb2070001f8a4665",
+        "reason": "replayable pause id within an epoch (F-0200 reopened) and refill overflow (F-0211); frozen, do not use"
+      },
+      {
+        "packageId": "0x3930d65cf4b2732d902d0463e2d19735648d988e5e273093805ff64722cf3cae",
+        "reason": "pre-fix pause/policy lineage semantics (findings F-0200..F-0208); frozen, do not use"
+      }
+    ],
+    "protocols": {
+      "cetusClmm": {
+        "package": "0x6bbdf09f9fa0baa1524080a5b8991042e95061c4e1206217279aec51ba08edf7",
+        "typeOrigin": "0x5372d555ac734e272659136c2a0cd3227f9b92de67c80dc11250307268af2db8",
+        "globalConfig": "0xc6273f844b4bc258952c4e477697aa12c918c8e08106fac6b934811298c9820a",
+        "pools": "0x20a086e6fa0741b3ca77d033a65faf0871349b986ddbdde6fa1d85d78a5f4222",
+        "moveDependency": "CetusProtocol/cetus-contracts packages/cetus_clmm rev testnet-v0.0.2",
+        "source": "Cetus CLMM Sui testnet lineage"
+      },
+      "wormhole": {
+        "chainId": 21,
+        "corePackage": "0x21473617f3565d704aa67be73ea41243e9e34a42d434c31f8182c67ba01ccf49",
+        "coreTypeOrigin": "0xf47329f4344f3bf0f8e436e2f7b485466cff300f12a166563995d3888c296a94",
+        "coreState": "0x31358d198147da50db32eda2562951d53973a0c0ad5ed738e9b17d88b213d790",
+        "tokenBridgePackage": "0xad5d68fbc423bf8d6fa65b4309430fb586107220ee11444eac2146a6a8ae559e",
+        "tokenBridgeTypeOrigin": "0x562760fc51d90d4ae1835bac3e91e0e6987d3497b06f066941d3e51f6e8d76d0",
+        "tokenBridgeState": "0x6fb10cdb7aa299e9a4308752dadecb049ff55a892de92992a1edbd7912b3d6da",
+        "tokenBridgeEmitter": "0x40440411a170b4842ae7dee4f4a7b7a58bc0a98566e998850a7bb87bf5dc05b9",
+        "moveDependency": "wormhole-foundation/wormhole sui/{wormhole,token_bridge} rev 2df4000c5bd228e5ce3a3d87f0475837071587f9",
+        "vaaApi": "https://api.testnet.wormholescan.io/api/v1/vaas"
+      }
+    },
+    "pools": {
+      "cetusAmusdAmsui": {
+        "pool": "0x3f0397909cce1ded2d1502dbc2ae9e2b37170026083f42bd5a85bccf55947eac",
+        "coinA": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amusd::AMUSD",
+        "coinB": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amsui::AMSUI",
+        "tickSpacing": 60,
+        "createTx": "9Euiyw2gZFPgDQr1rwMkc33JDm5iNdFV5HpSTJQsN7Xr",
+        "note": "project pool, 1:1 nominal, full range; demo liquidity only"
+      }
+    },
+    "releases": {
+      "v5": {
+        "packageId": "0x700e76aafce5b10854767a1f6d553145cd345914809ab88596d441b0c334df88",
+        "publishDigest": "2EGKHynBMsMFH7fBDdmPmABoUiuc2tX29J2TPh497ZrN",
+        "freezeDigest": "4XiJ97AxvihdMXAk42Z9Q8Aq8udud5Kxp8tAYSSZdr3a",
+        "upgradeAuthority": "FROZEN",
+        "toolchain": "sui 1.80.1",
+        "sourceCommit": "35e9e27",
+        "actions": [
+          "SWAP",
+          "PAY",
+          "BRIDGE"
+        ],
+        "note": "cross-chain core: BRIDGE tickets, arrivals reserved per signed intent, quarantine and root recovery. v4 adapters (Cetus) are bound to the v4 Account type and do not work with v5 accounts."
+      }
+    }
+  }
+}

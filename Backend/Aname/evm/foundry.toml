@@ -1,0 +1,18 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.28"
+evm_version = "cancun"
+via_ir = true
+optimizer = true
+optimizer_runs = 1
+bytecode_hash = "none"
+fs_permissions = [{ access = "read", path = "../vectors" }, { access = "read", path = "./deployments" }]
+
+[fuzz]
+runs = 512
+
+[invariant]
+runs = 64
+depth = 64

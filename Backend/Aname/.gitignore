@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+evm/out/
+evm/cache/
+evm/broadcast/*/31337/
+sui/*/build/
+coverage/
+sui/*/Published.toml

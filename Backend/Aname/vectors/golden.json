@@ -1,0 +1,560 @@
+{
+  "schemaVersion": "amane.golden-vectors/v1",
+  "domain": {
+    "name": "Amane",
+    "version": "1",
+    "chainId": 11155111,
+    "separator": "0x82fa181322f3320bcbea617f4b3b580d68b74206a64aaaa16b311690a4e2916b"
+  },
+  "accounts": {
+    "controllerA": "0xD7003A68054B36803a2671c64a6B591345d1f8da",
+    "controllerB": "0x842bf7dc352C505F288cb16454D43E6Ffee1fCb5",
+    "issuer": "0xDB7Df4547998e5aA5A341CD02474DF8913c1c4c7",
+    "agent": "0x752F2f9d06A136d7FF9fEc975Baa6e25f57A585c",
+    "attacker": "0x66A7507eAed8EC06064fB955004370Aa6b9B6950"
+  },
+  "typeHashes": {
+    "AssetLimit": "0x4c7e7dd0040c86298ee8d24a187a0f4c049bcd2c08d6076503d2da711743938c",
+    "AdapterRef": "0x26d741502bfe3424cf35e5f4192f2176dccd5a47823d0f4b093dae0820073af7",
+    "Recipient": "0xc0eac644795e2e667b2cf2bca0156a24d6e454b09b5104433fd429204ca859ee",
+    "SwapFloor": "0x6141659cc8dc4898df0546349a4029acfeb4ad9a71ae47247fec03241cbbe98e",
+    "PolicyEndpoint": "0xedb24fa394965109ad57cce35c0fd31f01607acc0af3e72c24e560b43bd1428e",
+    "IssuerLimit": "0x0d6a20bb9682758b0216ba5f563dc474e8c6a4ac6243415ab22e8792460ada99",
+    "LeaseIssuer": "0x177197f6f34bef2ab258493e09fbbca5554bb1433a2a5ab0196e164ee3b225f6",
+    "RootPolicy": "0x358190f7e871e332775471e5992c68eb5e59fa6c527335d31720ecef6d42f158",
+    "LeaseEndpoint": "0x7525a21434846317a672afd66247631fdca18e4db13d1c56ac3c1d3b4630dd13",
+    "AgentLease": "0x09e9bd06a5a80588b894e210f896fbd20e0bcb10c45dfc9647da1523981cf7dd",
+    "ActionIntent": "0x4d9852a9a366c6cc7d78c434d936060cb9fe20d93462d56bac7dab08f98098e1",
+    "PauseAccount": "0x67093778cd2d1d40091e580c89e0b44b86a4e0fb3b5b7b2f20ef7768b9e4ae40",
+    "UnpauseAccount": "0xead25f9b076803a674150841b7b179c4442cb3ec291c1488407544a6e9eb4c00",
+    "RevokeLease": "0xa7f8d312e491f5912487e07104fd5b2997401fb93c0f5010f19795c8b16439cd",
+    "Withdraw": "0x97524fa80b46f1b680445c88cdd04ffb9b1958a3a9d78fea8eeea34ef4f1cae7"
+  },
+  "vectors": [
+    {
+      "name": "root_policy",
+      "primaryType": "RootPolicy",
+      "message": {
+        "accountId": "0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613",
+        "policyVersion": "1",
+        "parentPolicyHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "allowedActions": 513,
+        "priceMode": 1,
+        "maxLeaseLifetime": "86400",
+        "activateBefore": "1800000600",
+        "endpoints": [
+          {
+            "chainRef": "0xafa90c317deacd3d68f330a30f96e4fa7736e35e8d1426b2e1b2c04bce1c2fb7",
+            "account": "0x00000000000000000000000000000000000000000000000000000000000a3a7e",
+            "epochSeconds": "3600",
+            "adapters": [
+              {
+                "adapterId": "0x618e7e7b14f7b47832db875c7b7d8f057265698995651bf8c4d004edd8c7ee57",
+                "adapterName": "Fixture Swap",
+                "adapterVersion": 1
+              },
+              {
+                "adapterId": "0x352fd66507725f00e4960f96d6d53f597ce13dce4ec64979700cf154728be6ba",
+                "adapterName": "Transfer Pay",
+                "adapterVersion": 1
+              }
+            ],
+            "assets": [
+              {
+                "assetId": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+                "maxPerAction": "100000000",
+                "maxPerEpoch": "200000000",
+                "maxTotal": "500000000"
+              },
+              {
+                "assetId": "0x11540fe5c93449241d564bda3053729f063f528eba99c58c77cbf332e0752535",
+                "maxPerAction": "100000000000",
+                "maxPerEpoch": "200000000000",
+                "maxTotal": "500000000000"
+              }
+            ],
+            "recipients": [
+              {
+                "recipientId": "0x21beb79938e0654734e9b6e0accf05cbb3767b3b93c7d3a2ccef8325e87d0f0f",
+                "label": "Merchant ✓ café"
+              }
+            ],
+            "beneficiaries": [],
+            "swapFloors": [
+              {
+                "assetIn": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+                "assetOut": "0x11540fe5c93449241d564bda3053729f063f528eba99c58c77cbf332e0752535",
+                "minOutNumerator": "950",
+                "minOutDenominator": "1"
+              }
+            ],
+            "recoveryDestinations": [
+              {
+                "recipientId": "0x81eed7d0a04d04050bf84caf00a1b858d79e5ba7499711cfcde548e0a8e817f8",
+                "label": "Cold storage"
+              }
+            ]
+          },
+          {
+            "chainRef": "0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe",
+            "account": "0x00000000000000000000000000000000000000000000000000000000000005a1",
+            "epochSeconds": "3600",
+            "adapters": [
+              {
+                "adapterId": "0x618e7e7b14f7b47832db875c7b7d8f057265698995651bf8c4d004edd8c7ee57",
+                "adapterName": "Fixture Swap",
+                "adapterVersion": 1
+              },
+              {
+                "adapterId": "0x352fd66507725f00e4960f96d6d53f597ce13dce4ec64979700cf154728be6ba",
+                "adapterName": "Transfer Pay",
+                "adapterVersion": 1
+              }
+            ],
+            "assets": [
+              {
+                "assetId": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+                "maxPerAction": "100000000",
+                "maxPerEpoch": "200000000",
+                "maxTotal": "500000000"
+              },
+              {
+                "assetId": "0x11540fe5c93449241d564bda3053729f063f528eba99c58c77cbf332e0752535",
+                "maxPerAction": "100000000000",
+                "maxPerEpoch": "200000000000",
+                "maxTotal": "500000000000"
+              }
+            ],
+            "recipients": [
+              {
+                "recipientId": "0x21beb79938e0654734e9b6e0accf05cbb3767b3b93c7d3a2ccef8325e87d0f0f",
+                "label": "Merchant ✓ café"
+              }
+            ],
+            "beneficiaries": [],
+            "swapFloors": [
+              {
+                "assetIn": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+                "assetOut": "0x11540fe5c93449241d564bda3053729f063f528eba99c58c77cbf332e0752535",
+                "minOutNumerator": "950",
+                "minOutDenominator": "1"
+              }
+            ],
+            "recoveryDestinations": [
+              {
+                "recipientId": "0x81eed7d0a04d04050bf84caf00a1b858d79e5ba7499711cfcde548e0a8e817f8",
+                "label": "Cold storage"
+              }
+            ]
+          }
+        ],
+        "leaseIssuers": [
+          {
+            "issuer": "0xDB7Df4547998e5aA5A341CD02474DF8913c1c4c7",
+            "maxLeaseLifetime": "3600",
+            "allowedAgents": [
+              "0x752F2f9d06A136d7FF9fEc975Baa6e25f57A585c"
+            ],
+            "limits": [
+              {
+                "chainRef": "0xafa90c317deacd3d68f330a30f96e4fa7736e35e8d1426b2e1b2c04bce1c2fb7",
+                "assetId": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+                "maxPerAction": "50000000",
+                "maxPerEpoch": "100000000",
+                "maxTotal": "100000000"
+              },
+              {
+                "chainRef": "0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe",
+                "assetId": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+                "maxPerAction": "50000000",
+                "maxPerEpoch": "100000000",
+                "maxTotal": "100000000"
+              }
+            ]
+          }
+        ]
+      },
+      "encodeType": "RootPolicy(bytes32 accountId,uint64 policyVersion,bytes32 parentPolicyHash,uint32 allowedActions,uint8 priceMode,uint64 maxLeaseLifetime,uint64 activateBefore,PolicyEndpoint[] endpoints,LeaseIssuer[] leaseIssuers)AdapterRef(bytes32 adapterId,string adapterName,uint32 adapterVersion)AssetLimit(bytes32 assetId,uint256 maxPerAction,uint256 maxPerEpoch,uint256 maxTotal)IssuerLimit(bytes32 chainRef,bytes32 assetId,uint256 maxPerAction,uint256 maxPerEpoch,uint256 maxTotal)LeaseIssuer(address issuer,uint64 maxLeaseLifetime,address[] allowedAgents,IssuerLimit[] limits)PolicyEndpoint(bytes32 chainRef,bytes32 account,uint64 epochSeconds,AdapterRef[] adapters,AssetLimit[] assets,Recipient[] recipients,Recipient[] beneficiaries,SwapFloor[] swapFloors,Recipient[] recoveryDestinations)Recipient(bytes32 recipientId,string label)SwapFloor(bytes32 assetIn,bytes32 assetOut,uint256 minOutNumerator,uint256 minOutDenominator)",
+      "typeHash": "0x358190f7e871e332775471e5992c68eb5e59fa6c527335d31720ecef6d42f158",
+      "structHash": "0xb52976b2ec893cb87a5ba689cc37b72b690f49cf43617150237dd91aa37cf37a",
+      "digest": "0xcd1af38ee353088f80cb024e781c23c64ff537caa8da5505ba9af80bacf0cecd",
+      "signatures": [
+        {
+          "signer": "0x842bf7dc352C505F288cb16454D43E6Ffee1fCb5",
+          "signature": "0x3127a48019b5d48be124a8325222a319bcd23751552819577b16d27d858850d3294266af41b5c79eec0fcc22c91c80afc99fe43837b5cd07f15b40793aa483101c"
+        },
+        {
+          "signer": "0xD7003A68054B36803a2671c64a6B591345d1f8da",
+          "signature": "0xdc9ca1b3a9980758de6287c801a2e5f460952a7060e2ab7660d434f333be5ff00fa99f1ac05e2b118196ee54f355d298eed9d6aa5f9b05c1bbb29fadf5ab88521b"
+        }
+      ]
+    },
+    {
+      "name": "lease_by_controller",
+      "primaryType": "AgentLease",
+      "message": {
+        "accountId": "0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613",
+        "policyVersion": "1",
+        "leaseId": "0x3961a263d4178894eae4e624ba7eddd4886cdcfb3325bc9717ebbeaa4fee4492",
+        "agent": "0x752F2f9d06A136d7FF9fEc975Baa6e25f57A585c",
+        "issuer": "0xD7003A68054B36803a2671c64a6B591345d1f8da",
+        "validAfter": "1800000000",
+        "expiresAt": "1800003600",
+        "activateBefore": "1800000600",
+        "allowedActions": 513,
+        "authMode": 1,
+        "endpoints": [
+          {
+            "chainRef": "0xafa90c317deacd3d68f330a30f96e4fa7736e35e8d1426b2e1b2c04bce1c2fb7",
+            "account": "0x00000000000000000000000000000000000000000000000000000000000a3a7e",
+            "adapters": [
+              "0x618e7e7b14f7b47832db875c7b7d8f057265698995651bf8c4d004edd8c7ee57",
+              "0x352fd66507725f00e4960f96d6d53f597ce13dce4ec64979700cf154728be6ba"
+            ],
+            "assets": [
+              {
+                "assetId": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+                "maxPerAction": "25000000",
+                "maxPerEpoch": "50000000",
+                "maxTotal": "100000000"
+              },
+              {
+                "assetId": "0x11540fe5c93449241d564bda3053729f063f528eba99c58c77cbf332e0752535",
+                "maxPerAction": "0",
+                "maxPerEpoch": "0",
+                "maxTotal": "0"
+              }
+            ],
+            "recipients": [
+              "0x21beb79938e0654734e9b6e0accf05cbb3767b3b93c7d3a2ccef8325e87d0f0f"
+            ],
+            "beneficiaries": []
+          },
+          {
+            "chainRef": "0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe",
+            "account": "0x00000000000000000000000000000000000000000000000000000000000005a1",
+            "adapters": [
+              "0x618e7e7b14f7b47832db875c7b7d8f057265698995651bf8c4d004edd8c7ee57",
+              "0x352fd66507725f00e4960f96d6d53f597ce13dce4ec64979700cf154728be6ba"
+            ],
+            "assets": [
+              {
+                "assetId": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+                "maxPerAction": "25000000",
+                "maxPerEpoch": "50000000",
+                "maxTotal": "100000000"
+              },
+              {
+                "assetId": "0x11540fe5c93449241d564bda3053729f063f528eba99c58c77cbf332e0752535",
+                "maxPerAction": "0",
+                "maxPerEpoch": "0",
+                "maxTotal": "0"
+              }
+            ],
+            "recipients": [
+              "0x21beb79938e0654734e9b6e0accf05cbb3767b3b93c7d3a2ccef8325e87d0f0f"
+            ],
+            "beneficiaries": []
+          }
+        ]
+      },
+      "encodeType": "AgentLease(bytes32 accountId,uint64 policyVersion,bytes32 leaseId,address agent,address issuer,uint64 validAfter,uint64 expiresAt,uint64 activateBefore,uint32 allowedActions,uint8 authMode,LeaseEndpoint[] endpoints)AssetLimit(bytes32 assetId,uint256 maxPerAction,uint256 maxPerEpoch,uint256 maxTotal)LeaseEndpoint(bytes32 chainRef,bytes32 account,bytes32[] adapters,AssetLimit[] assets,bytes32[] recipients,bytes32[] beneficiaries)",
+      "typeHash": "0x09e9bd06a5a80588b894e210f896fbd20e0bcb10c45dfc9647da1523981cf7dd",
+      "structHash": "0x135ff90b1c98ffb88c86cc010a91b902deabad374ed37111a5075b8aad0cc785",
+      "digest": "0x1db015ab343c6cf35ae504d6903bbd34e985c8e02af91a3d8b1d7fcca9786869",
+      "signatures": [
+        {
+          "signer": "0xD7003A68054B36803a2671c64a6B591345d1f8da",
+          "signature": "0xef4475a2b59216530a07378180f0c3d392c9f17cbb335ac912a2414d52e7a8a65f134bebac56af161abf4c39090035f0b83f76fc7751c5f1c7081762b9358c941c"
+        }
+      ]
+    },
+    {
+      "name": "lease_by_issuer",
+      "primaryType": "AgentLease",
+      "message": {
+        "accountId": "0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613",
+        "policyVersion": "1",
+        "leaseId": "0x22ae1f4823263d3e94239d5f4938d298b1c301583289dae017d866f64603a446",
+        "agent": "0x752F2f9d06A136d7FF9fEc975Baa6e25f57A585c",
+        "issuer": "0xDB7Df4547998e5aA5A341CD02474DF8913c1c4c7",
+        "validAfter": "1800000000",
+        "expiresAt": "1800001800",
+        "activateBefore": "1800000600",
+        "allowedActions": 513,
+        "authMode": 1,
+        "endpoints": [
+          {
+            "chainRef": "0xafa90c317deacd3d68f330a30f96e4fa7736e35e8d1426b2e1b2c04bce1c2fb7",
+            "account": "0x00000000000000000000000000000000000000000000000000000000000a3a7e",
+            "adapters": [
+              "0x618e7e7b14f7b47832db875c7b7d8f057265698995651bf8c4d004edd8c7ee57",
+              "0x352fd66507725f00e4960f96d6d53f597ce13dce4ec64979700cf154728be6ba"
+            ],
+            "assets": [
+              {
+                "assetId": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+                "maxPerAction": "25000000",
+                "maxPerEpoch": "50000000",
+                "maxTotal": "100000000"
+              },
+              {
+                "assetId": "0x11540fe5c93449241d564bda3053729f063f528eba99c58c77cbf332e0752535",
+                "maxPerAction": "0",
+                "maxPerEpoch": "0",
+                "maxTotal": "0"
+              }
+            ],
+            "recipients": [
+              "0x21beb79938e0654734e9b6e0accf05cbb3767b3b93c7d3a2ccef8325e87d0f0f"
+            ],
+            "beneficiaries": []
+          },
+          {
+            "chainRef": "0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe",
+            "account": "0x00000000000000000000000000000000000000000000000000000000000005a1",
+            "adapters": [
+              "0x618e7e7b14f7b47832db875c7b7d8f057265698995651bf8c4d004edd8c7ee57",
+              "0x352fd66507725f00e4960f96d6d53f597ce13dce4ec64979700cf154728be6ba"
+            ],
+            "assets": [
+              {
+                "assetId": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+                "maxPerAction": "25000000",
+                "maxPerEpoch": "50000000",
+                "maxTotal": "100000000"
+              },
+              {
+                "assetId": "0x11540fe5c93449241d564bda3053729f063f528eba99c58c77cbf332e0752535",
+                "maxPerAction": "0",
+                "maxPerEpoch": "0",
+                "maxTotal": "0"
+              }
+            ],
+            "recipients": [
+              "0x21beb79938e0654734e9b6e0accf05cbb3767b3b93c7d3a2ccef8325e87d0f0f"
+            ],
+            "beneficiaries": []
+          }
+        ]
+      },
+      "encodeType": "AgentLease(bytes32 accountId,uint64 policyVersion,bytes32 leaseId,address agent,address issuer,uint64 validAfter,uint64 expiresAt,uint64 activateBefore,uint32 allowedActions,uint8 authMode,LeaseEndpoint[] endpoints)AssetLimit(bytes32 assetId,uint256 maxPerAction,uint256 maxPerEpoch,uint256 maxTotal)LeaseEndpoint(bytes32 chainRef,bytes32 account,bytes32[] adapters,AssetLimit[] assets,bytes32[] recipients,bytes32[] beneficiaries)",
+      "typeHash": "0x09e9bd06a5a80588b894e210f896fbd20e0bcb10c45dfc9647da1523981cf7dd",
+      "structHash": "0xd91498cf42c1a3f8d828a12f1d989b42d6fe5500ec4a274381fe95fa5150bf7a",
+      "digest": "0x3ab958a4d2e0092dee38c7b17ac21c7deca8d546c93936c8a901c16a62c4a065",
+      "signatures": [
+        {
+          "signer": "0xDB7Df4547998e5aA5A341CD02474DF8913c1c4c7",
+          "signature": "0x60dbd9cb6cbf1f73316526941098826dc1dab194023367edcfa51f9a4941bd34467f76c657de604508cb7ba5fd3df7015c96a5a2c8dc0cf5ea552a51145510ff1c"
+        }
+      ]
+    },
+    {
+      "name": "action_pay_sui",
+      "primaryType": "ActionIntent",
+      "message": {
+        "accountId": "0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613",
+        "chainRef": "0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe",
+        "account": "0x00000000000000000000000000000000000000000000000000000000000005a1",
+        "policyVersion": "1",
+        "leaseId": "0x3961a263d4178894eae4e624ba7eddd4886cdcfb3325bc9717ebbeaa4fee4492",
+        "nonce": "1",
+        "actionKind": 9,
+        "adapterId": "0x352fd66507725f00e4960f96d6d53f597ce13dce4ec64979700cf154728be6ba",
+        "adapterName": "Transfer Pay",
+        "adapterVersion": 1,
+        "assetIn": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+        "assetOut": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+        "amountIn": "10000000",
+        "minAmountOut": "0",
+        "recipient": "0x21beb79938e0654734e9b6e0accf05cbb3767b3b93c7d3a2ccef8325e87d0f0f",
+        "recipientLabel": "Merchant ✓ café",
+        "deadline": "1800000300",
+        "planHash": "0x22ae1f4823263d3e94239d5f4938d298b1c301583289dae017d866f64603a446",
+        "planStep": 0
+      },
+      "encodeType": "ActionIntent(bytes32 accountId,bytes32 chainRef,bytes32 account,uint64 policyVersion,bytes32 leaseId,uint64 nonce,uint8 actionKind,bytes32 adapterId,string adapterName,uint32 adapterVersion,bytes32 assetIn,bytes32 assetOut,uint256 amountIn,uint256 minAmountOut,bytes32 recipient,string recipientLabel,uint64 deadline,bytes32 planHash,uint32 planStep)",
+      "typeHash": "0x4d9852a9a366c6cc7d78c434d936060cb9fe20d93462d56bac7dab08f98098e1",
+      "structHash": "0x07d711c79709fdcb28b9ccd0e5aaee4faf80712dd98468428590ad43b7c6db16",
+      "digest": "0xce48d02d85350406b7b2e489a536f689f4f10ae3cf434ae448d7f35a9397e585",
+      "signatures": [
+        {
+          "signer": "0x752F2f9d06A136d7FF9fEc975Baa6e25f57A585c",
+          "signature": "0x525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d121c"
+        }
+      ]
+    },
+    {
+      "name": "action_swap_sepolia",
+      "primaryType": "ActionIntent",
+      "message": {
+        "accountId": "0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613",
+        "chainRef": "0xafa90c317deacd3d68f330a30f96e4fa7736e35e8d1426b2e1b2c04bce1c2fb7",
+        "account": "0x00000000000000000000000000000000000000000000000000000000000a3a7e",
+        "policyVersion": "1",
+        "leaseId": "0x3961a263d4178894eae4e624ba7eddd4886cdcfb3325bc9717ebbeaa4fee4492",
+        "nonce": "7",
+        "actionKind": 0,
+        "adapterId": "0x618e7e7b14f7b47832db875c7b7d8f057265698995651bf8c4d004edd8c7ee57",
+        "adapterName": "Fixture Swap",
+        "adapterVersion": 1,
+        "assetIn": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+        "assetOut": "0x11540fe5c93449241d564bda3053729f063f528eba99c58c77cbf332e0752535",
+        "amountIn": "20000000",
+        "minAmountOut": "1",
+        "recipient": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "recipientLabel": "",
+        "deadline": "1800000300",
+        "planHash": "0x22ae1f4823263d3e94239d5f4938d298b1c301583289dae017d866f64603a446",
+        "planStep": 3
+      },
+      "encodeType": "ActionIntent(bytes32 accountId,bytes32 chainRef,bytes32 account,uint64 policyVersion,bytes32 leaseId,uint64 nonce,uint8 actionKind,bytes32 adapterId,string adapterName,uint32 adapterVersion,bytes32 assetIn,bytes32 assetOut,uint256 amountIn,uint256 minAmountOut,bytes32 recipient,string recipientLabel,uint64 deadline,bytes32 planHash,uint32 planStep)",
+      "typeHash": "0x4d9852a9a366c6cc7d78c434d936060cb9fe20d93462d56bac7dab08f98098e1",
+      "structHash": "0x41c44fe822150c5d9ef43ce5c622ef43fdc92bc9d8ebf9d000ec937c9e6eb4f4",
+      "digest": "0xbae54a9cd910ef95a473d5b3f690ffec4c8c0b290ec88ab8d974f70f18b2212b",
+      "signatures": [
+        {
+          "signer": "0x752F2f9d06A136d7FF9fEc975Baa6e25f57A585c",
+          "signature": "0xde32bb63273ffc4d083167aeb31b166408003ee8c753efc4cbc764b7595e9f4727c4d6deb8feab08c29d4155703725f5cc754e646d000d84c391c52b040a717d1b"
+        }
+      ]
+    },
+    {
+      "name": "pause",
+      "primaryType": "PauseAccount",
+      "message": {
+        "accountId": "0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613",
+        "pauseEpoch": "0",
+        "pauseId": "0x22ae1f4823263d3e94239d5f4938d298b1c301583289dae017d866f64603a446",
+        "deadline": "1800000900"
+      },
+      "encodeType": "PauseAccount(bytes32 accountId,uint64 pauseEpoch,bytes32 pauseId,uint64 deadline)",
+      "typeHash": "0x67093778cd2d1d40091e580c89e0b44b86a4e0fb3b5b7b2f20ef7768b9e4ae40",
+      "structHash": "0x688e553a0cd49bf1765c93745ee02c611e974cb4c837e5efe6c9c120164eb32b",
+      "digest": "0xec336da5e516e4117d85e5f4da3020dc60599b4c9bf9c81db7379a9a0e6a163d",
+      "signatures": [
+        {
+          "signer": "0x842bf7dc352C505F288cb16454D43E6Ffee1fCb5",
+          "signature": "0x06c66975ae3cbdd14c62e05132d996f0faacf05615b85742f183eb18c599d4a81b128e58a25049707a5e6f22ceb233ffd868694ba537e5c6bb114f00e09a92521c"
+        }
+      ]
+    },
+    {
+      "name": "unpause",
+      "primaryType": "UnpauseAccount",
+      "message": {
+        "accountId": "0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613",
+        "chainRef": "0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe",
+        "account": "0x00000000000000000000000000000000000000000000000000000000000005a1",
+        "pauseEpoch": "0",
+        "pauseId": "0x22ae1f4823263d3e94239d5f4938d298b1c301583289dae017d866f64603a446",
+        "deadline": "1800000900"
+      },
+      "encodeType": "UnpauseAccount(bytes32 accountId,bytes32 chainRef,bytes32 account,uint64 pauseEpoch,bytes32 pauseId,uint64 deadline)",
+      "typeHash": "0xead25f9b076803a674150841b7b179c4442cb3ec291c1488407544a6e9eb4c00",
+      "structHash": "0x5a23aafd767104fb43aeb1fa44cef21776a9293d56582d1933348e7a4f9da10b",
+      "digest": "0x389eb71443792057a8376d3cb7d7c8e173d548bd8f982539fe9a42c9825edf9b",
+      "signatures": [
+        {
+          "signer": "0x842bf7dc352C505F288cb16454D43E6Ffee1fCb5",
+          "signature": "0x198e475473cf289d52d13af6b20fee5fe160b0ccb337a0761581c5005171619c388d4d1341e4fcdd1faba2f05ae8f54cf9c89105aa5b19088da95b44f7da84bf1c"
+        },
+        {
+          "signer": "0xD7003A68054B36803a2671c64a6B591345d1f8da",
+          "signature": "0xb5146ac0a60b50638c84ec7e617f23ae10ff225f460b6e00dc2c42c95c82deab465f427d1eea0f2b34fea9595a64360322803361860546f6161e78aee355308b1b"
+        }
+      ]
+    },
+    {
+      "name": "revoke",
+      "primaryType": "RevokeLease",
+      "message": {
+        "accountId": "0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613",
+        "leaseId": "0x3961a263d4178894eae4e624ba7eddd4886cdcfb3325bc9717ebbeaa4fee4492"
+      },
+      "encodeType": "RevokeLease(bytes32 accountId,bytes32 leaseId)",
+      "typeHash": "0xa7f8d312e491f5912487e07104fd5b2997401fb93c0f5010f19795c8b16439cd",
+      "structHash": "0xc4acbde119cae07ea17c35e93e621e5527fec2aa88b0a1f279ac24793d93cf06",
+      "digest": "0x20895f80fd4f6cc1c06f361facd56965a420043acfdfdd5d5eb3d886c22d3a41",
+      "signatures": [
+        {
+          "signer": "0xD7003A68054B36803a2671c64a6B591345d1f8da",
+          "signature": "0x21288855636ad013b137f4bc8afa252205e5b4dce2bf7b95c666fdcaef519c2c636adb6fbc10bd4d44898846a1d3df248e205ca4d8ea86894f4a89326dc74cba1c"
+        }
+      ]
+    },
+    {
+      "name": "withdraw",
+      "primaryType": "Withdraw",
+      "message": {
+        "accountId": "0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613",
+        "chainRef": "0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe",
+        "account": "0x00000000000000000000000000000000000000000000000000000000000005a1",
+        "assetId": "0x55ea403453a2cfccca91622e1864df3a901e7057f230841ba25ad201e643906c",
+        "amount": "5000000",
+        "destination": "0x81eed7d0a04d04050bf84caf00a1b858d79e5ba7499711cfcde548e0a8e817f8",
+        "opNonce": "0",
+        "deadline": "1800000900"
+      },
+      "encodeType": "Withdraw(bytes32 accountId,bytes32 chainRef,bytes32 account,bytes32 assetId,uint256 amount,bytes32 destination,uint64 opNonce,uint64 deadline)",
+      "typeHash": "0x97524fa80b46f1b680445c88cdd04ffb9b1958a3a9d78fea8eeea34ef4f1cae7",
+      "structHash": "0xa81524e2fc7d9b18a06ad48a682317a9faa7663542469f4f838a6443ef55ed01",
+      "digest": "0x0e9587b0a96fe484f6a4ad26d0ee49312a9bcfa2269ad6a6875a704512cad01e",
+      "signatures": [
+        {
+          "signer": "0x842bf7dc352C505F288cb16454D43E6Ffee1fCb5",
+          "signature": "0x828185b4f57d67a4d35f93069fa71094cd010d3178ae8ed67b29070bdeed39fd5b1c4970e23bcb298fd8ebd2a1837f9859f174d985e955223278d55f0a53cb3e1b"
+        },
+        {
+          "signer": "0xD7003A68054B36803a2671c64a6B591345d1f8da",
+          "signature": "0xe0e668488fa6db0d85e2bccb2a9275ba60ef915ad037bb8b4caaae577d7da3ce60e40a207840e0feaedab26028796e303d67ebd69a9dd0fac5b89d9ee3b4b1f41b"
+        }
+      ]
+    }
+  ],
+  "negatives": [
+    {
+      "name": "high_s_twin",
+      "vector": "action_pay_sui",
+      "signature": "0x525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cdbeeb8f3b3871d351464f39e43505bc43ed1fe485fc2ecedb3ca5bf84fb30e42f1b",
+      "expect": "REJECT_HIGH_S",
+      "wouldRecover": "0x752F2f9d06A136d7FF9fEc975Baa6e25f57A585c"
+    },
+    {
+      "name": "v_zero",
+      "vector": "action_pay_sui",
+      "signature": "0x525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d1200",
+      "expect": "REJECT_BAD_V"
+    },
+    {
+      "name": "v_one",
+      "vector": "action_pay_sui",
+      "signature": "0x525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d1201",
+      "expect": "REJECT_BAD_V"
+    },
+    {
+      "name": "v_29",
+      "vector": "action_pay_sui",
+      "signature": "0x525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d121d",
+      "expect": "REJECT_BAD_V"
+    },
+    {
+      "name": "short",
+      "vector": "action_pay_sui",
+      "signature": "0x525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d12",
+      "expect": "REJECT_LENGTH"
+    },
+    {
+      "name": "wrong_domain_chain",
+      "vector": "action_pay_sui",
+      "signature": "0x2d8398970816339a7c79cf24e9e2fabd5e2237aee9a744138205780d6cb6f85a0f85fefd1cb5dec868678d5452aeef519f89bf99c90a1eab41add817121a0e931c",
+      "expect": "WRONG_SIGNER"
+    },
+    {
+      "name": "attacker",
+      "vector": "action_pay_sui",
+      "signature": "0x43c03da8cce6fc59b3d145c3c34a69d13b2e472b584f992008b786273fe7bed47f7c9ea44accd51ba3e31c35a685486e3d44c27deb73422539e0b4bb4c832b1c1c",
+      "expect": "WRONG_SIGNER"
+    }
+  ]
+}
