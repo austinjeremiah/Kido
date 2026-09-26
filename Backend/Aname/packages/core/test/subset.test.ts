@@ -4,6 +4,7 @@ import {
   actionMask,
   assertActionIsSubset,
   assertLeaseIsSubset,
+  assertPolicyWellFormed,
   fixtureAction,
   fixtureLease,
   fixturePolicy,
@@ -23,6 +24,21 @@ const ctx = {
 const withEndpoint = (lease: AgentLease, patch: Partial<AgentLease['endpoints'][number]>): AgentLease => ({
   ...lease,
   endpoints: lease.endpoints.map((e) => ({ ...e, ...patch })),
+});
+
+describe('policy well-formedness', () => {
+  const c = { controllers: ctx.controllers, chainRef: ctx.chainRef, account: ctx.account };
+  it('fixture policy is well formed', () => expect(() => assertPolicyWellFormed(fixturePolicy(), c)).not.toThrow());
+  it('issuer may not be a controller', () => {
+    const p = fixturePolicy();
+    p.leaseIssuers[0]!.issuer = testAccounts.controllerA.address;
+    expect(() => assertPolicyWellFormed(p, c)).toThrow('AMANE_POLICY_ISSUER_IS_CONTROLLER');
+  });
+  it('duplicate asset rejected', () => {
+    const p = fixturePolicy();
+    p.endpoints[1]!.assets.push(p.endpoints[1]!.assets[0]!);
+    expect(() => assertPolicyWellFormed(p, c)).toThrow('AMANE_POLICY_DUPLICATE_ENTRY');
+  });
 });
 
 describe('lease ⊆ root policy', () => {

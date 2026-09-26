@@ -31,7 +31,13 @@ export type AmaneRejectCode =
   | 'AMANE_ACTION_RECIPIENT_NOT_ALLOWED'
   | 'AMANE_ACTION_ZERO_AMOUNT'
   | 'AMANE_BUDGET_PER_ACTION'
-  | 'AMANE_ACTION_NO_PRICE_FLOOR';
+  | 'AMANE_ACTION_NO_PRICE_FLOOR'
+  | 'AMANE_POLICY_WRONG_ENDPOINT'
+  | 'AMANE_POLICY_BAD_PRICE_MODE'
+  | 'AMANE_POLICY_BAD_EPOCH'
+  | 'AMANE_POLICY_BAD_FLOOR'
+  | 'AMANE_POLICY_DUPLICATE_ENTRY'
+  | 'AMANE_POLICY_ISSUER_IS_CONTROLLER';
 
 export class AmaneReject extends Error {
   constructor(public readonly code: AmaneRejectCode, detail?: string) {
@@ -66,6 +72,38 @@ export function findPolicyEndpoint(policy: RootPolicy, chainRef: Bytes32, accoun
 
 export function findLeaseEndpoint(lease: AgentLease, chainRef: Bytes32, account: Bytes32): LeaseEndpoint | undefined {
   return lease.endpoints.find((e) => eq32(e.chainRef, chainRef) && eq32(e.account, account));
+}
+
+function assertUniqueWith(values: string[], code: AmaneRejectCode) {
+  const seen = new Set<string>();
+  for (const v of values) {
+    const k = v.toLowerCase();
+    if (seen.has(k)) fail(code, v);
+    seen.add(k);
+  }
+}
+
+// Mirrors the checks every endpoint performs in installPolicy, for the endpoint given.
+export function assertPolicyWellFormed(policy: RootPolicy, ctx: { controllers: Address[]; chainRef: Bytes32; account: Bytes32 }): void {
+  if (policy.priceMode !== 1) fail('AMANE_POLICY_BAD_PRICE_MODE');
+  const own = policy.endpoints.filter((e) => eq32(e.chainRef, ctx.chainRef) && eq32(e.account, ctx.account));
+  if (own.length === 0) fail('AMANE_POLICY_WRONG_ENDPOINT');
+  if (own.length > 1) fail('AMANE_POLICY_DUPLICATE_ENTRY');
+  const e = own[0]!;
+  if (e.epochSeconds === 0n) fail('AMANE_POLICY_BAD_EPOCH');
+  const dup = 'AMANE_POLICY_DUPLICATE_ENTRY' as const;
+  assertUniqueWith(e.adapters.map((a) => a.adapterId), dup);
+  assertUniqueWith(e.assets.map((a) => a.assetId), dup);
+  assertUniqueWith(e.recipients.map((a) => a.recipientId), dup);
+  assertUniqueWith(e.beneficiaries.map((a) => a.recipientId), dup);
+  assertUniqueWith(e.recoveryDestinations.map((a) => a.recipientId), dup);
+  assertUniqueWith(e.swapFloors.map((f) => `${f.assetIn}:${f.assetOut}`), dup);
+  for (const f of e.swapFloors) if (f.minOutDenominator === 0n) fail('AMANE_POLICY_BAD_FLOOR');
+  assertUniqueWith(policy.leaseIssuers.map((i) => i.issuer), dup);
+  for (const i of policy.leaseIssuers) {
+    if (ctx.controllers.some((c) => getAddress(c) === getAddress(i.issuer))) fail('AMANE_POLICY_ISSUER_IS_CONTROLLER');
+    assertUniqueWith(i.limits.filter((l) => eq32(l.chainRef, ctx.chainRef)).map((l) => l.assetId), dup);
+  }
 }
 
 export interface LeaseCheckContext {
@@ -148,6 +186,7 @@ export function assertActionIsSubset(policy: RootPolicy, lease: AgentLease, inte
 
   let effectiveMinOut = intent.minAmountOut;
   if (intent.actionKind === ActionKind.SWAP) {
+    if (eq32(intent.assetOut, intent.assetIn)) fail('AMANE_ACTION_ASSET_NOT_ALLOWED', 'SWAP assetOut must differ from assetIn');
     if (!le.assets.some((a) => eq32(a.assetId, intent.assetOut))) fail('AMANE_ACTION_ASSET_NOT_ALLOWED', 'assetOut');
     if (!eq32(intent.recipient, ZERO32)) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'swap output returns to the account');
     const floor =
