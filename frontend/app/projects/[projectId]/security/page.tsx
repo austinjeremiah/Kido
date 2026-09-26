@@ -14,8 +14,8 @@ import { StudioPage, useStudioPage } from '@/components/studio/PageScaffold';
 import {
   Badge,
   BlockerBanner,
-  Card,
   Section,
+  Spec,
   StatusBadge,
   VerdictBadge,
 } from '@/components/studio/primitives';
@@ -81,21 +81,24 @@ export default function PermissionsPage() {
       subtitle="What can this agent do, and what can it never do?"
       actions={
         <>
-          <button type="button" className="cl-btn" onClick={() => go('policies')}>
+          {/* Five full-length labels wrapped onto a second row and pushed the
+              primary action down under the others. The verbs were doing the
+              work anyway — "Open Policy" next to a shield is just "Policy". */}
+          <button type="button" className="cl-btn" onClick={() => go('policies')} title="Open the Policies page">
             <ShieldCheck size={13} aria-hidden />
-            Open Policy
+            Policy
           </button>
-          <button type="button" className="cl-btn" onClick={() => go('blueprint', '?compare=1')}>
+          <button type="button" className="cl-btn" onClick={() => go('blueprint', '?compare=1')} title="Compare Blueprint revisions">
             <GitCompare size={13} aria-hidden />
-            Compare revisions
+            Compare
           </button>
-          <button type="button" className="cl-btn" onClick={() => go('simulation', '?group=policy-boundaries&run=1')}>
+          <button type="button" className="cl-btn" onClick={() => go('simulation', '?group=policy-boundaries&run=1')} title="Run the boundary simulations">
             <Play size={13} aria-hidden />
-            Run boundary simulations
+            Simulate
           </button>
-          <button type="button" className="cl-btn" onClick={() => setExportOpen(true)}>
+          <button type="button" className="cl-btn" onClick={() => setExportOpen(true)} title="Export a secret-free permission summary">
             <Download size={13} aria-hidden />
-            Export permission summary
+            Export
           </button>
           <button type="button" className="cl-btn cl-btn-primary" onClick={() => go('blueprint')}>
             Create policy revision
@@ -126,39 +129,47 @@ export default function PermissionsPage() {
         </>
       }
     >
+      {/* Posture leads: it is the one-line answer, and the two sections under
+          it are the working. It was third, after the thing it summarises.
+
+          The inner tile also read "Security posture" inside a section called
+          "Security posture" — the same two words, eight pixels apart. And the
+          Card around four badges framed a row that has no need of a frame. */}
+      <Section label="Posture">
+        <div className="cl-posture">
+          <PostureItem label="Overall" value={<StatusBadge status={PERMISSIONS.posture} large />} />
+          <PostureItem label="Execution" value={<Badge tone="sim" large>{PERMISSIONS.executionSummary}</Badge>} />
+          <PostureItem label="Mainnet writes" value={<Badge tone="deny" large>{PERMISSIONS.mainnetWrites}</Badge>} />
+          <PostureItem label="Policy" value={<Badge tone="neutral" large>{`revision ${PERMISSIONS.policyRevision}`}</Badge>} />
+        </div>
+      </Section>
+
+      {/* "In one sentence each" named the *format* of the content, not the
+          content. Two cards headed "This agent can" and "This agent can never"
+          already say what they are; the section says what they are about. */}
       {capabilities.length > 0 ? (
-        <Section label="In one sentence each">
+        <Section label="Can and cannot">
           <div className="cl-grid cl-grid-2">
             {(['CAN', 'CANNOT'] as const).map((kind) => (
-              <Card key={kind} title={kind === 'CAN' ? 'This agent can' : 'This agent can never'} flush>
-                <ul style={{ margin: 0, padding: '6px 0' }}>
+              /* Tone-marked rather than titled alike: "can" and "can never"
+                 differ by one word in the heading and by everything in meaning,
+                 so the column carries the verdict colour down its edge. */
+              <div className="cl-claims" data-tone={kind === 'CAN' ? 'pass' : 'deny'} key={kind}>
+                <div className="cl-claims-head">{kind === 'CAN' ? 'This agent can' : 'This agent can never'}</div>
+                <ul>
                   {capabilities.filter((c) => c.kind === kind).map((c, i) => (
-                    <li key={i} className="cl-list-row" style={{ display: 'block' }} title={`derived from ${c.derivedFrom}`}>
-                      <span style={{ fontSize: 13 }}>{c.statement}</span>
-                      <div className="cl-meta cl-mono" style={{ fontSize: 10.5 }}>{c.derivedFrom}</div>
+                    <li key={i} className="cl-claim" title={`derived from ${c.derivedFrom}`}>
+                      <span className="cl-claim-text">{c.statement}</span>
+                      <span className="cl-claim-ref">{c.derivedFrom}</span>
                     </li>
                   ))}
                 </ul>
-              </Card>
+              </div>
             ))}
           </div>
         </Section>
       ) : null}
 
-      {/* security posture summary */}
-      <Section label="Security posture">
-        <Card>
-          <div className="cl-grid cl-grid-4" style={{ gap: 18 }}>
-            <PostureItem label="Security posture" value={<StatusBadge status={PERMISSIONS.posture} large />} />
-            <PostureItem label="Execution" value={<Badge tone="sim" large>{PERMISSIONS.executionSummary}</Badge>} />
-            <PostureItem label="Mainnet writes" value={<Badge tone="deny" large>{PERMISSIONS.mainnetWrites}</Badge>} />
-            <PostureItem
-              label="Policy"
-              value={<Badge tone="neutral" large>{`revision ${PERMISSIONS.policyRevision}`}</Badge>}
-            />
-          </div>
-        </Card>
-      </Section>
 
       {/* ALLOW / ESCALATE / DENY */}
       <Section label="Authority boundaries">
@@ -216,21 +227,23 @@ export default function PermissionsPage() {
       <Section label="Constraints">
         <div className="cl-grid cl-grid-2">
           {PERMISSIONS.panels.map((panel) => (
-            <Card key={panel.id} title={panel.title}>
-              <p className="cl-meta" style={{ marginBottom: 10, whiteSpace: 'normal' }}>
-                {panel.description}
-              </p>
-              <dl className="cl-kv">
-                {panel.items.map((item) => (
-                  <div key={item.label} style={{ display: 'contents' }}>
-                    <dt>{item.label}</dt>
-                    <dd className={item.mono ? 'cl-mono' : undefined}>
-                      {item.tone ? <Badge tone={item.tone}>{item.value}</Badge> : item.value}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </Card>
+            /* Sub-blocks rather than cards: a section rule and a card border
+               around the same content is two frames for one thing, and these
+               sit two-across under a head that already groups them. */
+            <div className="cl-subsection" key={panel.id}>
+              <div className="cl-subsection-head">
+                <span className="cl-label">{panel.title}</span>
+                <span className="cl-subsection-rule" />
+                <span className="cl-meta cl-subsection-note">{panel.description}</span>
+              </div>
+              <Spec
+                rows={panel.items.map((item) => ({
+                  key: item.label,
+                  label: item.label,
+                  value: item.tone ? <Badge tone={item.tone}>{item.value}</Badge> : item.mono ? <span className="cl-mono">{item.value}</span> : item.value,
+                }))}
+              />
+            </div>
           ))}
         </div>
       </Section>

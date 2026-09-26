@@ -1175,6 +1175,52 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
    is, before the values that describe it. */
 .cl-lead { font-size: 14.5px; line-height: 1.6; color: var(--cl-ink-2); max-width: 78ch; margin-bottom: 16px; }
 
+/* --- posture strip ---------------------------------------------------------
+   Four readings across the top of a page: the one-line answer, before the
+   working. No card around them — a border drawn round a row of four labelled
+   badges frames nothing that was not already grouped by the section head. */
+.cl-posture {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  gap: 16px 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--cl-line);
+  border-left: 2px solid var(--cl-ink-3);
+  background: var(--cl-panel);
+}
+
+/* --- claims ----------------------------------------------------------------
+   Two columns of plain-English statements derived from the policy: what the
+   agent can do, and what it can never do. They were two identical cards whose
+   headings differed by one word, which is the one place on the page where the
+   difference should be impossible to miss. The verdict colour runs down the
+   column edge and through its heading instead. */
+.cl-claims {
+  border: 1px solid var(--cl-line);
+  border-left: 2px solid currentColor;
+  background: var(--cl-panel);
+  color: var(--cl-ink-3);
+}
+.cl-claims[data-tone="pass"] { color: var(--cl-pass); }
+.cl-claims[data-tone="deny"] { color: var(--cl-deny); }
+.cl-claims-head {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--cl-line);
+  background: var(--cl-panel-2);
+  font-family: var(--mono); font-weight: 500; font-size: 10.5px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: currentColor;
+}
+.cl-claim {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--cl-line);
+}
+.cl-claim:last-child { border-bottom: none; }
+.cl-claim-text { font-size: 13.5px; line-height: 1.5; color: var(--cl-ink); }
+/* The policy path the statement was derived from. It is the reason to trust
+   the sentence above it, so it stays on the page — set quiet, not hidden. */
+.cl-claim-ref { font-family: var(--mono); font-size: 10.5px; color: var(--cl-ink-3); overflow-wrap: break-word; }
+
 /* --- sub-sections ----------------------------------------------------------
    A named block inside a section, for documents that arrive already divided
    into more parts than a page can carry as headings — the Blueprint's nineteen.
