@@ -141,20 +141,21 @@ export class AmaneSuiEndpoint {
   /// SWAP through a Cetus CLMM pool: the core authorizes the intent into a ticket typed by the
   /// adapter witness, and the adapter swaps and settles it in the same transaction.
   swapCetus(
-    route: { adapterPackage: string; coinA: string; coinB: string; a2b: boolean; pool: string; globalConfig: string },
+    route: { adapterPackage: string; module?: string; witnessType?: string; coinA: string; coinB: string; a2b: boolean; pool: string; globalConfig: string },
     intent: ActionIntent,
     agentSig: Hex,
     opts: { submitRejected?: boolean } = {},
   ) {
     const tx = new Transaction();
-    const witness = `${route.adapterPackage}::cetus_swap::CetusSwapV1`;
+    const mod = route.module ?? 'cetus_swap';
+    const witness = route.witnessType ?? `${route.adapterPackage}::${mod}::CetusSwapV1`;
     const ticket = tx.moveCall({
       target: `${this.packageId}::account::authorize`,
       typeArguments: [witness, route.a2b ? route.coinA : route.coinB],
       arguments: [tx.object(this.objectId), this.build(tx, 'ActionIntent', intent), tx.pure.vector('u8', bytes(agentSig)), tx.object(CLOCK)],
     });
     tx.moveCall({
-      target: `${route.adapterPackage}::cetus_swap::${route.a2b ? 'swap_a2b' : 'swap_b2a'}`,
+      target: `${route.adapterPackage}::${mod}::${route.a2b ? 'swap_a2b' : 'swap_b2a'}`,
       typeArguments: [route.coinA, route.coinB],
       arguments: [tx.object(this.objectId), ticket, tx.object(route.globalConfig), tx.object(route.pool), tx.object(CLOCK)],
     });

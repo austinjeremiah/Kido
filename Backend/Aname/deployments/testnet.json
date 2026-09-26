@@ -149,7 +149,24 @@
         "upgradeAuthority": "FROZEN",
         "freezeDigest": "3U7DK811RcspPUUDQLauxJkbwAEiV78joj9PvKLUCc53",
         "upstream": {
-          "protocol": "cetusClmm"
+          "protocol": "cetusClmm",
+          "poolPinnedOnChain": false
+        },
+        "module": "cetus_swap"
+      },
+      {
+        "name": "Cetus CLMM Pinned Swap",
+        "version": 1,
+        "actionKind": "SWAP",
+        "witnessType": "0x8d7f91354955c956a7820e276ef678efe7a3da7fcb8eb2c1d4871302eb5758b8::pinned_swap::CetusPinnedSwapV1",
+        "package": "0x8d7f91354955c956a7820e276ef678efe7a3da7fcb8eb2c1d4871302eb5758b8",
+        "module": "pinned_swap",
+        "publishDigest": "8CaQpn7tJZaxnEvKsyqJ37DjXoevKezfuzbZEwxpTXZt",
+        "upgradeAuthority": "FROZEN",
+        "upstream": {
+          "protocol": "cetusClmm",
+          "pool": "0x3f0397909cce1ded2d1502dbc2ae9e2b37170026083f42bd5a85bccf55947eac",
+          "poolPinnedOnChain": true
         }
       }
     ],
