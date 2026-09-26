@@ -53,8 +53,8 @@ const ctx: CompileContext = {
   policy,
   lease,
   bindings: {
-    "ethereum-sepolia": { chain: "ethereum-sepolia", chainRef: EVM_REF, account: EVM_ACCT, assets: { AMUSD: USD_EVM }, adapters: { PAY: { adapterId: PAY_EVM, adapterName: "Transfer Pay", adapterVersion: 1 } }, payees: { "acme-supplies": { recipientId: MERCHANT_EVM, label: "acme-supplies" } } },
-    "sui-testnet": { chain: "sui-testnet", chainRef: SUI_REF, account: SUI_ACCT, assets: { AMUSD: USD_SUI }, adapters: { PAY: { adapterId: PAY_SUI, adapterName: "Transfer Pay", adapterVersion: 1 } }, payees: { "acme-supplies": { recipientId: MERCHANT_SUI, label: "acme-supplies" } } },
+    "ethereum-sepolia": { chain: "ethereum-sepolia", chainRef: EVM_REF, account: EVM_ACCT, assets: { AMUSD: USD_EVM }, adapters: { PAY: { adapterId: PAY_EVM, adapterName: "Transfer Pay", adapterVersion: 1 } }, payees: { "acme-supplies": { recipientId: MERCHANT_EVM, label: "acme-supplies" } }, beneficiaries: {}, debtTokens: {}, repay: false },
+    "sui-testnet": { chain: "sui-testnet", chainRef: SUI_REF, account: SUI_ACCT, assets: { AMUSD: USD_SUI }, adapters: { PAY: { adapterId: PAY_SUI, adapterName: "Transfer Pay", adapterVersion: 1 } }, payees: { "acme-supplies": { recipientId: MERCHANT_SUI, label: "acme-supplies" } }, beneficiaries: {}, debtTokens: {}, repay: false },
   },
   nextNonce: () => ++nonce,
   now: () => 1_800_000_100n,
@@ -65,7 +65,7 @@ const world = (evm: bigint, sui: bigint): PaymentWorld => ({
   perActionCap: { "ethereum-sepolia": 20_000000n, "sui-testnet": 20_000000n },
   vaultBalance: { "ethereum-sepolia": evm, "sui-testnet": sui },
 });
-const inv = (id: string, amount: bigint, payee = "acme-supplies", memo = ""): Invoice => ({ id, payee, asset: "AMUSD", assetOut: null, amount, preferredChain: "ethereum-sepolia", memo });
+const inv = (id: string, amount: bigint, payee = "acme-supplies", memo = ""): Invoice => ({ id, payee, asset: "AMUSD", amount, preferredChain: "ethereum-sepolia", memo });
 const gate = new ReasoningGate([payInvoiceResponder]);
 const known = { chains: ["ethereum-sepolia", "sui-testnet"] as const, assets: ["AMUSD"] };
 

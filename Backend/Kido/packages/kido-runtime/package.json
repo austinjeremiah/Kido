@@ -19,7 +19,6 @@
   "dependencies": {
     "@kido/agents": "*",
     "@kido/amane-bridge": "*",
-    "@contextlock/studio-events": "*",
     "viem": "2.56.9",
     "zod": "4.1.12",
     "@kido/blueprint": "*"

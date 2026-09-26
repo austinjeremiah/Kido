@@ -51,6 +51,11 @@ export class MonitorEngine {
       }
       this.health.set(spec.id, { monitorId: spec.id, status: "OK" });
       for (const e of spec.evaluate(obs, now)) {
+        // CLEAR re-arms a condition once it no longer holds; it is not itself an event.
+        if (e.kind === "CLEAR") {
+          this.seen.delete(e.key);
+          continue;
+        }
         if (this.seen.has(e.key)) continue;
         this.seen.add(e.key);
         out.push({ ...e, monitorId: spec.id, at: now, observations: obs });

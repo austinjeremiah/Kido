@@ -32,5 +32,4 @@ export {
   type RootPolicy,
   type Bytes32,
 } from "@amane/core";
-export * from "./audit.js";
 export * from "./manifest.js";
