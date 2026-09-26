@@ -9,6 +9,7 @@ export {
   type AmaneOutcome,
   type AmaneDeploymentManifest,
   type TypedDataSigner,
+  type WormholeSuiRoute,
 } from "@amane/sdk";
 export {
   ActionKind,
@@ -27,6 +28,9 @@ export {
   suiAdapterId,
   suiAssetId,
   suiObjectToBytes32,
+  amaneDigest,
+  destSpecHash,
+  type DestSpec,
   type ActionIntent,
   type AgentLease,
   type RootPolicy,

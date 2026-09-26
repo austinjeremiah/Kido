@@ -44,6 +44,12 @@ export interface CrossChainIntent {
   destination: { chain: string; account: string; asset: string; action: string; adapterId: string; beneficiary: string; minAmount: bigint };
   deadline: number;
   transport: string;
+  /**
+   * Signed authority for an on-chain destination (e.g. the source ActionIntent, its agent
+   * signature and the DestSpec it commits to). Opaque to the runtime; only the destination
+   * endpoint interprets it, and the chain re-verifies it.
+   */
+  authority?: unknown;
 }
 
 /** What the transport says arrived; everything in it is untrusted until the destination checks it. */
@@ -90,12 +96,28 @@ export interface Reservation {
   consumed: boolean;
 }
 
+export type ReserveResult = { ok: true; reservation: Reservation; tx?: string } | { ok: false; code: ReservationRejection | string };
+
+/**
+ * Where arrived funds are checked and reserved. `ON_CHAIN` endpoints are the destination Amane
+ * account itself (the transport proof is redeemed there and the chain enforces every pinned
+ * field); `LOCAL_MIRROR` is the in-process model of those rules for tests and simulation.
+ */
+export interface DestinationEndpoint {
+  readonly chain: string;
+  readonly account: string;
+  readonly enforcement: "ON_CHAIN" | "LOCAL_MIRROR";
+  expect(i: CrossChainIntent): void;
+  reserve(d: Delivery): ReserveResult | Promise<ReserveResult>;
+}
+
 /**
  * Destination-side guard (the checks the destination Amane endpoint enforces). Arrived funds are
  * reserved for exactly one intent; a reservation can be consumed once, only by its pinned action,
  * adapter and beneficiary, and never by another lease or intent.
  */
-export class DestinationGuard {
+export class DestinationGuard implements DestinationEndpoint {
+  readonly enforcement = "LOCAL_MIRROR" as const;
   private readonly known = new Map<string, CrossChainIntent>();
   private readonly reservations = new Map<string, Reservation>();
   private readonly seenMessages = new Set<string>();
@@ -172,7 +194,7 @@ export interface CrossChainHooks {
 
 /** Drives one intent through the state machine. Every transition is checked against NEXT and logged. */
 export class CrossChainEngine {
-  constructor(private readonly transport: Transport, private readonly guard: DestinationGuard, private readonly hooks: CrossChainHooks, private readonly log: EventLog, private readonly agentId: string, private readonly clock: () => number = Date.now) {}
+  constructor(private readonly transport: Transport, private readonly guard: DestinationEndpoint, private readonly hooks: CrossChainHooks, private readonly log: EventLog, private readonly agentId: string, private readonly clock: () => number = Date.now) {}
 
   private move(run: CrossChainRun, to: CrossChainState, detail?: string) {
     if (!NEXT[run.state].includes(to)) throw new Error(`illegal cross-chain transition ${run.state} → ${to}`);
@@ -190,7 +212,14 @@ export class CrossChainEngine {
       return run;
     }
     this.move(run, "SOURCE_AUTHORIZED", src.detail);
-    const sent = await this.transport.send(intent);
+    let sent: { messageId: string; sourceTx: string };
+    try {
+      sent = await this.transport.send(intent);
+    } catch (err) {
+      // The source leg did not commit (e.g. the source Amane endpoint refused it): nothing moved.
+      run.rejection = (err as Error).message;
+      return run;
+    }
     run.messageId = sent.messageId;
     run.sourceTx = sent.sourceTx;
     this.move(run, "SOURCE_COMMITTED", sent.sourceTx);
@@ -207,13 +236,13 @@ export class CrossChainEngine {
     }
     if (!delivery) return this.recover(run, "TIMED_OUT", "no delivery before the deadline");
     this.move(run, "ARRIVED", delivery.messageId);
-    const res = this.guard.reserve(delivery);
+    const res = await this.guard.reserve(delivery);
     if (!res.ok) {
       run.rejection = res.code;
       return this.recover(run, "DESTINATION_FAILED", `destination refused the delivery: ${res.code}`);
     }
     run.reservation = res.reservation;
-    this.move(run, "RESERVED", `${res.reservation.amount} ${res.reservation.asset} reserved for ${intent.destination.action}`);
+    this.move(run, "RESERVED", `${res.reservation.amount} ${res.reservation.asset} reserved for ${intent.destination.action} (${this.guard.enforcement === "ON_CHAIN" ? `enforced on-chain${res.tx ? ` ${res.tx}` : ""}` : "local mirror"})`);
     this.move(run, "DESTINATION_AUTHORIZED");
     const dst = await this.hooks.executeDestination(intent, res.reservation);
     if (!dst.ok) return this.recover(run, "DESTINATION_FAILED", dst.detail);

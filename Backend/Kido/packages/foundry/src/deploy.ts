@@ -33,7 +33,7 @@ export async function deployEvmAuthority(a: {
   const chain: ChainId = "ethereum-sepolia";
   if (!a.bp.chains.includes(chain)) throw new Error("blueprint does not operate on Ethereum");
   const accountId = keccak256(toHex(`kido:${a.bp.kidoAgentId}:r${a.bp.revision}:${a.now}`));
-  const { endpoint, tx } = await AmaneEvmEndpoint.deploy({ publicClient: a.publicClient as never, relayer: a.relayer as never, accountId, controllers: a.controllers, threshold: a.threshold, registry: a.manifest.evm.adapterRegistry as Address });
+  const { endpoint, tx } = await AmaneEvmEndpoint.deploy({ publicClient: a.publicClient as never, relayer: a.relayer as never, accountId, controllers: a.controllers, threshold: a.threshold, registry: a.manifest.evm.adapterRegistry as Address, ext: (a.manifest.evm.accountExt ?? fail("BLOCKED_ENV: the Amane manifest has no evm.accountExt for core v3 accounts")) as Address });
   const endpoints = authorityEndpoints(a.bp, a.manifest, a.registry, { [chain]: endpoint.account32 }, undefined, { [chain]: addressToBytes32(a.ownerRecovery) }).filter((e) => e.chain === chain);
   const authority = compileAmaneAuthority({ ...a.bp, chains: [chain] }, endpoints, { controllers: a.controllers, issuer: a.issuer, agent: a.agent, now: a.now, accountId });
   if (!authority.ok) throw new Error(`authority does not compile: ${authority.blockers.join("; ")}`);
@@ -48,4 +48,8 @@ export async function activateEvmAuthority(d: EvmDeployment, ownerSigs: `0x${str
   const lease = d.authority.lease(leaseId, now);
   const activate = await d.endpoint.activateLease(lease, await signAmane(issuer, "AgentLease", lease));
   return { policy, lease, install, activate };
+}
+
+function fail(msg: string): never {
+  throw new Error(msg);
 }
