@@ -13,6 +13,7 @@
     "packages/registry",
     "packages/design-interview",
     "packages/knowledge",
+    "packages/identity",
     "packages/amane-bridge",
     "packages/kido-runtime",
     "packages/kido-agents",
