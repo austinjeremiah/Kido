@@ -27,6 +27,15 @@
         "decimals": 18,
         "testnetOnly": true,
         "mint": "open"
+      },
+      "wAMUSD": {
+        "address": "0x943DD202b17d10013F3D9221925c9F85Ff752544",
+        "decimals": 6,
+        "note": "Wormhole-wrapped Sui AMUSD (Token Bridge attestation); testnet demo asset",
+        "origin": {
+          "chain": "sui-testnet",
+          "coinType": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amusd::AMUSD"
+        }
       }
     },
     "adapters": [
@@ -61,6 +70,20 @@
           "router": "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E",
           "fee": 3000
         }
+      },
+      {
+        "name": "Wormhole Bridge",
+        "version": 1,
+        "actionKind": "BRIDGE",
+        "address": "0x88b1953f16c06976fcb6575aacb317a5917db7a6",
+        "adapterId": "0xf642e8278cf0d477635175de7c6af632d8bc8216399a447cb9b6f1be0f3551af",
+        "deployTx": "0x3869d6dbf237ecb1f75e57cf263aafd5b45b5796ee6b18d6ac66f917fef4d5ac",
+        "peer": {
+          "chain": "sui-testnet",
+          "wormholeChainId": 21,
+          "emitterCap": "0xc245eb1df3ba85fd8b38e1b9bddc1e7ff7a80df49793bfb477969da7cc368087",
+          "bridge": "0xf3ddf8b59325f108f57ac07ed2146824b5bf9f4232ca616fc5f4749c5bcec8f2"
+        }
       }
     ],
     "protocols": {
@@ -75,6 +98,12 @@
         "swapRouter02": "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E",
         "positionManager": "0x1238536071E1c677A632429e3655c799b22cDA52",
         "source": "Uniswap v3 Sepolia deployment"
+      },
+      "wormhole": {
+        "chainId": 10002,
+        "core": "0x4a8bc80Ed5a4067f1CCf107057b8270E0cC11A78",
+        "tokenBridge": "0xDB5492265f6038831E89f495670FF909aDe94bd9",
+        "vaaApi": "https://api.testnet.wormholescan.io/api/v1/vaas"
       }
     },
     "pools": {
@@ -87,7 +116,7 @@
         "note": "project pool, 1:1 nominal, full range; demo liquidity only"
       }
     },
-    "accountCoreVersion": 2,
+    "accountCoreVersion": 3,
     "releases": {
       "v1": {
         "sourceCommit": "7f83350db4ba7c3980ff681cfe497c399fb52530",
@@ -104,8 +133,20 @@
           "REPAY"
         ],
         "note": "new accounts deploy CORE_VERSION 2 bytecode from the SDK"
+      },
+      "v3": {
+        "actions": [
+          "SWAP",
+          "PAY",
+          "REPAY",
+          "BRIDGE"
+        ],
+        "accountExt": "0x0a2feab8333c866251b2036fc86e4f35bac0401a",
+        "extDeployTx": "0x977dc4b68f28c665ac155f3db0c63169b65f396b05fc57d6093c485537189a55",
+        "note": "new accounts deploy CORE_VERSION 3 bytecode from the SDK with the shared extension; cross-chain arrivals reserved per signed intent, quarantine and root recovery"
       }
-    }
+    },
+    "accountExt": "0x0a2feab8333c866251b2036fc86e4f35bac0401a"
   },
   "sui": {
     "network": "sui-testnet",
@@ -168,6 +209,31 @@
           "pool": "0x3f0397909cce1ded2d1502dbc2ae9e2b37170026083f42bd5a85bccf55947eac",
           "poolPinnedOnChain": true
         }
+      },
+      {
+        "name": "Wormhole Bridge",
+        "version": 1,
+        "actionKind": "BRIDGE",
+        "core": "v5",
+        "witnessType": "0x615e2b23ffc8ba04e5428e6232b11bc259e221d3774ae5847796660a2940d14b::wormhole_bridge::WormholeBridgeV1",
+        "package": "0x615e2b23ffc8ba04e5428e6232b11bc259e221d3774ae5847796660a2940d14b",
+        "module": "wormhole_bridge",
+        "publishDigest": "5Fa8EeEwgcgTxWRghD2erNB6rnGRr4mAmHsHMrYFhhB2",
+        "freezeDigest": "DaCy2Uc6MRDVs4wgJUL2fHYhpJkNbFDDMSTjCizPhjLj",
+        "upgradeAuthority": "FROZEN",
+        "upstream": {
+          "protocol": "wormhole"
+        },
+        "instance": {
+          "bridge": "0xf3ddf8b59325f108f57ac07ed2146824b5bf9f4232ca616fc5f4749c5bcec8f2",
+          "emitterCap": "0xc245eb1df3ba85fd8b38e1b9bddc1e7ff7a80df49793bfb477969da7cc368087",
+          "createTx": "59SwwqUYDV8tJae2BThakNDEV3nkCFd94PhvqPShuKyQ",
+          "peer": {
+            "chain": "ethereum-sepolia",
+            "wormholeChainId": 10002,
+            "adapter": "0x88b1953f16c06976fcb6575aacb317a5917db7a6"
+          }
+        }
       }
     ],
     "superseded": [
@@ -192,6 +258,18 @@
         "pools": "0x20a086e6fa0741b3ca77d033a65faf0871349b986ddbdde6fa1d85d78a5f4222",
         "moveDependency": "CetusProtocol/cetus-contracts packages/cetus_clmm rev testnet-v0.0.2",
         "source": "Cetus CLMM Sui testnet lineage"
+      },
+      "wormhole": {
+        "chainId": 21,
+        "corePackage": "0x21473617f3565d704aa67be73ea41243e9e34a42d434c31f8182c67ba01ccf49",
+        "coreTypeOrigin": "0xf47329f4344f3bf0f8e436e2f7b485466cff300f12a166563995d3888c296a94",
+        "coreState": "0x31358d198147da50db32eda2562951d53973a0c0ad5ed738e9b17d88b213d790",
+        "tokenBridgePackage": "0xad5d68fbc423bf8d6fa65b4309430fb586107220ee11444eac2146a6a8ae559e",
+        "tokenBridgeTypeOrigin": "0x562760fc51d90d4ae1835bac3e91e0e6987d3497b06f066941d3e51f6e8d76d0",
+        "tokenBridgeState": "0x6fb10cdb7aa299e9a4308752dadecb049ff55a892de92992a1edbd7912b3d6da",
+        "tokenBridgeEmitter": "0x40440411a170b4842ae7dee4f4a7b7a58bc0a98566e998850a7bb87bf5dc05b9",
+        "moveDependency": "wormhole-foundation/wormhole sui/{wormhole,token_bridge} rev 2df4000c5bd228e5ce3a3d87f0475837071587f9",
+        "vaaApi": "https://api.testnet.wormholescan.io/api/v1/vaas"
       }
     },
     "pools": {
@@ -202,6 +280,22 @@
         "tickSpacing": 60,
         "createTx": "9Euiyw2gZFPgDQr1rwMkc33JDm5iNdFV5HpSTJQsN7Xr",
         "note": "project pool, 1:1 nominal, full range; demo liquidity only"
+      }
+    },
+    "releases": {
+      "v5": {
+        "packageId": "0x700e76aafce5b10854767a1f6d553145cd345914809ab88596d441b0c334df88",
+        "publishDigest": "2EGKHynBMsMFH7fBDdmPmABoUiuc2tX29J2TPh497ZrN",
+        "freezeDigest": "4XiJ97AxvihdMXAk42Z9Q8Aq8udud5Kxp8tAYSSZdr3a",
+        "upgradeAuthority": "FROZEN",
+        "toolchain": "sui 1.80.1",
+        "sourceCommit": "35e9e27",
+        "actions": [
+          "SWAP",
+          "PAY",
+          "BRIDGE"
+        ],
+        "note": "cross-chain core: BRIDGE tickets, arrivals reserved per signed intent, quarantine and root recovery. v4 adapters (Cetus) are bound to the v4 Account type and do not work with v5 accounts."
       }
     }
   }

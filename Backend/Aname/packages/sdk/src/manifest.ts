@@ -9,6 +9,8 @@ export interface AmaneDeploymentManifest {
     chainId: number;
     chainRef: Hex;
     adapterRegistry: Address;
+    /** Shared AmaneAccountExt that core v3 accounts delegate to. */
+    accountExt?: Address;
     assets: Record<string, { address: Address; decimals: number }>;
     adapters: { name: string; version: number; actionKind: string; address: Address; adapterId: Hex }[];
   };
