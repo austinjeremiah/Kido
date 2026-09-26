@@ -15,6 +15,8 @@ export interface ProviderState {
   providerId: string;
   role: string;
   status: string;
+  /** What `status` means (registry glossary), so no one has to guess whether e.g. local means simulated. */
+  statusMeaning: string;
   live: boolean;
   proven: string[];
   notProven: string[];

@@ -6,7 +6,7 @@ import { DesignInterview, compileBlueprint, type InterviewModel, type InterviewS
 import { buildPublicManifest, compileIdentityPlan, type PlannedBinding } from "@kido/identity";
 import { KnowledgeBase } from "@kido/knowledge";
 import { applyPrivacyPlan, compilePrivacy, type PrivacyPlan } from "@kido/privacy";
-import { ProviderRegistry } from "@kido/registry";
+import { IMPLEMENTATION_STATUS_MEANING, ProviderRegistry } from "@kido/registry";
 import { buildAgentContext, buildSelfModel, compileAmaneAuthority, introspect, type AgentRuntimeState, type AuthorityResult, type ExecutionFact, type ProviderState, type RuntimeSnapshot } from "@kido/runtime";
 import type { AmaneDeploymentManifest } from "@kido/amane-bridge";
 import { authorityEndpoints } from "./endpoints.js";
@@ -260,6 +260,7 @@ export class Foundry {
         providerId: id,
         role,
         status: this.registry.implementationStatus(id),
+        statusMeaning: IMPLEMENTATION_STATUS_MEANING[this.registry.implementationStatus(id)],
         live: this.registry.implementationLive(id),
         proven: m?.implementation.proven ?? [],
         notProven: m?.implementation.notProven ?? [],

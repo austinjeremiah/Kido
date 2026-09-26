@@ -29,6 +29,18 @@ export type ImplementationStatus =
   | "BLOCKED_AUTH"
   | "BLOCKED_UPSTREAM";
 
+/** What each status means, stated once so agents, reports and graders read the same definitions. */
+export const IMPLEMENTATION_STATUS_MEANING: Record<ImplementationStatus, string> = {
+  NOT_IMPLEMENTED: "not built; nothing about it may be claimed",
+  IMPLEMENTED_LOCAL: "built and tested locally (unit or local-chain tests); not live on a testnet, not attested, and not a simulated stand-in",
+  SIMULATED: "exercised only through a simulator or mock; never presented as live or verified",
+  TESTNET_LIVE: "proven by live runs on a public testnet, with evidence",
+  LIVE_ATTESTED: "live with hardware or protocol attestation verified",
+  BLOCKED_ENV: "cannot run here until a missing environment prerequisite exists",
+  BLOCKED_AUTH: "cannot run until an interactive authentication step is completed by the operator",
+  BLOCKED_UPSTREAM: "cannot run until an upstream dependency changes",
+};
+
 export interface Implementation {
   status: ImplementationStatus;
   /** Claims backed by evidence (tests, live runs). */
