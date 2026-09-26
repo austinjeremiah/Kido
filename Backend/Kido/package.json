@@ -12,6 +12,7 @@
     "packages/blueprint",
     "packages/registry",
     "packages/design-interview",
+    "packages/knowledge",
     "packages/amane-bridge",
     "packages/kido-runtime",
     "packages/kido-agents",

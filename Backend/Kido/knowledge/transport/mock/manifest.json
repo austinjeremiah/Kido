@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "kido.knowledge-pack/v1",
+  "pack": "transport/mock",
+  "providerId": "mock-transport",
+  "displayName": "Mock cross-chain transport",
+  "version": "1",
+  "researchDate": "2026-09-26",
+  "status": "MOCK_ONLY",
+  "statusNote": "never used for a live claim",
+  "chains": [
+    "ethereum-sepolia",
+    "sui-testnet"
+  ],
+  "sdk": [],
+  "capabilities": [
+    "TOKEN_TRANSFER",
+    "MESSAGE",
+    "DELIVERY_PROOF"
+  ],
+  "deployments": {},
+  "trust": {
+    "providerId": "mock-transport",
+    "protects": [],
+    "verifies": [],
+    "requiresTrustIn": [
+      "test harness"
+    ],
+    "doesNotProtectAgainst": [
+      "everything — test only"
+    ],
+    "version": "1",
+    "sourceRefs": []
+  },
+  "failureModes": [
+    "configurable: timeout, duplicate, mutation"
+  ],
+  "limitations": [
+    "simulation and tests only"
+  ],
+  "sources": [],
+  "execution": []
+}

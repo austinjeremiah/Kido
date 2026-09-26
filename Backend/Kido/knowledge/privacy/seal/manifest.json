@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "kido.knowledge-pack/v1",
+  "pack": "privacy/seal",
+  "providerId": "seal",
+  "displayName": "Seal (decentralized secrets management for Sui)",
+  "version": "package v6 (testnet)",
+  "researchDate": "2026-09-26",
+  "status": "VERIFIED_LIVE",
+  "statusNote": "testnet key servers and SDK 1.4.16 over gRPC verified (TRACE 2026-09-26)",
+  "chains": [
+    "sui-testnet"
+  ],
+  "sdk": [
+    {
+      "package": "@mysten/seal",
+      "version": "1.4.16"
+    }
+  ],
+  "capabilities": [
+    "SECRET_ACCESS_CONTROL",
+    "ENCRYPTED_STATE"
+  ],
+  "deployments": {
+    "sui-testnet": {
+      "packageLatest": "0xdccbeb87767be2b2346af5575eb139807205e4c23ec53dc616f951fe1d814112",
+      "packageOriginal": "0x4614e5da0136ee7d464992ddd3719d388ae2bfdb48dfec6d9ad579f87341f2e1",
+      "keyServerMysten1": "0x73d05d62c18d9374e3ea529e8e0ed6161da1a141a94d3f76ae3fe4e99356db75",
+      "keyServerMysten2": "0xf5d14a81a982144ae441cd7d64b09027f116a468bd36e7eca494f750591623c8",
+      "committee3of5": "0xb012378c9f3799fb5b1a7083da74a4069e3c3f1c93de0b27212a5799ce1e1e98"
+    }
+  },
+  "trust": {
+    "providerId": "seal",
+    "protects": [
+      "encrypted data readable only by parties an on-chain access policy approves"
+    ],
+    "verifies": [
+      "access policy evaluated on-chain before key servers release shares"
+    ],
+    "requiresTrustIn": [
+      "a threshold of key servers",
+      "the access-policy Move package"
+    ],
+    "doesNotProtectAgainst": [
+      "colluding key servers above threshold",
+      "an authorized reader leaking plaintext"
+    ],
+    "version": "unpinned",
+    "sourceRefs": [
+      "https://seal-docs.wal.app/"
+    ]
+  },
+  "failureModes": [
+    "key servers unavailable",
+    "policy denies access"
+  ],
+  "limitations": [
+    "access policies are seal_approve* Move entry functions owned by the integrator",
+    "does not compute on secrets — only controls who may decrypt"
+  ],
+  "sources": [
+    {
+      "url": "https://seal-docs.wal.app/",
+      "retrieved": "2026-09-26"
+    }
+  ],
+  "execution": []
+}

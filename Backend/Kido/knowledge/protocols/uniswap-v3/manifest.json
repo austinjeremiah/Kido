@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "kido.knowledge-pack/v1",
+  "pack": "protocols/uniswap-v3",
+  "providerId": "uniswap-v3",
+  "displayName": "Uniswap v3",
+  "version": "v3",
+  "researchDate": "2026-09-26",
+  "status": "VERIFIED_LIVE",
+  "statusNote": "addresses verified with cast on Sepolia",
+  "chains": [
+    "ethereum-sepolia"
+  ],
+  "sdk": [],
+  "capabilities": [
+    "DEX_QUOTE",
+    "DEX_SWAP",
+    "DEX_POOL_STATE"
+  ],
+  "deployments": {
+    "ethereum-sepolia": {
+      "factory": "0x0227628f3F023bb0B980b67D528571c95c6DaC1c",
+      "swapRouter02": "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E",
+      "quoterV2": "0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3",
+      "positionManager": "0x1238536071E1c677A632429e3655c799b22cDA52"
+    }
+  },
+  "trust": {
+    "providerId": "uniswap-v3",
+    "protects": [
+      "constant-function swaps against pool liquidity"
+    ],
+    "verifies": [
+      "swap output is what the pool pays; the caller enforces minimum output"
+    ],
+    "requiresTrustIn": [
+      "pool liquidity providers (price)",
+      "router contract"
+    ],
+    "doesNotProtectAgainst": [
+      "price manipulation of thin pools — Amane's owner floor does",
+      "sandwiching without a minimum output"
+    ],
+    "version": "v3",
+    "sourceRefs": [
+      "https://developers.uniswap.org/"
+    ]
+  },
+  "failureModes": [
+    "no liquidity",
+    "price moved beyond floor"
+  ],
+  "limitations": [
+    "SwapRouter02 exactInputSingle has no deadline; wrap in multicall(deadline, …) or enforce in the adapter",
+    "existing Sepolia pools have arbitrary prices; create a project pool",
+    "fee tiers 100/500/3000/10000"
+  ],
+  "sources": [
+    {
+      "url": "https://developers.uniswap.org/",
+      "retrieved": "2026-09-26"
+    }
+  ],
+  "execution": [
+    {
+      "action": "SWAP",
+      "adapter": "uniswap-v3-swap",
+      "amaneAdapter": "AMANE_UNISWAP_V3_SWAP_V1",
+      "shipped": false
+    }
+  ]
+}

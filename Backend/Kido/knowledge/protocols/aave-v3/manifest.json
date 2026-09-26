@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "kido.knowledge-pack/v1",
+  "pack": "protocols/aave-v3",
+  "providerId": "aave-v3",
+  "displayName": "Aave v3",
+  "version": "v3 (Pool revision 1 on Sepolia)",
+  "researchDate": "2026-09-26",
+  "status": "VERIFIED_LIVE",
+  "statusNote": "addresses verified with cast on Sepolia",
+  "chains": [
+    "ethereum-sepolia"
+  ],
+  "sdk": [],
+  "capabilities": [
+    "LENDING_POSITION_STATE",
+    "LENDING_REPAY",
+    "LENDING_SUPPLY"
+  ],
+  "deployments": {
+    "ethereum-sepolia": {
+      "poolAddressesProvider": "0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A",
+      "pool": "0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951",
+      "faucet": "0xC959483DBa39aa9E78757139af0e9a2EDEb3f42D",
+      "usdc": "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",
+      "aUsdc": "0x16dA4541aD1807f4443d92D26044C1147406EB80",
+      "variableDebtUsdc": "0x36B5dE936eF1710E1d22EabE5231b28581a92ECc",
+      "dataProvider": "0x3e9708d80f7B3e43118013075F7e95CE3AB31F31"
+    }
+  },
+  "trust": {
+    "providerId": "aave-v3",
+    "protects": [
+      "over-collateralized lending positions per Aave rules"
+    ],
+    "verifies": [
+      "position health from on-chain reserve data and the Aave oracle"
+    ],
+    "requiresTrustIn": [
+      "Aave governance and upgradeable Pool proxy",
+      "Aave oracle",
+      "Ethereum consensus"
+    ],
+    "doesNotProtectAgainst": [
+      "oracle manipulation",
+      "governance upgrades",
+      "repaying someone else's debt unless the beneficiary is pinned"
+    ],
+    "version": "v3",
+    "sourceRefs": [
+      "https://aave.com/docs/aave-v3/smart-contracts/pool",
+      "bgd-labs/aave-address-book"
+    ]
+  },
+  "failureModes": [
+    "reserve paused/frozen",
+    "Pool proxy upgraded"
+  ],
+  "limitations": [
+    "Sepolia accepts only Aave's own listed test assets (not Circle USDC)",
+    "Sepolia runs an old v3.0 Pool (revision 1), not the v3.3 in current docs",
+    "repay(asset, amount, rateMode=2, onBehalfOf); max-uint for another's debt reverts \"40\"",
+    "measure repayment by variableDebtToken.balanceOf(beneficiary) before/after"
+  ],
+  "sources": [
+    {
+      "url": "https://aave.com/docs/aave-v3/smart-contracts/pool",
+      "retrieved": "2026-09-26"
+    }
+  ],
+  "execution": [
+    {
+      "action": "REPAY",
+      "adapter": "aave-v3-repay",
+      "amaneAdapter": "AMANE_AAVE_V3_REPAY_V1",
+      "shipped": false
+    }
+  ]
+}

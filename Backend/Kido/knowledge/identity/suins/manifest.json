@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "kido.knowledge-pack/v1",
+  "pack": "identity/suins",
+  "providerId": "suins",
+  "displayName": "SuiNS",
+  "version": "core v5 / subnames v2 (testnet)",
+  "researchDate": "2026-09-26",
+  "status": "VERIFIED_LIVE",
+  "statusNote": "reads verified live with @mysten/suins 2.0.12 over gRPC (TRACE 2026-09-26)",
+  "chains": [
+    "sui-testnet"
+  ],
+  "sdk": [
+    {
+      "package": "@mysten/suins",
+      "version": "2.0.12"
+    }
+  ],
+  "capabilities": [
+    "RESOLVE",
+    "REVERSE_RESOLVE",
+    "REGISTER",
+    "SUBNAME",
+    "TEXT_RECORDS",
+    "ADDRESS_RECORD",
+    "EXPIRY"
+  ],
+  "deployments": {
+    "sui-testnet": {
+      "coreOriginal": "0x22fa05f21b1ad71442491220bb9338f7b7095fe35000ef88d5400d28523bdd93",
+      "coreLatest": "0x40eee27b014a872f5c3330dcd5329aa55c7fe0fcc6e70c6498852e2e3727172e",
+      "suins": "0x300369e8909b9a6464da265b9a5a9ab6fe2158a040e84e808628cde7a07ee5a3",
+      "subnamesLatest": "0xf0c12144cb6e237a28b75368fd7a03fb2c484923a4b471da96e059f9e34edce7",
+      "payments": "0x4f33a0e1e30530f2aa500a41b9e3d502f8af3ef2c20bd0a1e42374e329da7cb0"
+    }
+  },
+  "trust": {
+    "providerId": "suins",
+    "protects": [
+      "human-readable binding of a Sui name to a target address and records"
+    ],
+    "verifies": [
+      "current target/records of the name object"
+    ],
+    "requiresTrustIn": [
+      "name NFT holder",
+      "SuiNS packages and their upgrade authority",
+      "Sui consensus"
+    ],
+    "doesNotProtectAgainst": [
+      "compromised name holder",
+      "financial misuse — SuiNS grants no financial authority"
+    ],
+    "version": "unpinned",
+    "sourceRefs": [
+      "https://docs.suins.io/"
+    ]
+  },
+  "failureModes": [
+    "name expired",
+    "target unset"
+  ],
+  "limitations": [
+    "records are limited to avatar, content_hash and walrus_site_id — no free-form agent text records",
+    "registration pays in test USDC/NS or SUI via Pyth; testnet USDC/NS mint caps are not ours",
+    "the SDK still references subnames v1; v2 is live (F-0406)"
+  ],
+  "sources": [
+    {
+      "url": "https://docs.suins.io/",
+      "retrieved": "2026-09-26"
+    }
+  ],
+  "execution": []
+}
