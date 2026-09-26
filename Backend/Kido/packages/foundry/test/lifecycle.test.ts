@@ -123,4 +123,14 @@ describe("foundry lifecycle", () => {
     await old.simulate(projectId);
     expect(() => old.build(projectId)).toThrow(/KIDO_LIFECYCLE_BLOCKING_FINDINGS/);
   });
+
+  it("a Sui swap agent's in-policy swap passes the chain's rules in simulation (output asset listed)", async () => {
+    const id = await interview("Build me a Sui trading agent.", {
+      "authority.mode": "Act on its own within limits I set", "authority.withdraw": "No, never", chains: "Sui", "actions.allowed": "swap tokens", protocols: "Cetus", "authority.autonomy": "automatically", "assets.spend": "AMUSD", "limits.window": "100", "limits.total": "400", "limits.swap_floor": "at least 0.95 AMSUI for each AMUSD", "identity.public": "no", "privacy.required": "no", "monitor.condition": "drift above 5%", "rebalance.target": "keep 50% in AMUSD", "recovery.partial": "stop and notify me",
+    });
+    expect(foundry.finalize(id).blockers).toEqual([]);
+    const sim = await foundry.simulate(id);
+    expect(Object.fromEntries(sim.results.map((r) => [r.id, r.actual]))).toMatchObject({ "happy-path": "ALLOW", overspend: "REJECT", "wrong-recipient": "REJECT" });
+    expect(sim.passed).toBe(true);
+  });
 });

@@ -164,6 +164,8 @@ export const MonitorSpecSchema = z.object({
   thresholdPrivateRef: z.string().nullable(),
   response: z.enum(["DETERMINISTIC_ACTION", "NOTIFY", "WAKE_SPECIALIST"]),
   action: ActionSchema.nullable(),
+  /** Allocation monitors: the share of the portfolio the owner wants held in `asset` (0..1). */
+  target: z.object({ asset: z.string(), share: z.string() }).nullable().default(null),
 });
 export type MonitorSpec = z.infer<typeof MonitorSpecSchema>;
 

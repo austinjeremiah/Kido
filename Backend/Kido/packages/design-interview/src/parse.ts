@@ -241,6 +241,18 @@ export function parseRecipientsScope(s: string): Parsed {
   return bad("say whether it may pay anyone, or only recipients you approve");
 }
 
+/** "keep 60% in AMUSD" / "half" → { asset, share: "0.6" } (asset defaults to the spend asset). */
+export function parseAllocation(s: string, ctx: Ctx): Parsed {
+  const pct = /(\d{1,3}(?:\.\d+)?)\s*(%|percent)/i.exec(s);
+  const share = pct ? Number(pct[1]) / 100 : /\bhalf\b/i.test(s) ? 0.5 : /\ba third\b/i.test(s) ? 1 / 3 : /\ba quarter\b/i.test(s) ? 0.25 : NaN;
+  if (!Number.isFinite(share) || share <= 0 || share >= 1) return bad("give a share between 0% and 100%, e.g. 50%");
+  const known = interviewRegistry().assets.map((a) => a.symbol);
+  const named = known.find((sym) => hasAffirmed(s, new RegExp(`\\b${sym}\\b`, "i")));
+  const asset = named ?? spendAssets(ctx)[0];
+  if (!asset) return bad("which token should that share be held in?");
+  return ok({ asset, share: share.toFixed(4).replace(/0+$/, "").replace(/\.$/, "") });
+}
+
 /** "at least 0.95 AMSUI for each AMUSD" → { minOutPerIn: "0.95", assetOut: "AMSUI", assetIn: "AMUSD" }. */
 export function parseSwapFloor(s: string): Parsed {
   const m = /(\d+(?:\.\d+)?)\s*([A-Za-z]{2,10})\s*(?:for|per)\s*(?:each|every|one|1|a)?\s*([A-Za-z]{2,10})/i.exec(s);
@@ -280,6 +292,7 @@ export function parseByType(type: AnswerType, text: string, ctx: Ctx, choices?: 
       return k === "OTHER" ? bad("could not tell what the agent should do") : ok(k);
     }
     case "recipients_scope": return parseRecipientsScope(text);
+    case "allocation": return parseAllocation(text, ctx);
     case "identity_name": {
       const name = text.trim().toLowerCase().replace(/[^a-z0-9. -]/g, "").replace(/\s+/g, "-");
       return name.length >= 3 ? ok(name.slice(0, 63)) : bad("name too short");

@@ -47,8 +47,10 @@ export function authorityEndpoints(bp: KidoAgentBlueprint, manifest: AmaneDeploy
     const fam = FAMILY[profile.family];
     const account = accounts[chain] ?? fam.simAccount(keccak256(toHex(`sim:${bp.kidoAgentId}:${chain}`)));
     const assets = Object.fromEntries(reg.assetsOn(chain).map((a) => [a.symbol, { assetId: fam.assetId(a.ref), decimals: a.decimals }]));
+    // Per action, the adapter the registry names for a provider executing it on this chain.
     const adapters: AuthorityEndpoint["adapters"] = {};
-    for (const a of fam.adapters(manifest)) adapters[a.actionKind as Action] = { adapterId: a.adapterId, adapterName: a.name, adapterVersion: a.version };
+    const wanted = (action: string) => new Set(reg.executors(action, chain).flatMap((p) => (p.execution ?? []).filter((e) => e.action === action).map((e) => e.amaneAdapter)));
+    for (const a of fam.adapters(manifest)) if (wanted(a.actionKind).has(a.name)) adapters[a.actionKind as Action] = { adapterId: a.adapterId, adapterName: a.name, adapterVersion: a.version };
     // REPAY needs a core that enforces it (EVM account core v2 per the Amane manifest).
     const coreVersion = Number((manifest[profile.family] as { accountCoreVersion?: number }).accountCoreVersion ?? 1);
     const repayProviders = reg.executors("REPAY", chain).map((p) => p.providerId);

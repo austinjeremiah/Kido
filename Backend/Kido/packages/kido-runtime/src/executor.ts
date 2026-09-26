@@ -6,6 +6,9 @@ import type { SemanticStep } from "./plan.js";
 /** A Cetus pool the Sui SWAP adapter can route through (from the Amane manifest). */
 export interface SuiSwapRoute {
   adapterPackage: string;
+  /** Adapter module and witness type (from the Amane manifest). */
+  module: string;
+  witnessType: string;
   coinA: string;
   coinB: string;
   pool: string;

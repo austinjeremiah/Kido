@@ -14,3 +14,5 @@ export * from "./monitors/aave.js";
 export * from "./responders/repay.js";
 export * from "./recovery.js";
 export * from "./agent.js";
+export * from "./monitors/allocation.js";
+export * from "./responders/rebalance.js";

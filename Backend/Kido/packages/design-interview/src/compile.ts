@@ -98,6 +98,7 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
       thresholdPrivateRef: privateThreshold ? privateThreshold.id : null,
       response: mode === "BOUNDED_AUTONOMOUS_FINANCE" && autonomy !== "OWNER_APPROVAL" && action ? "DETERMINISTIC_ACTION" : mode === "READ_ONLY" ? "NOTIFY" : "WAKE_SPECIALIST",
       action: mode === "READ_ONLY" ? null : action,
+      target: cond.metric === "ALLOCATION_DRIFT" ? ((ctx["rebalance.target"] as { asset: string; share: string } | undefined) ?? null) : null,
     });
   }
 

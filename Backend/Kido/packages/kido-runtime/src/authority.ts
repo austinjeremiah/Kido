@@ -119,6 +119,13 @@ export function compileAmaneAuthority(bp: KidoAgentBlueprint, endpoints: Authori
       crossChainTotal[l.asset] = (crossChainTotal[l.asset] ?? 0n) + BigInt(l.total);
       return { assetId: asset.assetId, maxPerAction: BigInt(l.perAction), maxPerEpoch: BigInt(l.perWindow), maxTotal: BigInt(l.total) };
     });
+    // Swap outputs must be listed assets on the endpoint; with zero caps they can be received, never spent.
+    if (actions.includes("SWAP")) {
+      for (const f of a.swapFloors.filter((x) => x.chain === chain)) {
+        const out = ep.assets[f.assetOut];
+        if (out && !assetLimits.some((l) => l.assetId === out.assetId)) assetLimits.push({ assetId: out.assetId, maxPerAction: 0n, maxPerEpoch: 0n, maxTotal: 0n });
+      }
+    }
     const payees = a.payees.filter((p) => p.chain === chain).map((p) => ({ recipientId: recipientId(ep.family, p.address, ep.account), label: p.label }));
     const beneficiaries = a.beneficiaries.filter((p) => p.chain === chain).map((p) => ({ recipientId: recipientId(ep.family, p.address, ep.account), label: p.label }));
     const floors = actions.includes("SWAP")

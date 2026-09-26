@@ -29,6 +29,7 @@ const DEFAULTS: Record<string, string> = {
   "privacy.plaintext": "only my device",
   "privacy.disclosure": "only the decision",
   "monitor.condition": "drift above 5%",
+  "rebalance.target": "keep 50%",
   "recovery.partial": "stop and notify me",
 };
 

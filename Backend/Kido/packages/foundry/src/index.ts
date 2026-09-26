@@ -4,3 +4,4 @@ export * from "./simulate.js";
 export * from "./service.js";
 export * from "./deploy.js";
 export * from "./runtime-builder.js";
+export * from "./sui.js";

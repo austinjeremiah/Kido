@@ -107,7 +107,7 @@ const AGENTS = [
   },
   {
     id: "cetus-agent",
-    build: () => buildAgent("Rebalance my portfolio on Sui when allocation drifts", { ...common, protocols: "Cetus", "actions.allowed": "swap tokens", "assets.spend": "AMUSD", "limits.window": "100", "limits.total": "400", "limits.swap_floor": "at least 0.95 AMSUI for each AMUSD", "monitor.condition": "drift above 5%", "authority.autonomy": "automatically" }),
+    build: () => buildAgent("Rebalance my portfolio on Sui when allocation drifts", { ...common, protocols: "Cetus", "actions.allowed": "swap tokens", "assets.spend": "AMUSD", "limits.window": "100", "limits.total": "400", "limits.swap_floor": "at least 0.95 AMSUI for each AMUSD", "monitor.condition": "drift above 5%", "rebalance.target": "keep 50% in AMUSD", "authority.autonomy": "automatically" }),
     questions: [
       { q: "Which DEX are you using?", must: [/cetus/i] },
       { q: "Which pool is permitted?", must: [/0x3f0397909cce1ded2d1502dbc2ae9e2b37170026083f42bd5a85bccf55947eac/i] },
@@ -118,7 +118,7 @@ const AGENTS = [
   },
   {
     id: "uniswap-agent",
-    build: () => buildAgent("Rebalance my portfolio on Ethereum when allocation drifts", { ...common, protocols: "Uniswap", "actions.allowed": "swap tokens", "assets.spend": "AMUSD", "limits.window": "100", "limits.total": "400", "limits.swap_floor": "at least 0.95 AMDAI for each AMUSD", "monitor.condition": "drift above 5%", "authority.autonomy": "automatically" }),
+    build: () => buildAgent("Rebalance my portfolio on Ethereum when allocation drifts", { ...common, protocols: "Uniswap", "actions.allowed": "swap tokens", "assets.spend": "AMUSD", "limits.window": "100", "limits.total": "400", "limits.swap_floor": "at least 0.95 AMDAI for each AMUSD", "monitor.condition": "drift above 5%", "rebalance.target": "keep 50% in AMUSD", "authority.autonomy": "automatically" }),
     questions: [
       { q: "Which DEX are you using?", must: [/uniswap/i] },
       { q: "Which pool is permitted?", must: [/0xcC1Dd1eFED740Ca8fa980efd6C9253b7b9bB77CA/i] },

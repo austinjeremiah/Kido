@@ -8,7 +8,7 @@ const humanDuration = (secs: number) => (secs % 3600 === 0 ? (secs === 3600 ? "o
 export type AnswerType =
   | "authority_mode" | "yesno" | "chains" | "protocols" | "actions" | "autonomy" | "asset" | "amount"
   | "payees" | "threshold" | "identity_name" | "privacy_values" | "hidden_from" | "plaintext" | "disclosure"
-  | "recovery" | "objective_kind" | "swap_floor" | "duration" | "beneficiary" | "recipients_scope";
+  | "recovery" | "objective_kind" | "swap_floor" | "duration" | "beneficiary" | "recipients_scope" | "allocation";
 
 export type ObjectiveKind = "LENDING_PROTECTION" | "REBALANCE" | "TRADING" | "PAYMENTS" | "LIQUIDITY" | "TREASURY" | "MONITORING" | "RESEARCH" | "OTHER";
 
@@ -313,6 +313,16 @@ export const CATALOG: RequirementDef[] = [
     question: (c) => (privateThresholdDeclared(c) ? { text: "Which measure should trigger it, and in which direction (for example: health factor falling below your level)? Do not type your private level here; you will enter it directly into the private provider." } : {
       text: kind(c) === "LENDING_PROTECTION" ? "At what health factor should it act?" : kind(c) === "REBALANCE" || kind(c) === "TRADING" ? "How far may your allocation drift before it trades (in percent)?" : "What condition should it watch for?",
     }),
+  },
+  {
+    key: "rebalance.target",
+    topic: "DATA",
+    class: "USER_REQUIRED",
+    critical: true,
+    bucket: 7,
+    answerType: "allocation",
+    appliesWhen: (c) => (kind(c) === "REBALANCE" || kind(c) === "TRADING") && acts(c).includes("SWAP"),
+    question: (c) => ({ text: `What share of the portfolio should stay in ${spendList(c)[0] ?? "your main token"}? For example: keep 50% in ${spendList(c)[0] ?? "it"}.` }),
   },
   {
     key: "data.oracle_failure",

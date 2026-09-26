@@ -18,7 +18,7 @@ function executor(outcome: unknown) {
     evm: evm as never,
     sui: sui as never,
     suiCoinTypes: { AMUSD: "0xt::amusd::AMUSD", AMSUI: "0xt::amsui::AMSUI" },
-    suiRoutes: [{ adapterPackage: "0xa", coinA: "0xt::amusd::AMUSD", coinB: "0xt::amsui::AMSUI", pool: "0xp", globalConfig: "0xg" }],
+    suiRoutes: [{ adapterPackage: "0xa", module: "pinned_swap", witnessType: "0xa::pinned_swap::CetusPinnedSwapV1", coinA: "0xt::amusd::AMUSD", coinB: "0xt::amsui::AMSUI", pool: "0xp", globalConfig: "0xg" }],
     agent,
     log,
     agentId: "kido:agent:test",

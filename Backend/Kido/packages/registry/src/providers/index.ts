@@ -338,7 +338,7 @@ export const PROVIDERS: ProviderManifest[] = [
     statusNote: "objects verified via Sui GraphQL",
     implementation: { status: "TESTNET_LIVE", proven: ["SWAP through the project Pool<AMUSD, AMSUI> via the frozen Amane Cetus adapter", "below-floor, over-cap, redirected, forged and post-revoke swaps rejected on-chain"], notProven: ["arbitrary pools", "multi-hop routes"], evidence: [".gauntlet/evidence/amane-v2-sui-*.json"] },
     knowledgePack: "protocols/cetus-clmm",
-    execution: [{ action: "SWAP", capability: "DEX_SWAP", adapter: "cetus-clmm-swap", amaneAdapter: "Cetus CLMM Swap", shipped: true }],
+    execution: [{ action: "SWAP", capability: "DEX_SWAP", adapter: "cetus-clmm-swap", amaneAdapter: "Cetus CLMM Pinned Swap", shipped: true }],
   },
   {
     schemaVersion: "kido.provider/v1",
