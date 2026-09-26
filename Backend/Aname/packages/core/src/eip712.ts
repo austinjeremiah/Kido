@@ -75,9 +75,11 @@ const LeaseIssuer = [
 const RootPolicy = [
   { name: 'accountId', type: 'bytes32' },
   { name: 'policyVersion', type: 'uint64' },
+  { name: 'parentPolicyHash', type: 'bytes32' },
   { name: 'allowedActions', type: 'uint32' },
   { name: 'priceMode', type: 'uint8' },
   { name: 'maxLeaseLifetime', type: 'uint64' },
+  { name: 'activateBefore', type: 'uint64' },
   { name: 'endpoints', type: 'PolicyEndpoint[]' },
   { name: 'leaseIssuers', type: 'LeaseIssuer[]' },
 ] as const;
@@ -129,14 +131,18 @@ const ActionIntent = [
 
 const PauseAccount = [
   { name: 'accountId', type: 'bytes32' },
-  { name: 'pauseNonce', type: 'uint64' },
+  { name: 'pauseEpoch', type: 'uint64' },
+  { name: 'pauseId', type: 'bytes32' },
+  { name: 'deadline', type: 'uint64' },
 ] as const;
 
 const UnpauseAccount = [
   { name: 'accountId', type: 'bytes32' },
   { name: 'chainRef', type: 'bytes32' },
   { name: 'account', type: 'bytes32' },
-  { name: 'opNonce', type: 'uint64' },
+  { name: 'pauseEpoch', type: 'uint64' },
+  { name: 'pauseId', type: 'bytes32' },
+  { name: 'deadline', type: 'uint64' },
 ] as const;
 
 const RevokeLease = [
@@ -206,7 +212,7 @@ export function amaneDigest<P extends AmanePrimaryType>(primaryType: P, message:
 }
 
 export function amaneStructHash<P extends AmanePrimaryType>(primaryType: P, message: AmaneMessageMap[P]): `0x${string}` {
-  return hashStruct({ data: message as never, primaryType, types: AMANE_TYPES as never });
+  return hashStruct({ data: message as never, primaryType: primaryType as never, types: AMANE_TYPES as never });
 }
 
 export function domainSeparator(): `0x${string}` {

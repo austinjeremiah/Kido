@@ -25,13 +25,14 @@ const SWAP_FLOOR_T: vector<u8> =
 const LEASE_ENDPOINT_T: vector<u8> =
     b"LeaseEndpoint(bytes32 chainRef,bytes32 account,bytes32[] adapters,AssetLimit[] assets,bytes32[] recipients,bytes32[] beneficiaries)";
 const ROOT_POLICY_T: vector<u8> =
-    b"RootPolicy(bytes32 accountId,uint64 policyVersion,uint32 allowedActions,uint8 priceMode,uint64 maxLeaseLifetime,PolicyEndpoint[] endpoints,LeaseIssuer[] leaseIssuers)";
+    b"RootPolicy(bytes32 accountId,uint64 policyVersion,bytes32 parentPolicyHash,uint32 allowedActions,uint8 priceMode,uint64 maxLeaseLifetime,uint64 activateBefore,PolicyEndpoint[] endpoints,LeaseIssuer[] leaseIssuers)";
 const AGENT_LEASE_T: vector<u8> =
     b"AgentLease(bytes32 accountId,uint64 policyVersion,bytes32 leaseId,address agent,address issuer,uint64 validAfter,uint64 expiresAt,uint64 activateBefore,uint32 allowedActions,uint8 authMode,LeaseEndpoint[] endpoints)";
 const ACTION_INTENT_T: vector<u8> =
     b"ActionIntent(bytes32 accountId,bytes32 chainRef,bytes32 account,uint64 policyVersion,bytes32 leaseId,uint64 nonce,uint8 actionKind,bytes32 adapterId,string adapterName,uint32 adapterVersion,bytes32 assetIn,bytes32 assetOut,uint256 amountIn,uint256 minAmountOut,bytes32 recipient,string recipientLabel,uint64 deadline,bytes32 planHash,uint32 planStep)";
-const PAUSE_ACCOUNT_T: vector<u8> = b"PauseAccount(bytes32 accountId,uint64 pauseNonce)";
-const UNPAUSE_ACCOUNT_T: vector<u8> = b"UnpauseAccount(bytes32 accountId,bytes32 chainRef,bytes32 account,uint64 opNonce)";
+const PAUSE_ACCOUNT_T: vector<u8> = b"PauseAccount(bytes32 accountId,uint64 pauseEpoch,bytes32 pauseId,uint64 deadline)";
+const UNPAUSE_ACCOUNT_T: vector<u8> =
+    b"UnpauseAccount(bytes32 accountId,bytes32 chainRef,bytes32 account,uint64 pauseEpoch,bytes32 pauseId,uint64 deadline)";
 const REVOKE_LEASE_T: vector<u8> = b"RevokeLease(bytes32 accountId,bytes32 leaseId)";
 const WITHDRAW_T: vector<u8> =
     b"Withdraw(bytes32 accountId,bytes32 chainRef,bytes32 account,bytes32 assetId,uint256 amount,bytes32 destination,uint64 opNonce,uint64 deadline)";
@@ -91,9 +92,11 @@ public struct LeaseIssuer has copy, drop, store {
 public struct RootPolicy has copy, drop, store {
     account_id: vector<u8>,
     policy_version: u64,
+    parent_policy_hash: vector<u8>,
     allowed_actions: u32,
     price_mode: u8,
     max_lease_lifetime: u64,
+    activate_before: u64,
     endpoints: vector<PolicyEndpoint>,
     lease_issuers: vector<LeaseIssuer>,
 }
@@ -145,14 +148,18 @@ public struct ActionIntent has copy, drop, store {
 
 public struct PauseAccount has copy, drop, store {
     account_id: vector<u8>,
-    pause_nonce: u64,
+    pause_epoch: u64,
+    pause_id: vector<u8>,
+    deadline: u64,
 }
 
 public struct UnpauseAccount has copy, drop, store {
     account_id: vector<u8>,
     chain_ref: vector<u8>,
     account: vector<u8>,
-    op_nonce: u64,
+    pause_epoch: u64,
+    pause_id: vector<u8>,
+    deadline: u64,
 }
 
 public struct RevokeLease has copy, drop, store {
@@ -231,14 +238,27 @@ public fun lease_issuer(issuer: vector<u8>, max_lease_lifetime: u64, allowed_age
 public fun root_policy(
     account_id: vector<u8>,
     policy_version: u64,
+    parent_policy_hash: vector<u8>,
     allowed_actions: u32,
     price_mode: u8,
     max_lease_lifetime: u64,
+    activate_before: u64,
     endpoints: vector<PolicyEndpoint>,
     lease_issuers: vector<LeaseIssuer>,
 ): RootPolicy {
     b32(&account_id);
-    RootPolicy { account_id, policy_version, allowed_actions, price_mode, max_lease_lifetime, endpoints, lease_issuers }
+    b32(&parent_policy_hash);
+    RootPolicy {
+        account_id,
+        policy_version,
+        parent_policy_hash,
+        allowed_actions,
+        price_mode,
+        max_lease_lifetime,
+        activate_before,
+        endpoints,
+        lease_issuers,
+    }
 }
 
 public fun lease_endpoint(
@@ -342,16 +362,25 @@ public fun action_intent(
     }
 }
 
-public fun pause_account(account_id: vector<u8>, pause_nonce: u64): PauseAccount {
+public fun pause_account(account_id: vector<u8>, pause_epoch: u64, pause_id: vector<u8>, deadline: u64): PauseAccount {
     b32(&account_id);
-    PauseAccount { account_id, pause_nonce }
+    b32(&pause_id);
+    PauseAccount { account_id, pause_epoch, pause_id, deadline }
 }
 
-public fun unpause_account(account_id: vector<u8>, chain_ref: vector<u8>, account: vector<u8>, op_nonce: u64): UnpauseAccount {
+public fun unpause_account(
+    account_id: vector<u8>,
+    chain_ref: vector<u8>,
+    account: vector<u8>,
+    pause_epoch: u64,
+    pause_id: vector<u8>,
+    deadline: u64,
+): UnpauseAccount {
     b32(&account_id);
     b32(&chain_ref);
     b32(&account);
-    UnpauseAccount { account_id, chain_ref, account, op_nonce }
+    b32(&pause_id);
+    UnpauseAccount { account_id, chain_ref, account, pause_epoch, pause_id, deadline }
 }
 
 public fun revoke_lease(account_id: vector<u8>, lease_id: vector<u8>): RevokeLease {
@@ -413,6 +442,8 @@ public fun li_limits(x: &LeaseIssuer): &vector<IssuerLimit> { &x.limits }
 
 public fun rp_account_id(p: &RootPolicy): &vector<u8> { &p.account_id }
 public fun rp_policy_version(p: &RootPolicy): u64 { p.policy_version }
+public fun rp_parent_policy_hash(p: &RootPolicy): &vector<u8> { &p.parent_policy_hash }
+public fun rp_activate_before(p: &RootPolicy): u64 { p.activate_before }
 public fun rp_allowed_actions(p: &RootPolicy): u32 { p.allowed_actions }
 public fun rp_price_mode(p: &RootPolicy): u8 { p.price_mode }
 public fun rp_max_lease_lifetime(p: &RootPolicy): u64 { p.max_lease_lifetime }
@@ -459,12 +490,16 @@ public fun ai_plan_hash(a: &ActionIntent): &vector<u8> { &a.plan_hash }
 public fun ai_plan_step(a: &ActionIntent): u32 { a.plan_step }
 
 public fun pa_account_id(x: &PauseAccount): &vector<u8> { &x.account_id }
-public fun pa_pause_nonce(x: &PauseAccount): u64 { x.pause_nonce }
+public fun pa_pause_epoch(x: &PauseAccount): u64 { x.pause_epoch }
+public fun pa_pause_id(x: &PauseAccount): &vector<u8> { &x.pause_id }
+public fun pa_deadline(x: &PauseAccount): u64 { x.deadline }
 
 public fun ua_account_id(x: &UnpauseAccount): &vector<u8> { &x.account_id }
 public fun ua_chain_ref(x: &UnpauseAccount): &vector<u8> { &x.chain_ref }
 public fun ua_account(x: &UnpauseAccount): &vector<u8> { &x.account }
-public fun ua_op_nonce(x: &UnpauseAccount): u64 { x.op_nonce }
+public fun ua_pause_epoch(x: &UnpauseAccount): u64 { x.pause_epoch }
+public fun ua_pause_id(x: &UnpauseAccount): &vector<u8> { &x.pause_id }
+public fun ua_deadline(x: &UnpauseAccount): u64 { x.deadline }
 
 public fun rl_account_id(x: &RevokeLease): &vector<u8> { &x.account_id }
 public fun rl_lease_id(x: &RevokeLease): &vector<u8> { &x.lease_id }
@@ -676,9 +711,11 @@ public fun hash_root_policy(p: &RootPolicy): vector<u8> {
         type_hash_root_policy(),
         p.account_id,
         word_u64(p.policy_version),
+        p.parent_policy_hash,
         word_u256(p.allowed_actions as u256),
         word_u256(p.price_mode as u256),
         word_u64(p.max_lease_lifetime),
+        word_u64(p.activate_before),
         keccak256(&eps),
         keccak256(&iss),
     ])
@@ -741,11 +778,19 @@ public fun hash_action_intent(a: &ActionIntent): vector<u8> {
 }
 
 public fun hash_pause_account(x: &PauseAccount): vector<u8> {
-    keccak_of(vector[type_hash_pause_account(), x.account_id, word_u64(x.pause_nonce)])
+    keccak_of(vector[type_hash_pause_account(), x.account_id, word_u64(x.pause_epoch), x.pause_id, word_u64(x.deadline)])
 }
 
 public fun hash_unpause_account(x: &UnpauseAccount): vector<u8> {
-    keccak_of(vector[type_hash_unpause_account(), x.account_id, x.chain_ref, x.account, word_u64(x.op_nonce)])
+    keccak_of(vector[
+        type_hash_unpause_account(),
+        x.account_id,
+        x.chain_ref,
+        x.account,
+        word_u64(x.pause_epoch),
+        x.pause_id,
+        word_u64(x.deadline),
+    ])
 }
 
 public fun hash_revoke_lease(x: &RevokeLease): vector<u8> {

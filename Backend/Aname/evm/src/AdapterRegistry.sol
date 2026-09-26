@@ -12,7 +12,10 @@ interface IAmaneAdapter {
 }
 
 /// Append-only registry. An adapter id commits to the chain, action kind, name, version, address
-/// and runtime code hash (immutables included), so an id can never change meaning.
+/// and runtime code hash (immutables included). Registration also rejects runtime code that can
+/// change behaviour without changing its code hash (DELEGATECALL, CALLCODE, SELFDESTRUCT, SSTORE),
+/// so an id can never change meaning through its own code. Behaviour of the upstream protocol an
+/// adapter calls is outside this guarantee and is pinned per adapter manifest instead.
 contract AdapterRegistry {
     bytes32 public constant ADAPTER_TAG = keccak256("AMANE_ADAPTER_V1");
 
@@ -31,6 +34,7 @@ contract AdapterRegistry {
 
     error AlreadyRegistered(bytes32 adapterId);
     error NotAContract();
+    error MutableAdapterCode(uint256 offset, uint8 opcode);
 
     constructor() {
         chainRef = keccak256(abi.encodePacked("eip155:", _toString(block.chainid)));
@@ -46,6 +50,7 @@ contract AdapterRegistry {
 
     function register(address adapter) external returns (bytes32 id) {
         if (adapter.code.length == 0) revert NotAContract();
+        _assertImmutableCode(adapter.code);
         IAmaneAdapter a = IAmaneAdapter(adapter);
         uint8 kind = a.actionKind();
         uint32 version = a.adapterVersion();
@@ -59,6 +64,18 @@ contract AdapterRegistry {
 
     function get(bytes32 id) external view returns (Entry memory) {
         return entries[id];
+    }
+
+    function _assertImmutableCode(bytes memory code) private pure {
+        uint256 i;
+        while (i < code.length) {
+            uint8 op = uint8(code[i]);
+            if (op == 0xf4 || op == 0xf2 || op == 0xff || op == 0x55) revert MutableAdapterCode(i, op);
+            // Code after an INVALID byte is still reachable through a JUMPDEST, so the whole runtime
+            // is scanned; constant data that happens to contain a forbidden byte is rejected too.
+            if (op >= 0x60 && op <= 0x7f) i += op - 0x5f;
+            ++i;
+        }
     }
 
     function _toString(uint256 v) private pure returns (string memory) {

@@ -76,9 +76,11 @@ export interface LeaseIssuer {
 export interface RootPolicy {
   accountId: Bytes32;
   policyVersion: bigint;
+  parentPolicyHash: Bytes32;
   allowedActions: number;
   priceMode: number;
   maxLeaseLifetime: bigint;
+  activateBefore: bigint;
   endpoints: PolicyEndpoint[];
   leaseIssuers: LeaseIssuer[];
 }
@@ -130,14 +132,18 @@ export interface ActionIntent {
 
 export interface PauseAccount {
   accountId: Bytes32;
-  pauseNonce: bigint;
+  pauseEpoch: bigint;
+  pauseId: Bytes32;
+  deadline: bigint;
 }
 
 export interface UnpauseAccount {
   accountId: Bytes32;
   chainRef: Bytes32;
   account: Bytes32;
-  opNonce: bigint;
+  pauseEpoch: bigint;
+  pauseId: Bytes32;
+  deadline: bigint;
 }
 
 export interface RevokeLease {

@@ -29,7 +29,7 @@ fun setup(): (Scenario, Clock) {
 fun ready(): (Scenario, Clock, Account) {
     let (s, clock) = setup();
     let mut a = s.take_shared<Account>();
-    a.install_policy(f::policy_v1(), f::policy_v1_sigs());
+    a.install_policy(f::policy_v1(), f::policy_v1_sigs(), &clock);
     a.activate_lease(f::lease_ctrl(), f::lease_ctrl_sigs()[0], &clock);
     (s, clock, a)
 }
@@ -37,7 +37,7 @@ fun ready(): (Scenario, Clock, Account) {
 fun policy_only(): (Scenario, Clock, Account) {
     let (s, clock) = setup();
     let mut a = s.take_shared<Account>();
-    a.install_policy(f::policy_v1(), f::policy_v1_sigs());
+    a.install_policy(f::policy_v1(), f::policy_v1_sigs(), &clock);
     (s, clock, a)
 }
 
@@ -55,7 +55,7 @@ fun sig(v: vector<vector<u8>>): vector<u8> { v[0] }
 fun am_pol_001_install_policy() {
     let (s, clock) = setup();
     let mut a = s.take_shared<Account>();
-    a.install_policy(f::policy_v1(), f::policy_v1_sigs());
+    a.install_policy(f::policy_v1(), f::policy_v1_sigs(), &clock);
     assert!(a.policy_version() == 1);
     assert!(a.policy_hash() == amane::eip712::hash_root_policy(&f::policy_v1()));
     finish(s, clock, a);
@@ -65,7 +65,7 @@ fun am_pol_001_install_policy() {
 fun am_pol_006_one_signature_is_not_enough() {
     let (s, clock) = setup();
     let mut a = s.take_shared<Account>();
-    a.install_policy(f::policy_v1_one_sig(), f::policy_v1_one_sig_sigs());
+    a.install_policy(f::policy_v1_one_sig(), f::policy_v1_one_sig_sigs(), &clock);
     finish(s, clock, a);
 }
 
@@ -73,7 +73,7 @@ fun am_pol_006_one_signature_is_not_enough() {
 fun am_pol_006_attacker_cosigner_rejected() {
     let (s, clock) = setup();
     let mut a = s.take_shared<Account>();
-    a.install_policy(f::policy_v1_attacker(), f::policy_v1_attacker_sigs());
+    a.install_policy(f::policy_v1_attacker(), f::policy_v1_attacker_sigs(), &clock);
     finish(s, clock, a);
 }
 
@@ -82,7 +82,7 @@ fun am_pol_006_duplicate_signature_rejected() {
     let (s, clock) = setup();
     let mut a = s.take_shared<Account>();
     let one = f::policy_v1_sigs()[0];
-    a.install_policy(f::policy_v1(), vector[one, one]);
+    a.install_policy(f::policy_v1(), vector[one, one], &clock);
     finish(s, clock, a);
 }
 
@@ -90,7 +90,7 @@ fun am_pol_006_duplicate_signature_rejected() {
 fun am_pol_002_policy_mutated_after_signature() {
     let (s, clock) = setup();
     let mut a = s.take_shared<Account>();
-    a.install_policy(f::policy_v1_issuer_is_controller(), f::policy_v1_sigs());
+    a.install_policy(f::policy_v1_issuer_is_controller(), f::policy_v1_sigs(), &clock);
     finish(s, clock, a);
 }
 
@@ -98,7 +98,7 @@ fun am_pol_002_policy_mutated_after_signature() {
 fun am_pol_004_policy_without_this_endpoint() {
     let (s, clock) = setup();
     let mut a = s.take_shared<Account>();
-    a.install_policy(f::policy_v1_wrong_endpoint(), f::policy_v1_wrong_endpoint_sigs());
+    a.install_policy(f::policy_v1_wrong_endpoint(), f::policy_v1_wrong_endpoint_sigs(), &clock);
     finish(s, clock, a);
 }
 
@@ -106,21 +106,21 @@ fun am_pol_004_policy_without_this_endpoint() {
 fun policy_issuer_may_not_be_controller() {
     let (s, clock) = setup();
     let mut a = s.take_shared<Account>();
-    a.install_policy(f::policy_v1_issuer_is_controller(), f::policy_v1_issuer_is_controller_sigs());
+    a.install_policy(f::policy_v1_issuer_is_controller(), f::policy_v1_issuer_is_controller_sigs(), &clock);
     finish(s, clock, a);
 }
 
 #[test, expected_failure(abort_code = account::EPolicyVersionMismatch)]
 fun am_pol_005_stale_policy_version() {
     let (s, clock, mut a) = ready();
-    a.install_policy(f::policy_v1(), f::policy_v1_sigs());
+    a.install_policy(f::policy_v1(), f::policy_v1_sigs(), &clock);
     finish(s, clock, a);
 }
 
 #[test, expected_failure(abort_code = account::EPolicyVersionMismatch)]
 fun am_pol_005_skipped_policy_version() {
     let (s, clock, mut a) = ready();
-    a.install_policy(f::policy_v3(), f::policy_v3_sigs());
+    a.install_policy(f::policy_v3(), f::policy_v3_sigs(), &clock);
     finish(s, clock, a);
 }
 
@@ -223,7 +223,7 @@ fun am_lease_008_lifetime_beyond_root() {
 fun lease_activation_deadline() {
     let (s, mut clock) = setup();
     let mut a = s.take_shared<Account>();
-    a.install_policy(f::policy_v1(), f::policy_v1_sigs());
+    a.install_policy(f::policy_v1(), f::policy_v1_sigs(), &clock);
     clock.set_for_testing((f::t0() + 601) * 1000);
     a.activate_lease(f::lease_ctrl(), sig(f::lease_ctrl_sigs()), &clock);
     finish(s, clock, a);
@@ -270,17 +270,28 @@ fun am_act_007_epoch_cap() {
     finish(s, clock, a);
 }
 
+#[test, expected_failure(abort_code = account::EBudgetEpoch)]
+fun am_budget_002_no_double_window_at_boundary() {
+    let (mut s, mut clock, mut a) = ready();
+    clock.set_for_testing((f::t0() + 299) * 1000);
+    a.pay<USD>(f::pay_25_a(), sig(f::pay_25_a_sigs()), &clock, s.ctx());
+    a.pay<USD>(f::pay_25_b(), sig(f::pay_25_b_sigs()), &clock, s.ctx());
+    clock.set_for_testing((f::t0() + 300) * 1000);
+    a.pay<USD>(f::pay_one_usd(), sig(f::pay_one_usd_sigs()), &clock, s.ctx());
+    finish(s, clock, a);
+}
+
 #[test]
-fun am_budget_002_next_epoch_resets_window() {
+fun am_budget_002_bucket_refills_linearly() {
     let (mut s, mut clock, mut a) = ready();
     a.pay<USD>(f::pay_25_a(), sig(f::pay_25_a_sigs()), &clock, s.ctx());
     a.pay<USD>(f::pay_25_b(), sig(f::pay_25_b_sigs()), &clock, s.ctx());
-    clock.set_for_testing((f::t0() + 3599) * 1000);
-    let (e0, spent, _) = a.lease_spend(f::lease_id(), f::usd());
+    let (_, t, level, _) = a.lease_spend(f::lease_id(), f::usd());
+    assert!(t == f::t0() && level == 0);
     clock.set_for_testing((f::t0() + 3600) * 1000);
     a.pay<USD>(f::pay_late(), sig(f::pay_late_sigs()), &clock, s.ctx());
-    let (e1, spent1, total) = a.lease_spend(f::lease_id(), f::usd());
-    assert!(e1 == e0 + 1 && spent == 50_000000 && spent1 == 1 && total == 50_000001);
+    let (_, t2, level2, total) = a.lease_spend(f::lease_id(), f::usd());
+    assert!(t2 == f::t0() + 3600 && level2 == 50_000000 - 1 && total == 50_000001);
     finish(s, clock, a);
 }
 
@@ -360,7 +371,7 @@ fun issuer_lease_spends_within_issuer_caps() {
 #[test, expected_failure(abort_code = account::EPolicyVersionMismatch)]
 fun new_policy_version_invalidates_old_leases() {
     let (mut s, clock, mut a) = ready();
-    a.install_policy(f::policy_v2(), f::policy_v2_sigs());
+    a.install_policy(f::policy_v2(), f::policy_v2_sigs(), &clock);
     a.pay<USD>(f::pay_1(), sig(f::pay_1_sigs()), &clock, s.ctx());
     finish(s, clock, a);
 }
@@ -386,7 +397,7 @@ fun revoke_by_attacker_rejected() {
 fun revoke_before_activation_kills_signed_lease() {
     let (s, clock) = setup();
     let mut a = s.take_shared<Account>();
-    a.install_policy(f::policy_v1(), f::policy_v1_sigs());
+    a.install_policy(f::policy_v1(), f::policy_v1_sigs(), &clock);
     a.revoke_lease(f::revoke_ctrl(), sig(f::revoke_ctrl_sigs()));
     a.activate_lease(f::lease_ctrl(), sig(f::lease_ctrl_sigs()), &clock);
     finish(s, clock, a);
@@ -395,7 +406,7 @@ fun revoke_before_activation_kills_signed_lease() {
 #[test, expected_failure(abort_code = account::EActionPaused)]
 fun am_pause_001_paused_account_rejects_agent() {
     let (mut s, clock, mut a) = ready();
-    a.pause(f::pause_b(), sig(f::pause_b_sigs()));
+    a.pause(f::pause_b(), sig(f::pause_b_sigs()), &clock);
     a.pay<USD>(f::pay_1(), sig(f::pay_1_sigs()), &clock, s.ctx());
     finish(s, clock, a);
 }
@@ -403,33 +414,92 @@ fun am_pause_001_paused_account_rejects_agent() {
 #[test, expected_failure(abort_code = account::EControllerNotAuthorized)]
 fun pause_by_attacker_rejected() {
     let (s, clock, mut a) = ready();
-    a.pause(f::pause_attacker(), sig(f::pause_attacker_sigs()));
+    a.pause(f::pause_attacker(), sig(f::pause_attacker_sigs()), &clock);
     finish(s, clock, a);
 }
 
 #[test, expected_failure(abort_code = account::EControllerThreshold)]
 fun am_pol_007_unpause_needs_threshold() {
     let (s, clock, mut a) = ready();
-    a.pause(f::pause_b(), sig(f::pause_b_sigs()));
-    a.unpause(f::unpause_0_one_sig(), f::unpause_0_one_sig_sigs());
+    a.pause(f::pause_b(), sig(f::pause_b_sigs()), &clock);
+    a.unpause(f::unpause_0_one_sig(), f::unpause_0_one_sig_sigs(), &clock);
     finish(s, clock, a);
 }
 
 #[test]
 fun am_pol_007_pause_then_unpause_restores_agent() {
     let (mut s, clock, mut a) = ready();
-    a.pause(f::pause_b(), sig(f::pause_b_sigs()));
+    a.pause(f::pause_b(), sig(f::pause_b_sigs()), &clock);
     assert!(a.is_paused());
-    a.unpause(f::unpause_0(), f::unpause_0_sigs());
+    a.unpause(f::unpause_0(), f::unpause_0_sigs(), &clock);
     a.pay<USD>(f::pay_1(), sig(f::pay_1_sigs()), &clock, s.ctx());
     finish(s, clock, a);
 }
 
-#[test, expected_failure(abort_code = account::EReplayPauseNonce)]
-fun pause_nonce_cannot_be_replayed() {
+#[test, expected_failure(abort_code = account::EReplayPauseEpoch)]
+fun f0207_old_pause_cannot_be_replayed_after_unpause() {
     let (s, clock, mut a) = ready();
-    a.pause(f::pause_b(), sig(f::pause_b_sigs()));
-    a.pause(f::pause_b(), sig(f::pause_b_sigs()));
+    a.pause(f::pause_b(), sig(f::pause_b_sigs()), &clock);
+    a.unpause(f::unpause_0(), f::unpause_0_sigs(), &clock);
+    a.pause(f::pause_b(), sig(f::pause_b_sigs()), &clock);
+    finish(s, clock, a);
+}
+
+#[test, expected_failure(abort_code = account::EReplayPauseEpoch)]
+fun f0200_withheld_unpause_cannot_lift_newer_pause() {
+    let (s, clock, mut a) = ready();
+    a.pause(f::pause_b(), sig(f::pause_b_sigs()), &clock);
+    a.pause(f::pause_a_incident2(), sig(f::pause_a_incident2_sigs()), &clock);
+    a.unpause(f::unpause_0(), f::unpause_0_sigs(), &clock);
+    finish(s, clock, a);
+}
+
+#[test, expected_failure(abort_code = account::EActionExpired)]
+fun f0200_unpause_expires() {
+    let (s, mut clock, mut a) = ready();
+    a.pause(f::pause_b(), sig(f::pause_b_sigs()), &clock);
+    clock.set_for_testing((f::t0() + 901) * 1000);
+    a.unpause(f::unpause_0(), f::unpause_0_sigs(), &clock);
+    finish(s, clock, a);
+}
+
+#[test, expected_failure(abort_code = account::EReplayPauseEpoch)]
+fun f0202_controller_cannot_exhaust_pause() {
+    let (s, clock, mut a) = ready();
+    a.pause(f::pause_exhaust(), sig(f::pause_exhaust_sigs()), &clock);
+    finish(s, clock, a);
+}
+
+#[test, expected_failure(abort_code = account::EPolicyParentMismatch)]
+fun f0203_policy_must_extend_current_policy() {
+    let (s, clock, mut a) = ready();
+    a.install_policy(f::policy_v2_wrong_parent(), f::policy_v2_wrong_parent_sigs(), &clock);
+    finish(s, clock, a);
+}
+
+#[test, expected_failure(abort_code = account::EPolicyActivationExpired)]
+fun f0203_signed_policy_expires() {
+    let (s, mut clock) = setup();
+    let mut a = s.take_shared<Account>();
+    clock.set_for_testing((f::t0() + 601) * 1000);
+    a.install_policy(f::policy_v1(), f::policy_v1_sigs(), &clock);
+    finish(s, clock, a);
+}
+
+#[test, expected_failure(abort_code = account::EPolicyBadFloor)]
+fun f0208_zero_numerator_floor_rejected() {
+    let (s, clock) = setup();
+    let mut a = s.take_shared<Account>();
+    a.install_policy(f::policy_v1_zero_floor(), f::policy_v1_zero_floor_sigs(), &clock);
+    finish(s, clock, a);
+}
+
+#[test, expected_failure(abort_code = account::EControllerNotAuthorized)]
+fun f0205_issuer_cannot_pre_revoke_foreign_lease() {
+    let (s, clock) = setup();
+    let mut a = s.take_shared<Account>();
+    a.install_policy(f::policy_v1(), f::policy_v1_sigs(), &clock);
+    a.revoke_lease(f::revoke_by_issuer(), sig(f::revoke_by_issuer_sigs()));
     finish(s, clock, a);
 }
 

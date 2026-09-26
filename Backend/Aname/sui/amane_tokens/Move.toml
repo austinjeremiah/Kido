@@ -1,0 +1,9 @@
+[package]
+name = "amane_tokens"
+edition = "2024.beta"
+license = "MIT"
+
+[dependencies]
+
+[addresses]
+amane_tokens = "0x0"

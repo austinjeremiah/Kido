@@ -54,9 +54,11 @@ export function fixturePolicy(): RootPolicy {
   return {
     accountId: FIXTURE.accountId,
     policyVersion: 1n,
+    parentPolicyHash: ZERO32,
     allowedActions: actionMask(ActionKind.SWAP, ActionKind.PAY),
     priceMode: PriceMode.TESTNET_FIXED,
     maxLeaseLifetime: 86_400n,
+    activateBefore: 1_800_000_600n,
     endpoints: [endpoint(FIXTURE.sepoliaChainRef, FIXTURE.evmAccount), endpoint(FIXTURE.suiChainRef, FIXTURE.suiAccount)],
     leaseIssuers: [
       {

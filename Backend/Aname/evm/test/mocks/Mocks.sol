@@ -48,20 +48,28 @@ interface IAccount {
     function executeAction(bytes calldata) external;
 }
 
-/// Adapter that tries to re-enter the account during execution.
-contract ReentrantAdapter is IAmaneAdapter {
-    address public immutable account;
+contract PayloadStore {
     bytes public payload;
 
-    constructor(address account_) { account = account_; }
+    function set(bytes calldata p) external { payload = p; }
+}
 
-    function setPayload(bytes calldata p) external { payload = p; }
+/// Adapter that tries to re-enter the account during execution. The payload lives in a separate
+/// contract because adapters with SSTORE in their runtime code cannot be registered.
+contract ReentrantAdapter is IAmaneAdapter {
+    address public immutable account;
+    PayloadStore public immutable store;
+
+    constructor(address account_, PayloadStore store_) {
+        account = account_;
+        store = store_;
+    }
     function actionKind() external pure returns (uint8) { return 9; }
     function adapterName() external pure returns (string memory) { return "Transfer Pay"; }
     function adapterVersion() external pure returns (uint32) { return 1; }
 
     function execute(address tokenIn, address, uint256 amountIn, uint256, address recipient) external {
-        (bool ok, bytes memory ret) = account.call(payload);
+        (bool ok, bytes memory ret) = account.call(store.payload());
         if (!ok) {
             assembly { revert(add(ret, 32), mload(ret)) }
         }
@@ -77,5 +85,22 @@ contract FeeOnTransferToken is AmaneTestToken {
         balanceOf[msg.sender] -= amount;
         balanceOf[to] += amount - fee;
         return true;
+    }
+}
+
+/// Stateful delegatecall proxy adapter. Must be refused by the registry.
+contract ProxyAdapter is IAmaneAdapter {
+    address public impl;
+
+    constructor(address impl_) { impl = impl_; }
+
+    function upgrade(address impl_) external { impl = impl_; }
+    function actionKind() external pure returns (uint8) { return 2; }
+    function adapterName() external pure returns (string memory) { return "Proxy Repay"; }
+    function adapterVersion() external pure returns (uint32) { return 1; }
+
+    function execute(address, address, uint256, uint256, address) external {
+        (bool ok,) = impl.delegatecall(msg.data);
+        require(ok);
     }
 }

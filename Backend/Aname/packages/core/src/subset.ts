@@ -37,7 +37,9 @@ export type AmaneRejectCode =
   | 'AMANE_POLICY_BAD_EPOCH'
   | 'AMANE_POLICY_BAD_FLOOR'
   | 'AMANE_POLICY_DUPLICATE_ENTRY'
-  | 'AMANE_POLICY_ISSUER_IS_CONTROLLER';
+  | 'AMANE_POLICY_ISSUER_IS_CONTROLLER'
+  | 'AMANE_POLICY_PARENT_MISMATCH'
+  | 'AMANE_POLICY_ACTIVATION_EXPIRED';
 
 export class AmaneReject extends Error {
   constructor(public readonly code: AmaneRejectCode, detail?: string) {
@@ -71,7 +73,9 @@ export function findPolicyEndpoint(policy: RootPolicy, chainRef: Bytes32, accoun
 }
 
 export function findLeaseEndpoint(lease: AgentLease, chainRef: Bytes32, account: Bytes32): LeaseEndpoint | undefined {
-  return lease.endpoints.find((e) => eq32(e.chainRef, chainRef) && eq32(e.account, account));
+  const own = lease.endpoints.filter((e) => eq32(e.chainRef, chainRef) && eq32(e.account, account));
+  if (own.length > 1) fail('AMANE_LEASE_DUPLICATE_ENTRY', 'endpoint listed twice');
+  return own[0];
 }
 
 function assertUniqueWith(values: string[], code: AmaneRejectCode) {
@@ -84,8 +88,14 @@ function assertUniqueWith(values: string[], code: AmaneRejectCode) {
 }
 
 // Mirrors the checks every endpoint performs in installPolicy, for the endpoint given.
-export function assertPolicyWellFormed(policy: RootPolicy, ctx: { controllers: Address[]; chainRef: Bytes32; account: Bytes32 }): void {
+export function assertPolicyWellFormed(
+  policy: RootPolicy,
+  ctx: { controllers: Address[]; chainRef: Bytes32; account: Bytes32; now?: bigint; currentPolicyHash?: Bytes32; currentVersion?: bigint },
+): void {
   if (policy.priceMode !== 1) fail('AMANE_POLICY_BAD_PRICE_MODE');
+  if (ctx.currentVersion !== undefined && policy.policyVersion !== ctx.currentVersion + 1n) fail('AMANE_POLICY_VERSION_MISMATCH');
+  if (ctx.currentPolicyHash !== undefined && !eq32(policy.parentPolicyHash, ctx.currentPolicyHash)) fail('AMANE_POLICY_PARENT_MISMATCH');
+  if (ctx.now !== undefined && ctx.now > policy.activateBefore) fail('AMANE_POLICY_ACTIVATION_EXPIRED');
   const own = policy.endpoints.filter((e) => eq32(e.chainRef, ctx.chainRef) && eq32(e.account, ctx.account));
   if (own.length === 0) fail('AMANE_POLICY_WRONG_ENDPOINT');
   if (own.length > 1) fail('AMANE_POLICY_DUPLICATE_ENTRY');
@@ -98,7 +108,7 @@ export function assertPolicyWellFormed(policy: RootPolicy, ctx: { controllers: A
   assertUniqueWith(e.beneficiaries.map((a) => a.recipientId), dup);
   assertUniqueWith(e.recoveryDestinations.map((a) => a.recipientId), dup);
   assertUniqueWith(e.swapFloors.map((f) => `${f.assetIn}:${f.assetOut}`), dup);
-  for (const f of e.swapFloors) if (f.minOutDenominator === 0n) fail('AMANE_POLICY_BAD_FLOOR');
+  for (const f of e.swapFloors) if (f.minOutDenominator === 0n || f.minOutNumerator === 0n) fail('AMANE_POLICY_BAD_FLOOR');
   assertUniqueWith(policy.leaseIssuers.map((i) => i.issuer), dup);
   for (const i of policy.leaseIssuers) {
     if (ctx.controllers.some((c) => getAddress(c) === getAddress(i.issuer))) fail('AMANE_POLICY_ISSUER_IS_CONTROLLER');

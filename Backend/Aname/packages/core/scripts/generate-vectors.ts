@@ -89,8 +89,8 @@ const vectors: Vector[] = [
   await vector('lease_by_issuer', 'AgentLease', issuerLease, [testAccounts.issuer]),
   await vector('action_pay_sui', 'ActionIntent', fixtureAction(), [testAccounts.agent]),
   await vector('action_swap_sepolia', 'ActionIntent', swapAction, [testAccounts.agent]),
-  await vector('pause', 'PauseAccount', { accountId: FIXTURE.accountId, pauseNonce: 1n }, [testAccounts.controllerB]),
-  await vector('unpause', 'UnpauseAccount', { accountId: FIXTURE.accountId, chainRef: FIXTURE.suiChainRef, account: FIXTURE.suiAccount, opNonce: 0n }, [
+  await vector('pause', 'PauseAccount', { accountId: FIXTURE.accountId, pauseEpoch: 0n, pauseId: FIXTURE.planHash, deadline: 1_800_000_900n }, [testAccounts.controllerB]),
+  await vector('unpause', 'UnpauseAccount', { accountId: FIXTURE.accountId, chainRef: FIXTURE.suiChainRef, account: FIXTURE.suiAccount, pauseEpoch: 0n, pauseId: FIXTURE.planHash, deadline: 1_800_000_900n }, [
     testAccounts.controllerA,
     testAccounts.controllerB,
   ]),

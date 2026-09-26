@@ -43,9 +43,12 @@ contract AmaneAccount {
         uint256 total;
     }
 
+    /// Token bucket: `level` refills linearly to perEpoch over epochSeconds, so spend within
+    /// any window of length W is at most perEpoch * (1 + W / epochSeconds).
     struct Spend {
-        uint64 epoch;
-        uint256 epochSpent;
+        bool initialized;
+        uint64 updatedAt;
+        uint256 level;
         uint256 totalSpent;
     }
 
@@ -85,7 +88,8 @@ contract AmaneAccount {
     mapping(address => bool) public isController;
 
     bool public paused;
-    uint64 public pauseNonce;
+    uint64 public pauseEpoch;
+    bytes32 public lastPauseId;
     uint64 public opNonce;
 
     uint64 public policyVersion;
@@ -120,8 +124,8 @@ contract AmaneAccount {
     event PolicyInstalled(uint64 indexed policyVersion, bytes32 policyHash);
     event LeaseActivated(bytes32 indexed leaseId, address indexed agent, address indexed issuer, uint64 expiresAt);
     event LeaseRevoked(bytes32 indexed leaseId, address by);
-    event Paused(uint64 pauseNonce, address by);
-    event Unpaused(uint64 opNonce);
+    event Paused(uint64 pauseEpoch, bytes32 pauseId, address by);
+    event Unpaused(uint64 pauseEpoch, bytes32 pauseId);
     event ActionExecuted(
         bytes32 indexed leaseId,
         uint64 indexed nonce,
@@ -173,6 +177,8 @@ contract AmaneAccount {
         if (p.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
         if (p.policyVersion != policyVersion + 1) revert AmaneRejected("AMANE_POLICY_VERSION_MISMATCH");
         if (p.priceMode != PRICE_MODE_TESTNET_FIXED) revert AmaneRejected("AMANE_POLICY_BAD_PRICE_MODE");
+        if (p.parentPolicyHash != policyHash) revert AmaneRejected("AMANE_POLICY_PARENT_MISMATCH");
+        if (block.timestamp > p.activateBefore) revert AmaneRejected("AMANE_POLICY_ACTIVATION_EXPIRED");
         bytes32 h = p.hash();
         _requireThreshold(AmaneHash.digest(h), sigs);
 
@@ -208,7 +214,9 @@ contract AmaneAccount {
             recoveryDestination[v][id] = true;
         }
         for (uint256 i; i < e.swapFloors.length; ++i) {
-            if (e.swapFloors[i].minOutDenominator == 0) revert AmaneRejected("AMANE_POLICY_BAD_FLOOR");
+            if (e.swapFloors[i].minOutDenominator == 0 || e.swapFloors[i].minOutNumerator == 0) {
+                revert AmaneRejected("AMANE_POLICY_BAD_FLOOR");
+            }
             Floor storage f = swapFloor[v][keccak256(abi.encode(e.swapFloors[i].assetIn, e.swapFloors[i].assetOut))];
             if (f.den != 0) revert AmaneRejected("AMANE_POLICY_DUPLICATE_ENTRY");
             f.num = e.swapFloors[i].minOutNumerator;
@@ -227,33 +235,40 @@ contract AmaneAccount {
     }
 
     /// Reduction path: one controller signature suffices and anyone may relay it, so an executor
-    /// cannot censor a pause by refusing to submit.
+    /// cannot censor a pause by refusing to submit. A pause is bound to the current pause epoch,
+    /// which only a threshold unpause advances, so controllers cannot exhaust it and old pause
+    /// signatures die after the next unpause.
     function pause(PauseAccount calldata x, bytes calldata sig) external {
         if (x.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
-        if (x.pauseNonce <= pauseNonce) revert AmaneRejected("AMANE_REPLAY_PAUSE_NONCE");
+        if (x.pauseEpoch != pauseEpoch) revert AmaneRejected("AMANE_REPLAY_PAUSE_EPOCH");
+        if (block.timestamp > x.deadline) revert AmaneRejected("AMANE_ACTION_EXPIRED");
         address signer = AmaneSig.recover(AmaneHash.digest(x.hash()), sig);
         if (!isController[signer]) revert AmaneRejected("AMANE_CONTROLLER_NOT_AUTHORIZED");
-        pauseNonce = x.pauseNonce;
         paused = true;
-        emit Paused(x.pauseNonce, signer);
+        lastPauseId = x.pauseId;
+        emit Paused(x.pauseEpoch, x.pauseId, signer);
     }
 
+    /// An unpause lifts only the exact pause its signers saw: any later pause changes
+    /// `lastPauseId` and invalidates a withheld unpause.
     function unpause(UnpauseAccount calldata x, bytes[] calldata sigs) external nonReentrant {
         if (x.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
         if (x.chainRef != chainRef || x.account != self32()) revert AmaneRejected("AMANE_CHAIN_WRONG_ENDPOINT");
-        if (x.opNonce != opNonce) revert AmaneRejected("AMANE_REPLAY_OP_NONCE");
+        if (!paused || x.pauseEpoch != pauseEpoch || x.pauseId != lastPauseId) {
+            revert AmaneRejected("AMANE_REPLAY_PAUSE_EPOCH");
+        }
+        if (block.timestamp > x.deadline) revert AmaneRejected("AMANE_ACTION_EXPIRED");
         _requireThreshold(AmaneHash.digest(x.hash()), sigs);
-        opNonce = x.opNonce + 1;
         paused = false;
-        emit Unpaused(x.opNonce);
+        pauseEpoch = x.pauseEpoch + 1;
+        emit Unpaused(x.pauseEpoch, x.pauseId);
     }
 
     function revokeLease(RevokeLease calldata x, bytes calldata sig) external {
         if (x.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
         address signer = AmaneSig.recover(AmaneHash.digest(x.hash()), sig);
         Lease storage l = leases[x.leaseId];
-        bool allowed = isController[signer] || (l.status == LEASE_ACTIVE && l.issuer == signer)
-            || (l.status == LEASE_NONE && issuers[policyVersion][signer].allowed);
+        bool allowed = isController[signer] || (l.status == LEASE_ACTIVE && l.issuer == signer);
         if (!allowed) revert AmaneRejected("AMANE_CONTROLLER_NOT_AUTHORIZED");
         l.status = LEASE_REVOKED;
         emit LeaseRevoked(x.leaseId, signer);
@@ -410,10 +425,6 @@ contract AmaneAccount {
         return (rootAssets[policyVersion][assetId], rootSpend[policyVersion][assetId]);
     }
 
-    function currentEpoch() public view returns (uint64) {
-        return uint64(block.timestamp / epochSeconds) + 1;
-    }
-
     // ---------------------------------------------------------------- internals
 
     function _checkAdapter(ActionIntent calldata a, uint64 v) private view returns (AdapterRegistry.Entry memory entry) {
@@ -433,28 +444,32 @@ contract AmaneAccount {
     }
 
     function _debitAll(bytes32 leaseId, Lease memory l, uint64 v, bytes32 assetId, uint256 amount) private {
-        uint64 epoch = currentEpoch();
         Limit memory ll = leaseAssets[leaseId][assetId];
         if (!ll.allowed) revert AmaneRejected("AMANE_ACTION_ASSET_NOT_ALLOWED");
-        _debit(leaseSpend[leaseId][assetId], ll, amount, epoch);
-        _debit(rootSpend[v][assetId], rootAssets[v][assetId], amount, epoch);
+        _debit(leaseSpend[leaseId][assetId], ll, amount);
+        _debit(rootSpend[v][assetId], rootAssets[v][assetId], amount);
         if (!l.byController) {
-            _debit(issuerSpend[v][l.issuer][assetId], issuerLimits[v][l.issuer][assetId], amount, epoch);
+            _debit(issuerSpend[v][l.issuer][assetId], issuerLimits[v][l.issuer][assetId], amount);
         }
     }
 
-    function _debit(Spend storage s, Limit memory lim, uint256 amount, uint64 epoch) private {
+    function _debit(Spend storage s, Limit memory lim, uint256 amount) private {
         if (amount > lim.perAction) revert AmaneRejected("AMANE_BUDGET_PER_ACTION");
-        if (s.epoch != epoch) {
-            s.epoch = epoch;
-            s.epochSpent = 0;
-        }
-        uint256 e = s.epochSpent + amount;
-        if (e > lim.perEpoch) revert AmaneRejected("AMANE_BUDGET_EPOCH");
+        uint256 level = _level(s, lim.perEpoch);
+        if (amount > level) revert AmaneRejected("AMANE_BUDGET_EPOCH");
         uint256 t = s.totalSpent + amount;
         if (t > lim.total) revert AmaneRejected("AMANE_BUDGET_TOTAL");
-        s.epochSpent = e;
+        s.initialized = true;
+        s.updatedAt = uint64(block.timestamp);
+        s.level = level - amount;
         s.totalSpent = t;
+    }
+
+    function _level(Spend memory s, uint256 capacity) private view returns (uint256) {
+        if (!s.initialized) return capacity;
+        uint256 refill = capacity * (block.timestamp - s.updatedAt) / epochSeconds;
+        uint256 level = s.level + refill;
+        return level > capacity ? capacity : level;
     }
 
     function _swap(ActionIntent calldata a, uint64 v, address adapter, address tokenIn) private returns (uint256 out) {

@@ -3,7 +3,7 @@ pragma solidity 0.8.28;
 
 import "./AmaneBase.sol";
 import {AmaneSig} from "../src/AmaneTypes.sol";
-import {MaliciousAdapter, ReentrantAdapter, FeeOnTransferToken} from "./mocks/Mocks.sol";
+import {MaliciousAdapter, ReentrantAdapter, PayloadStore, ProxyAdapter, FeeOnTransferToken} from "./mocks/Mocks.sol";
 import {TransferPayAdapter} from "../src/adapters/TransferPayAdapter.sol";
 
 contract PolicyTest is AmaneBase {
@@ -74,29 +74,95 @@ contract PolicyTest is AmaneBase {
 
     function test_AM_POL_007_pause_needs_one_unpause_needs_threshold() public {
         _ready();
-        PauseAccount memory pa = PauseAccount(ACCOUNT_ID, 1);
+        PauseAccount memory pa = _pauseMsg(keccak256("incident-1"));
         bytes memory sig = _sign(pkB, this.hPause(pa));
         vm.prank(attacker);
         acct.pause(pa, sig);
         assertTrue(acct.paused());
 
-        _reject("AMANE_REPLAY_PAUSE_NONCE");
-        acct.pause(pa, sig);
-
-        UnpauseAccount memory ua = UnpauseAccount(ACCOUNT_ID, acct.chainRef(), a32(address(acct)), 0);
+        UnpauseAccount memory ua = _unpauseMsg(pa.pauseId);
         bytes[] memory one = new bytes[](1);
         one[0] = _sign(pkA, this.hUnpause(ua));
         _reject("AMANE_CONTROLLER_THRESHOLD");
         acct.unpause(ua, one);
         acct.unpause(ua, _both(this.hUnpause(ua)));
         assertFalse(acct.paused());
+        assertEq(acct.pauseEpoch(), 1);
+    }
+
+    function test_F0207_old_pause_cannot_be_replayed_after_unpause() public {
+        _ready();
+        PauseAccount memory pa = _pauseMsg(keccak256("incident-1"));
+        bytes memory sig = _sign(pkB, this.hPause(pa));
+        acct.pause(pa, sig);
+        UnpauseAccount memory ua = _unpauseMsg(pa.pauseId);
+        acct.unpause(ua, _both(this.hUnpause(ua)));
+        _reject("AMANE_REPLAY_PAUSE_EPOCH");
+        acct.pause(pa, sig);
+    }
+
+    function test_F0200_withheld_unpause_cannot_lift_a_newer_pause() public {
+        _ready();
+        PauseAccount memory p1 = _pauseMsg(keccak256("incident-1"));
+        acct.pause(p1, _sign(pkB, this.hPause(p1)));
+        UnpauseAccount memory ua = _unpauseMsg(p1.pauseId);
+        bytes[] memory withheld = _both(this.hUnpause(ua));
+        PauseAccount memory p2 = _pauseMsg(keccak256("incident-2"));
+        acct.pause(p2, _sign(pkA, this.hPause(p2)));
+        _reject("AMANE_REPLAY_PAUSE_EPOCH");
+        acct.unpause(ua, withheld);
+        assertTrue(acct.paused());
+    }
+
+    function test_F0200_unpause_expires() public {
+        _ready();
+        PauseAccount memory p1 = _pauseMsg(keccak256("incident-1"));
+        acct.pause(p1, _sign(pkB, this.hPause(p1)));
+        UnpauseAccount memory ua = _unpauseMsg(p1.pauseId);
+        bytes[] memory sigs = _both(this.hUnpause(ua));
+        vm.warp(ua.deadline + 1);
+        _reject("AMANE_ACTION_EXPIRED");
+        acct.unpause(ua, sigs);
+    }
+
+    function test_F0202_controller_cannot_exhaust_pause() public {
+        _ready();
+        PauseAccount memory pa = PauseAccount(ACCOUNT_ID, type(uint64).max, keccak256("x"), uint64(block.timestamp + 60));
+        bytes memory sig = _sign(pkB, this.hPause(pa));
+        _reject("AMANE_REPLAY_PAUSE_EPOCH");
+        acct.pause(pa, sig);
     }
 
     function test_pause_by_non_controller_rejected() public {
-        PauseAccount memory pa = PauseAccount(ACCOUNT_ID, 1);
+        PauseAccount memory pa = _pauseMsg(keccak256("x"));
         bytes memory sig = _sign(pkAttacker, this.hPause(pa));
         _reject("AMANE_CONTROLLER_NOT_AUTHORIZED");
         acct.pause(pa, sig);
+    }
+
+    function test_F0203_policy_must_extend_current_policy() public {
+        _install(_policy(1));
+        RootPolicy memory p = _policy(2);
+        p.parentPolicyHash = keccak256("abandoned draft lineage");
+        bytes[] memory sigs = _both(this.hPolicy(p));
+        _reject("AMANE_POLICY_PARENT_MISMATCH");
+        acct.installPolicy(p, sigs);
+    }
+
+    function test_F0203_signed_policy_expires() public {
+        RootPolicy memory p = _policy(1);
+        bytes[] memory sigs = _both(this.hPolicy(p));
+        vm.warp(p.activateBefore + 1);
+        _reject("AMANE_POLICY_ACTIVATION_EXPIRED");
+        acct.installPolicy(p, sigs);
+    }
+
+    function test_F0208_zero_numerator_floor_rejected() public {
+        RootPolicy memory p = _policy(1);
+        p.endpoints[0].swapFloors[0].minOutNumerator = 0;
+        bytes[] memory sigs = _both(this.hPolicy(p));
+        _reject("AMANE_POLICY_BAD_FLOOR");
+        acct.installPolicy(p, sigs);
     }
 
     function test_policy_duplicate_entries_rejected() public {
@@ -236,6 +302,20 @@ contract LeaseTest is AmaneBase {
         AgentLease memory l = _lease(ctrlA);
         l.endpoints[0].account = a32(address(0xdead));
         _activateReject(l, pkA, "AMANE_LEASE_WRONG_ENDPOINT");
+    }
+
+    function test_F0205_issuer_cannot_pre_revoke_foreign_lease() public {
+        RevokeLease memory r = RevokeLease(ACCOUNT_ID, leaseId);
+        bytes memory sig = _sign(pkIssuer, this.hRevoke(r));
+        _reject("AMANE_CONTROLLER_NOT_AUTHORIZED");
+        acct.revokeLease(r, sig);
+    }
+
+    function test_issuer_may_revoke_its_own_active_lease() public {
+        _activate(_lease(issuer), pkIssuer);
+        RevokeLease memory r = RevokeLease(ACCOUNT_ID, leaseId);
+        acct.revokeLease(r, _sign(pkIssuer, this.hRevoke(r)));
+        assertEq(acct.lease(leaseId).status, 2);
     }
 
     function test_lease_policy_version_mismatch() public {
@@ -421,7 +501,7 @@ contract ActionTest is AmaneBase {
     }
 
     function test_AM_PAUSE_001_paused_account_rejects_agent() public {
-        PauseAccount memory pa = PauseAccount(ACCOUNT_ID, 1);
+        PauseAccount memory pa = _pauseMsg(keccak256("incident"));
         acct.pause(pa, _sign(pkA, this.hPause(pa)));
         _execReject(_pay(1, 1_000000), "AMANE_ACTION_ACCOUNT_PAUSED");
     }
@@ -462,13 +542,23 @@ contract ActionTest is AmaneBase {
     }
 
     function test_AM_BUDGET_002_epoch_boundary_no_double_window() public {
+        AgentLease memory l = _lease(ctrlA);
+        l.leaseId = leaseId = keccak256("long");
+        l.expiresAt = uint64(T0 + 86_400);
+        _activate(l, pkA);
         uint256 boundary = (block.timestamp / 3600 + 1) * 3600;
         vm.warp(boundary - 1);
         _exec(_pay(1, 25_000000));
         _exec(_pay(2, 25_000000));
         _execReject(_pay(3, 1), "AMANE_BUDGET_EPOCH");
         vm.warp(boundary);
+        _execReject(_pay(3, 1_000000), "AMANE_BUDGET_EPOCH");
+        vm.warp(boundary - 1 + 1800);
         _exec(_pay(3, 25_000000));
+        _execReject(_pay(4, 1_000000), "AMANE_BUDGET_EPOCH");
+        vm.warp(boundary - 1 + 1800 + 3600);
+        _exec(_pay(4, 25_000000));
+        _execReject(_pay(5, 1), "AMANE_BUDGET_TOTAL");
     }
 
     function test_AM_OWNER_001_agent_cannot_withdraw() public {
@@ -546,6 +636,12 @@ contract AdapterTest is AmaneBase {
         registry.register(address(again));
     }
 
+    function test_F0204_registry_refuses_mutable_adapter_code() public {
+        ProxyAdapter proxy = new ProxyAdapter(address(new TransferPayAdapter()));
+        vm.expectPartialRevert(AdapterRegistry.MutableAdapterCode.selector);
+        registry.register(address(proxy));
+    }
+
     function test_AM_ADAPTER_003_new_version_requires_new_policy() public {
         _ready();
         bytes32 id2 = registry.register(address(new TransferPayAdapter()));
@@ -592,7 +688,8 @@ contract AdapterTest is AmaneBase {
     }
 
     function test_AM_EVM_001_reentrancy_during_adapter_call() public {
-        ReentrantAdapter re = new ReentrantAdapter(address(acct));
+        PayloadStore store = new PayloadStore();
+        ReentrantAdapter re = new ReentrantAdapter(address(acct), store);
         bytes32 reId = registry.register(address(re));
         RootPolicy memory p = _policy(1);
         p.endpoints[0].adapters[0] = AdapterRef(reId, "Transfer Pay", 1);
@@ -602,7 +699,7 @@ contract AdapterTest is AmaneBase {
         _activate(l, pkA);
         ActionIntent memory inner = _pay(2, 1_000000);
         inner.adapterId = reId;
-        re.setPayload(abi.encodeCall(AmaneAccount.executeAction, (inner, _agentSig(inner))));
+        store.set(abi.encodeCall(AmaneAccount.executeAction, (inner, _agentSig(inner))));
         ActionIntent memory outer = _pay(1, 1_000000);
         outer.adapterId = reId;
         _execReject(outer, "AMANE_ACTION_REENTRANT");

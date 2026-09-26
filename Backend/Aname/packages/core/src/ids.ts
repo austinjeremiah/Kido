@@ -1,4 +1,4 @@
-import { encodeAbiParameters, getAddress, keccak256, pad, toHex, type Address, type Hex } from 'viem';
+import { bytesToHex, encodeAbiParameters, getAddress, hexToBytes, keccak256, pad, toHex, type Address, type Hex } from 'viem';
 import type { Bytes32 } from './types.js';
 
 export const ADAPTER_TAG = keccak256(toHex('AMANE_ADAPTER_V1'));
@@ -18,7 +18,7 @@ function base58Decode(s: string): Uint8Array {
     n = n * 58n + BigInt(i);
   }
   const hex = n.toString(16);
-  const body = Buffer.from(hex.length % 2 ? `0${hex}` : hex, 'hex');
+  const body = n === 0n ? new Uint8Array() : hexToBytes(`0x${hex.length % 2 ? `0${hex}` : hex}`);
   const zeros = s.length - s.replace(/^1+/, '').length;
   return new Uint8Array([...new Uint8Array(zeros), ...body]);
 }
@@ -29,7 +29,7 @@ export function normalizeSuiChainIdentifier(chainIdentifier: string): string {
   if (/^[0-9a-f]{8}$/.test(chainIdentifier)) return chainIdentifier;
   const bytes = base58Decode(chainIdentifier);
   if (bytes.length !== 32) throw new Error(`invalid Sui chain identifier: ${chainIdentifier}`);
-  return Buffer.from(bytes.slice(0, 4)).toString('hex');
+  return bytesToHex(bytes.slice(0, 4)).slice(2);
 }
 
 export function suiChainRef(chainIdentifier: string): Bytes32 {

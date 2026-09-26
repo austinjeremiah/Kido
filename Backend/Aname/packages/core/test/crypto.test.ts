@@ -24,7 +24,7 @@ const sign = (primaryType: Parameters<typeof typedData>[0], message: never, who 
 describe('canonical encoding', () => {
   it('CRYPTO-ORDER-001 encodeType sorts dependencies alphabetically', () => {
     expect(encodeType('RootPolicy')).toBe(
-      'RootPolicy(bytes32 accountId,uint64 policyVersion,uint32 allowedActions,uint8 priceMode,uint64 maxLeaseLifetime,PolicyEndpoint[] endpoints,LeaseIssuer[] leaseIssuers)' +
+      'RootPolicy(bytes32 accountId,uint64 policyVersion,bytes32 parentPolicyHash,uint32 allowedActions,uint8 priceMode,uint64 maxLeaseLifetime,uint64 activateBefore,PolicyEndpoint[] endpoints,LeaseIssuer[] leaseIssuers)' +
         'AdapterRef(bytes32 adapterId,string adapterName,uint32 adapterVersion)' +
         'AssetLimit(bytes32 assetId,uint256 maxPerAction,uint256 maxPerEpoch,uint256 maxTotal)' +
         'IssuerLimit(bytes32 chainRef,bytes32 assetId,uint256 maxPerAction,uint256 maxPerEpoch,uint256 maxTotal)' +
@@ -57,7 +57,7 @@ describe('canonical encoding', () => {
 
   it('CRYPTO-DOMAIN-001 distinct purposes produce distinct digests over identical field values', () => {
     const revoke = amaneDigest('RevokeLease', { accountId: FIXTURE.accountId, leaseId: FIXTURE.planHash });
-    const pause = amaneDigest('PauseAccount', { accountId: FIXTURE.accountId, pauseNonce: 1n });
+    const pause = amaneDigest('PauseAccount', { accountId: FIXTURE.accountId, pauseEpoch: 0n, pauseId: FIXTURE.planHash, deadline: 1n });
     expect(new Set([revoke, pause]).size).toBe(2);
     expect(Object.keys(AMANE_TYPES)).toContain('Withdraw');
   });

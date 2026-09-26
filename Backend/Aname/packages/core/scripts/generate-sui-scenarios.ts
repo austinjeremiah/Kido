@@ -9,6 +9,7 @@ import {
   PriceMode,
   ZERO32,
   actionMask,
+  amaneStructHash,
   suiAdapterId,
   suiAssetId,
   suiChainRef,
@@ -40,10 +41,14 @@ const recovery = `0x${'0'.repeat(62)}5e` as Hex;
 const leaseId = keccak256(toHex('sui.lease.ctrl'));
 const issuerLeaseId = keccak256(toHex('sui.lease.issuer'));
 
+const policyHashes = new Map<bigint, Hex>();
+
 function policy(version: bigint, patch: (p: RootPolicy) => void = () => {}): RootPolicy {
   const p: RootPolicy = {
     accountId,
     policyVersion: version,
+    parentPolicyHash: version === 1n ? ZERO32 : policyHashes.get(version - 1n)!,
+    activateBefore: T0 + 600n,
     allowedActions: actionMask(ActionKind.SWAP, ActionKind.PAY),
     priceMode: PriceMode.TESTNET_FIXED,
     maxLeaseLifetime: 86_400n,
@@ -79,6 +84,8 @@ function policy(version: bigint, patch: (p: RootPolicy) => void = () => {}): Roo
   patch(p);
   return p;
 }
+
+for (const v of [1n, 2n, 3n]) policyHashes.set(v, amaneStructHash('RootPolicy', policy(v)));
 
 function lease(issuer: PrivateKeyAccount, id: Hex, patch: (l: AgentLease) => void = () => {}): AgentLease {
   const l: AgentLease = {
@@ -201,16 +208,26 @@ add('pay_issuer_lease_a', 'ActionIntent', pay(13n, 25_000000n, { leaseId: issuer
 add('pay_v2_old_lease', 'ActionIntent', pay(14n, 1_000000n, { policyVersion: 2n }), [agent]);
 add('pay_wrong_asset', 'ActionIntent', pay(15n, 1_000000n, { assetIn: sui2, assetOut: sui2 }), [agent]);
 add('pay_late', 'ActionIntent', pay(30n, 1n, { deadline: T0 + 3700n }), [agent]);
+add('pay_one_usd', 'ActionIntent', pay(31n, 1_000000n, { deadline: T0 + 3700n }), [agent]);
 add('swap_1', 'ActionIntent', swap(20n, 1_000000n, 0n), [agent]);
 add('swap_min_too_high', 'ActionIntent', swap(21n, 1_000000n, 1_000_000001n), [agent]);
 add('swap_redirect', 'ActionIntent', swap(22n, 1_000000n, 0n, { recipient: merchant }), [agent]);
 add('swap_evil', 'ActionIntent', swap(23n, 1_000000n, 0n, { adapterId: evilAdapter }), [agent]);
 add('swap_wrong_out', 'ActionIntent', swap(24n, 1_000000n, 0n, { assetOut: keccak256(toHex('x')) }), [agent]);
 
-add('pause_b', 'PauseAccount', { accountId, pauseNonce: 1n }, [controllerB]);
-add('pause_attacker', 'PauseAccount', { accountId, pauseNonce: 1n }, [attacker]);
-add('unpause_0', 'UnpauseAccount', { accountId, chainRef, account: ACCOUNT_OBJECT, opNonce: 0n }, both);
-add('unpause_0_one_sig', 'UnpauseAccount', { accountId, chainRef, account: ACCOUNT_OBJECT, opNonce: 0n }, [controllerA]);
+add('policy_v2_wrong_parent', 'RootPolicy', policy(2n, (p) => (p.parentPolicyHash = keccak256(toHex('abandoned')))), both);
+add('policy_v1_zero_floor', 'RootPolicy', policy(1n, (p) => (p.endpoints[0]!.swapFloors[0]!.minOutNumerator = 0n)), both);
+const incident1 = keccak256(toHex('incident-1'));
+const incident2 = keccak256(toHex('incident-2'));
+const pauseMsg = (epoch: bigint, id: Hex) => ({ accountId, pauseEpoch: epoch, pauseId: id, deadline: T0 + 900n });
+const unpauseMsg = (epoch: bigint, id: Hex) => ({ accountId, chainRef, account: ACCOUNT_OBJECT, pauseEpoch: epoch, pauseId: id, deadline: T0 + 900n });
+add('pause_b', 'PauseAccount', pauseMsg(0n, incident1), [controllerB]);
+add('pause_a_incident2', 'PauseAccount', pauseMsg(0n, incident2), [controllerA]);
+add('pause_attacker', 'PauseAccount', pauseMsg(0n, incident1), [attacker]);
+add('pause_exhaust', 'PauseAccount', pauseMsg(18446744073709551615n, incident1), [controllerB]);
+add('unpause_0', 'UnpauseAccount', unpauseMsg(0n, incident1), both);
+add('unpause_0_one_sig', 'UnpauseAccount', unpauseMsg(0n, incident1), [controllerA]);
+add('revoke_by_issuer', 'RevokeLease', { accountId, leaseId }, [issuer]);
 add('revoke_ctrl', 'RevokeLease', { accountId, leaseId }, [controllerB]);
 add('revoke_attacker', 'RevokeLease', { accountId, leaseId }, [attacker]);
 const withdraw = (dest: Hex, nonce = 0n) => ({ accountId, chainRef, account: ACCOUNT_OBJECT, assetId: usd, amount: 7n, destination: dest, opNonce: nonce, deadline: T0 + 900n });

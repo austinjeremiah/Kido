@@ -13,19 +13,19 @@ library Golden {
     bytes32 internal constant TH_PolicyEndpoint = 0xedb24fa394965109ad57cce35c0fd31f01607acc0af3e72c24e560b43bd1428e;
     bytes32 internal constant TH_IssuerLimit = 0x0d6a20bb9682758b0216ba5f563dc474e8c6a4ac6243415ab22e8792460ada99;
     bytes32 internal constant TH_LeaseIssuer = 0x177197f6f34bef2ab258493e09fbbca5554bb1433a2a5ab0196e164ee3b225f6;
-    bytes32 internal constant TH_RootPolicy = 0xb5a0f9d489d141c79950d95434001db14fa2241318b357c571cb0cffb5023373;
+    bytes32 internal constant TH_RootPolicy = 0x358190f7e871e332775471e5992c68eb5e59fa6c527335d31720ecef6d42f158;
     bytes32 internal constant TH_LeaseEndpoint = 0x7525a21434846317a672afd66247631fdca18e4db13d1c56ac3c1d3b4630dd13;
     bytes32 internal constant TH_AgentLease = 0x09e9bd06a5a80588b894e210f896fbd20e0bcb10c45dfc9647da1523981cf7dd;
     bytes32 internal constant TH_ActionIntent = 0x4d9852a9a366c6cc7d78c434d936060cb9fe20d93462d56bac7dab08f98098e1;
-    bytes32 internal constant TH_PauseAccount = 0x6dd3ac3752df099d4c38a94d9a10d1b7a8839dec9b52dc511ca0075d1f340edb;
-    bytes32 internal constant TH_UnpauseAccount = 0x34e3fa29c2a14ce116ca5db9b69b7c8dda904fe5b8ddb20361eb375c9fa66264;
+    bytes32 internal constant TH_PauseAccount = 0x67093778cd2d1d40091e580c89e0b44b86a4e0fb3b5b7b2f20ef7768b9e4ae40;
+    bytes32 internal constant TH_UnpauseAccount = 0xead25f9b076803a674150841b7b179c4442cb3ec291c1488407544a6e9eb4c00;
     bytes32 internal constant TH_RevokeLease = 0xa7f8d312e491f5912487e07104fd5b2997401fb93c0f5010f19795c8b16439cd;
     bytes32 internal constant TH_Withdraw = 0x97524fa80b46f1b680445c88cdd04ffb9b1958a3a9d78fea8eeea34ef4f1cae7;
-    bytes32 internal constant ROOT_POLICY_DIGEST = 0x5589f6abc8326683b34dcd8e7619778c43c819ef9d238996c7c4a832093cda3b;
-    bytes32 internal constant ROOT_POLICY_STRUCT = 0x7d9fcd31e2f9676c73f1aedd36657cf4829a29e2aff759a7fba7a9293bbe4c80;
-    bytes internal constant ROOT_POLICY_SIG_0 = hex"1672544b903bf2ff4e83a85677af5d5ccac46b5c2e4f16e9f74a8358f505284e346ba203587c812047cb8d0ee038f2b1fb8b9c62e38a7f1d623b58d1bf11a48e1b";
+    bytes32 internal constant ROOT_POLICY_DIGEST = 0xcd1af38ee353088f80cb024e781c23c64ff537caa8da5505ba9af80bacf0cecd;
+    bytes32 internal constant ROOT_POLICY_STRUCT = 0xb52976b2ec893cb87a5ba689cc37b72b690f49cf43617150237dd91aa37cf37a;
+    bytes internal constant ROOT_POLICY_SIG_0 = hex"3127a48019b5d48be124a8325222a319bcd23751552819577b16d27d858850d3294266af41b5c79eec0fcc22c91c80afc99fe43837b5cd07f15b40793aa483101c";
     address internal constant ROOT_POLICY_SIGNER_0 = 0x842bf7dc352C505F288cb16454D43E6Ffee1fCb5;
-    bytes internal constant ROOT_POLICY_SIG_1 = hex"4d501db37340c0406f5adf6a0aa1c410233791da4fd074550c055754f7eab074281de8f738e140cffb4a88c3eb4fef7d9c7d5fdb955299094c5f040cec17d8a81c";
+    bytes internal constant ROOT_POLICY_SIG_1 = hex"dc9ca1b3a9980758de6287c801a2e5f460952a7060e2ab7660d434f333be5ff00fa99f1ac05e2b118196ee54f355d298eed9d6aa5f9b05c1bbb29fadf5ab88521b";
     address internal constant ROOT_POLICY_SIGNER_1 = 0xD7003A68054B36803a2671c64a6B591345d1f8da;
     bytes32 internal constant LEASE_BY_CONTROLLER_DIGEST = 0x1db015ab343c6cf35ae504d6903bbd34e985c8e02af91a3d8b1d7fcca9786869;
     bytes32 internal constant LEASE_BY_CONTROLLER_STRUCT = 0x135ff90b1c98ffb88c86cc010a91b902deabad374ed37111a5075b8aad0cc785;
@@ -43,15 +43,15 @@ library Golden {
     bytes32 internal constant ACTION_SWAP_SEPOLIA_STRUCT = 0x41c44fe822150c5d9ef43ce5c622ef43fdc92bc9d8ebf9d000ec937c9e6eb4f4;
     bytes internal constant ACTION_SWAP_SEPOLIA_SIG_0 = hex"de32bb63273ffc4d083167aeb31b166408003ee8c753efc4cbc764b7595e9f4727c4d6deb8feab08c29d4155703725f5cc754e646d000d84c391c52b040a717d1b";
     address internal constant ACTION_SWAP_SEPOLIA_SIGNER_0 = 0x752F2f9d06A136d7FF9fEc975Baa6e25f57A585c;
-    bytes32 internal constant PAUSE_DIGEST = 0x77a16c5df4d26e44292827fd3c2abf614a32de33c7695b8a9d7a4377378902a2;
-    bytes32 internal constant PAUSE_STRUCT = 0x453c4cf300092bc9a414c47d328b74f86c94315180d2df756467249e2837b8da;
-    bytes internal constant PAUSE_SIG_0 = hex"3dadefce36ed9bb52c1bdb1c471b1067dbf110dcbe38817126c1063ee706d39368bd17b0b2bb9ce3112fb0a66f68adc55d700dda1371ee818badbf4adcc99fe91b";
+    bytes32 internal constant PAUSE_DIGEST = 0xec336da5e516e4117d85e5f4da3020dc60599b4c9bf9c81db7379a9a0e6a163d;
+    bytes32 internal constant PAUSE_STRUCT = 0x688e553a0cd49bf1765c93745ee02c611e974cb4c837e5efe6c9c120164eb32b;
+    bytes internal constant PAUSE_SIG_0 = hex"06c66975ae3cbdd14c62e05132d996f0faacf05615b85742f183eb18c599d4a81b128e58a25049707a5e6f22ceb233ffd868694ba537e5c6bb114f00e09a92521c";
     address internal constant PAUSE_SIGNER_0 = 0x842bf7dc352C505F288cb16454D43E6Ffee1fCb5;
-    bytes32 internal constant UNPAUSE_DIGEST = 0x3d269eafd34c51f4efd73d40dc12d85268ff6f365954353c29fa22ade8701b4f;
-    bytes32 internal constant UNPAUSE_STRUCT = 0x697dea6de50eff40806d06c067b0a255c20a924f8cce094aef3435d29349512d;
-    bytes internal constant UNPAUSE_SIG_0 = hex"f0dec269b02126a1888c72815a47c76cfc7845c60803c8b66609fb3b93215ebb7d00a0949c62d69f0f90718c73c0c9c89c9f9f7df17da05fadf6fe30a06dc9731c";
+    bytes32 internal constant UNPAUSE_DIGEST = 0x389eb71443792057a8376d3cb7d7c8e173d548bd8f982539fe9a42c9825edf9b;
+    bytes32 internal constant UNPAUSE_STRUCT = 0x5a23aafd767104fb43aeb1fa44cef21776a9293d56582d1933348e7a4f9da10b;
+    bytes internal constant UNPAUSE_SIG_0 = hex"198e475473cf289d52d13af6b20fee5fe160b0ccb337a0761581c5005171619c388d4d1341e4fcdd1faba2f05ae8f54cf9c89105aa5b19088da95b44f7da84bf1c";
     address internal constant UNPAUSE_SIGNER_0 = 0x842bf7dc352C505F288cb16454D43E6Ffee1fCb5;
-    bytes internal constant UNPAUSE_SIG_1 = hex"6c89adb9a166483cb78ff9f1276b7c87413f58f0f4a4997f3125733bf19ffb2a15f36db8d39d092ab279fa76e11a3eb963462ee512e4b8f33293c6af5cdbdd191c";
+    bytes internal constant UNPAUSE_SIG_1 = hex"b5146ac0a60b50638c84ec7e617f23ae10ff225f460b6e00dc2c42c95c82deab465f427d1eea0f2b34fea9595a64360322803361860546f6161e78aee355308b1b";
     address internal constant UNPAUSE_SIGNER_1 = 0xD7003A68054B36803a2671c64a6B591345d1f8da;
     bytes32 internal constant REVOKE_DIGEST = 0x20895f80fd4f6cc1c06f361facd56965a420043acfdfdd5d5eb3d886c22d3a41;
     bytes32 internal constant REVOKE_STRUCT = 0xc4acbde119cae07ea17c35e93e621e5527fec2aa88b0a1f279ac24793d93cf06;
@@ -74,9 +74,11 @@ library Golden {
     function root_policy() internal pure returns (RootPolicy memory m) {
         m.accountId = bytes32(0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613);
         m.policyVersion = 1;
+        m.parentPolicyHash = bytes32(0x0000000000000000000000000000000000000000000000000000000000000000);
         m.allowedActions = 513;
         m.priceMode = 1;
         m.maxLeaseLifetime = 86400;
+        m.activateBefore = 1800000600;
         m.endpoints = new PolicyEndpoint[](2);
         m.endpoints[0].chainRef = bytes32(0xafa90c317deacd3d68f330a30f96e4fa7736e35e8d1426b2e1b2c04bce1c2fb7);
         m.endpoints[0].account = bytes32(0x00000000000000000000000000000000000000000000000000000000000a3a7e);
@@ -300,14 +302,18 @@ library Golden {
 
     function pause() internal pure returns (PauseAccount memory m) {
         m.accountId = bytes32(0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613);
-        m.pauseNonce = 1;
+        m.pauseEpoch = 0;
+        m.pauseId = bytes32(0x22ae1f4823263d3e94239d5f4938d298b1c301583289dae017d866f64603a446);
+        m.deadline = 1800000900;
     }
 
     function unpause() internal pure returns (UnpauseAccount memory m) {
         m.accountId = bytes32(0x31164398a06edd810cdb3e968bf356a15a40f933f02a90533020fa2a37830613);
         m.chainRef = bytes32(0xb22f5b00394cc6eb46a5826d42e067565cfed869c325b6173d951d05ef1744fe);
         m.account = bytes32(0x00000000000000000000000000000000000000000000000000000000000005a1);
-        m.opNonce = 0;
+        m.pauseEpoch = 0;
+        m.pauseId = bytes32(0x22ae1f4823263d3e94239d5f4938d298b1c301583289dae017d866f64603a446);
+        m.deadline = 1800000900;
     }
 
     function revoke() internal pure returns (RevokeLease memory m) {

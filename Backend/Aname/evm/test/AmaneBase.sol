@@ -86,6 +86,8 @@ abstract contract AmaneBase is Test {
     function _policy(uint64 version) internal view returns (RootPolicy memory p) {
         p.accountId = ACCOUNT_ID;
         p.policyVersion = version;
+        p.parentPolicyHash = version == 1 ? bytes32(0) : acct.policyHash();
+        p.activateBefore = uint64(block.timestamp + 600);
         p.allowedActions = uint32((1 << 0) | (1 << 9));
         p.priceMode = 1;
         p.maxLeaseLifetime = 86_400;
@@ -242,6 +244,14 @@ abstract contract AmaneBase is Test {
     function _ready() internal {
         _install(_policy(1));
         _activate(_lease(ctrlA), pkA);
+    }
+
+    function _pauseMsg(bytes32 pauseId) internal view returns (PauseAccount memory) {
+        return PauseAccount(ACCOUNT_ID, acct.pauseEpoch(), pauseId, uint64(block.timestamp + 60));
+    }
+
+    function _unpauseMsg(bytes32 pauseId) internal view returns (UnpauseAccount memory) {
+        return UnpauseAccount(ACCOUNT_ID, acct.chainRef(), a32(address(acct)), acct.pauseEpoch(), pauseId, uint64(block.timestamp + 60));
     }
 
     function _reject(string memory code) internal {

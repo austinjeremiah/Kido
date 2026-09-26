@@ -33,6 +33,8 @@ const EPolicyBadEpoch: u64 = 1004;
 const EPolicyBadFloor: u64 = 1005;
 const EPolicyIssuerIsController: u64 = 1006;
 const EPolicyDuplicateEntry: u64 = 1007;
+const EPolicyParentMismatch: u64 = 1008;
+const EPolicyActivationExpired: u64 = 1009;
 const EControllerThreshold: u64 = 1100;
 const EControllerUnsorted: u64 = 1101;
 const EControllerNotAuthorized: u64 = 1102;
@@ -78,7 +80,7 @@ const ETicketInputAlreadyTaken: u64 = 1317;
 const EBudgetPerAction: u64 = 1400;
 const EBudgetEpoch: u64 = 1401;
 const EBudgetTotal: u64 = 1402;
-const EReplayPauseNonce: u64 = 1500;
+const EReplayPauseEpoch: u64 = 1500;
 const EReplayOpNonce: u64 = 1501;
 const EOwnerDestinationNotAllowed: u64 = 1600;
 const EInsufficientVault: u64 = 1601;
@@ -101,9 +103,11 @@ public struct Limit has copy, drop, store {
     total: u256,
 }
 
+/// Token bucket: `level` refills linearly to per_epoch over epoch_seconds, so spend within any
+/// window of length W is at most per_epoch * (1 + W / epoch_seconds).
 public struct Spend has copy, drop, store {
-    epoch: u64,
-    epoch_spent: u256,
+    updated_at: u64,
+    level: u256,
     total_spent: u256,
 }
 
@@ -160,7 +164,8 @@ public struct Account has key {
     controllers: vector<vector<u8>>,
     threshold: u8,
     paused: bool,
-    pause_nonce: u64,
+    pause_epoch: u64,
+    last_pause_id: vector<u8>,
     op_nonce: u64,
     policy: Option<StoredPolicy>,
     leases: Table<vector<u8>, Lease>,
@@ -190,8 +195,8 @@ public struct AccountCreated has copy, drop { object: ID, account_id: vector<u8>
 public struct PolicyInstalled has copy, drop { object: ID, version: u64, hash: vector<u8> }
 public struct LeaseActivated has copy, drop { object: ID, lease_id: vector<u8>, agent: vector<u8>, issuer: vector<u8>, expires_at: u64 }
 public struct LeaseRevoked has copy, drop { object: ID, lease_id: vector<u8>, by: vector<u8> }
-public struct AccountPaused has copy, drop { object: ID, pause_nonce: u64, by: vector<u8> }
-public struct AccountUnpaused has copy, drop { object: ID, op_nonce: u64 }
+public struct AccountPaused has copy, drop { object: ID, pause_epoch: u64, pause_id: vector<u8>, by: vector<u8> }
+public struct AccountUnpaused has copy, drop { object: ID, pause_epoch: u64, pause_id: vector<u8> }
 public struct ActionAuthorized has copy, drop {
     object: ID,
     lease_id: vector<u8>,
@@ -234,7 +239,8 @@ public fun create(
         controllers,
         threshold,
         paused: false,
-        pause_nonce: 0,
+        pause_epoch: 0,
+        last_pause_id: vector[],
         op_nonce: 0,
         policy: option::none(),
         leases: table::new(ctx),
@@ -262,10 +268,13 @@ public fun receive<T>(self: &mut Account, sent: Receiving<Coin<T>>) {
 
 // ---------------------------------------------------------------- root controller paths
 
-public fun install_policy(self: &mut Account, p: RootPolicy, sigs: vector<vector<u8>>) {
+public fun install_policy(self: &mut Account, p: RootPolicy, sigs: vector<vector<u8>>, clock: &Clock) {
     assert!(eip712::rp_account_id(&p) == &self.account_id, EPolicyWrongAccount);
     assert!(eip712::rp_policy_version(&p) == policy_version(self) + 1, EPolicyVersionMismatch);
     assert!(eip712::rp_price_mode(&p) == PRICE_MODE_TESTNET_FIXED, EPolicyBadPriceMode);
+    let parent = if (self.policy.is_some()) self.policy.borrow().hash else zero32();
+    assert!(eip712::rp_parent_policy_hash(&p) == &parent, EPolicyParentMismatch);
+    assert!(now_seconds(clock) <= eip712::rp_activate_before(&p), EPolicyActivationExpired);
     let h = eip712::hash_root_policy(&p);
     require_threshold(self, h, &sigs);
 
@@ -299,7 +308,7 @@ public fun install_policy(self: &mut Account, p: RootPolicy, sigs: vector<vector
     let mut floors = vec_map::empty();
     eip712::pe_swap_floors(&e).do_ref!(|f| {
         let (asset_in, asset_out, num, den) = eip712::swap_floor_fields(f);
-        assert!(den != 0, EPolicyBadFloor);
+        assert!(den != 0 && num != 0, EPolicyBadFloor);
         let key = pair_key(&asset_in, &asset_out);
         assert!(!floors.contains(&key), EPolicyDuplicateEntry);
         floors.insert(key, Floor { num, den });
@@ -342,25 +351,33 @@ public fun install_policy(self: &mut Account, p: RootPolicy, sigs: vector<vector
     event::emit(PolicyInstalled { object: object::id(self), version, hash: h });
 }
 
-/// Reduction path: one controller signature, relayable by anyone.
-public fun pause(self: &mut Account, x: PauseAccount, sig: vector<u8>) {
+/// Reduction path: one controller signature, relayable by anyone. Bound to the current pause
+/// epoch, which only a threshold unpause advances, so it cannot be exhausted and stale pause
+/// signatures die after the next unpause.
+public fun pause(self: &mut Account, x: PauseAccount, sig: vector<u8>, clock: &Clock) {
     assert!(eip712::pa_account_id(&x) == &self.account_id, EPolicyWrongAccount);
-    assert!(eip712::pa_pause_nonce(&x) > self.pause_nonce, EReplayPauseNonce);
+    assert!(eip712::pa_pause_epoch(&x) == self.pause_epoch, EReplayPauseEpoch);
+    assert!(now_seconds(clock) <= eip712::pa_deadline(&x), EActionExpired);
     let signer = eip712::recover_signer(eip712::hash_pause_account(&x), &sig);
     assert!(self.controllers.contains(&signer), EControllerNotAuthorized);
-    self.pause_nonce = eip712::pa_pause_nonce(&x);
     self.paused = true;
-    event::emit(AccountPaused { object: object::id(self), pause_nonce: self.pause_nonce, by: signer });
+    self.last_pause_id = *eip712::pa_pause_id(&x);
+    event::emit(AccountPaused { object: object::id(self), pause_epoch: self.pause_epoch, pause_id: self.last_pause_id, by: signer });
 }
 
-public fun unpause(self: &mut Account, x: UnpauseAccount, sigs: vector<vector<u8>>) {
+/// Lifts only the exact pause its signers saw; a later pause invalidates a withheld unpause.
+public fun unpause(self: &mut Account, x: UnpauseAccount, sigs: vector<vector<u8>>, clock: &Clock) {
     assert!(eip712::ua_account_id(&x) == &self.account_id, EPolicyWrongAccount);
     assert!(eip712::ua_chain_ref(&x) == &self.chain_ref && eip712::ua_account(&x) == &self32(self), EActionWrongEndpoint);
-    assert!(eip712::ua_op_nonce(&x) == self.op_nonce, EReplayOpNonce);
+    assert!(
+        self.paused && eip712::ua_pause_epoch(&x) == self.pause_epoch && eip712::ua_pause_id(&x) == &self.last_pause_id,
+        EReplayPauseEpoch,
+    );
+    assert!(now_seconds(clock) <= eip712::ua_deadline(&x), EActionExpired);
     require_threshold(self, eip712::hash_unpause_account(&x), &sigs);
-    self.op_nonce = self.op_nonce + 1;
     self.paused = false;
-    event::emit(AccountUnpaused { object: object::id(self), op_nonce: eip712::ua_op_nonce(&x) });
+    self.pause_epoch = self.pause_epoch + 1;
+    event::emit(AccountUnpaused { object: object::id(self), pause_epoch: eip712::ua_pause_epoch(&x), pause_id: self.last_pause_id });
 }
 
 public fun revoke_lease(self: &mut Account, x: RevokeLease, sig: vector<u8>) {
@@ -369,8 +386,7 @@ public fun revoke_lease(self: &mut Account, x: RevokeLease, sig: vector<u8>) {
     let lease_id = *eip712::rl_lease_id(&x);
     let known = self.leases.contains(lease_id);
     let allowed = self.controllers.contains(&signer)
-        || (known && self.leases[lease_id].status == LEASE_ACTIVE && self.leases[lease_id].issuer == signer)
-        || (!known && self.policy.is_some() && self.policy.borrow().issuers.contains(&signer));
+        || (known && self.leases[lease_id].status == LEASE_ACTIVE && self.leases[lease_id].issuer == signer);
     assert!(allowed, EControllerNotAuthorized);
     if (known) {
         self.leases.borrow_mut(lease_id).status = LEASE_REVOKED;
@@ -568,7 +584,8 @@ public fun account_id(self: &Account): vector<u8> { self.account_id }
 public fun chain_ref(self: &Account): vector<u8> { self.chain_ref }
 public fun controllers(self: &Account): vector<vector<u8>> { self.controllers }
 public fun is_paused(self: &Account): bool { self.paused }
-public fun pause_nonce(self: &Account): u64 { self.pause_nonce }
+public fun pause_epoch(self: &Account): u64 { self.pause_epoch }
+public fun last_pause_id(self: &Account): vector<u8> { self.last_pause_id }
 public fun op_nonce(self: &Account): u64 { self.op_nonce }
 
 public fun policy_version(self: &Account): u64 {
@@ -592,13 +609,13 @@ public fun vault_balance<T>(self: &Account): u64 {
     if (self.vault.contains(k)) self.vault.borrow<_, Balance<T>>(k).value() else 0
 }
 
-/// (epoch, spent in epoch, spent total) for a lease budget.
-public fun lease_spend(self: &Account, lease_id: vector<u8>, asset: vector<u8>): (u64, u256, u256) {
+/// (initialized, updated_at, bucket level at update, spent total) for a lease budget.
+public fun lease_spend(self: &Account, lease_id: vector<u8>, asset: vector<u8>): (bool, u64, u256, u256) {
     let k = spend_key(b"L", lease_id, asset);
     if (self.spend.contains(k)) {
         let s = self.spend[k];
-        (s.epoch, s.epoch_spent, s.total_spent)
-    } else (0, 0, 0)
+        (true, s.updated_at, s.level, s.total_spent)
+    } else (false, 0, 0, 0)
 }
 
 public fun asset_id<T>(): vector<u8> {
@@ -659,31 +676,30 @@ fun verify_and_debit<W, In>(self: &mut Account, a: &ActionIntent, sig: &vector<u
     assert!(amount > 0, EActionZeroAmount);
     let amount_in = to_u64(amount);
 
-    let epoch = now / policy.epoch_seconds + 1;
-    debit(self, spend_key(b"L", lease_id, asset_in), *lease.assets.get(&asset_in), amount, epoch);
-    debit(self, spend_key(b"R", bcs::to_bytes(&v), asset_in), *policy.assets.get(&asset_in), amount, epoch);
+    let period = policy.epoch_seconds;
+    debit(self, spend_key(b"L", lease_id, asset_in), *lease.assets.get(&asset_in), amount, now, period);
+    debit(self, spend_key(b"R", bcs::to_bytes(&v), asset_in), *policy.assets.get(&asset_in), amount, now, period);
     if (!lease.by_controller) {
         let mut k = bcs::to_bytes(&v);
         k.append(lease.issuer);
-        debit(self, spend_key(b"I", k, asset_in), issuer_limit(&policy, &lease.issuer, &asset_in), amount, epoch);
+        debit(self, spend_key(b"I", k, asset_in), issuer_limit(&policy, &lease.issuer, &asset_in), amount, now, period);
     };
     (action_hash, amount_in)
 }
 
-fun debit(self: &mut Account, key: vector<u8>, lim: Limit, amount: u256, epoch: u64) {
+fun debit(self: &mut Account, key: vector<u8>, lim: Limit, amount: u256, now: u64, period: u64) {
     assert!(amount <= lim.per_action, EBudgetPerAction);
-    if (!self.spend.contains(key)) self.spend.add(key, Spend { epoch, epoch_spent: 0, total_spent: 0 });
-    let s = self.spend.borrow_mut(key);
-    if (s.epoch != epoch) {
-        s.epoch = epoch;
-        s.epoch_spent = 0;
-    };
-    let e = s.epoch_spent + amount;
-    assert!(e <= lim.per_epoch, EBudgetEpoch);
-    let t = s.total_spent + amount;
+    let (level, total) = if (self.spend.contains(key)) {
+        let s = self.spend[key];
+        let refill = lim.per_epoch * ((now - s.updated_at) as u256) / (period as u256);
+        let l = s.level + refill;
+        (if (l > lim.per_epoch) lim.per_epoch else l, s.total_spent)
+    } else (lim.per_epoch, 0);
+    assert!(amount <= level, EBudgetEpoch);
+    let t = total + amount;
     assert!(t <= lim.total, EBudgetTotal);
-    s.epoch_spent = e;
-    s.total_spent = t;
+    let next = Spend { updated_at: now, level: level - amount, total_spent: t };
+    if (self.spend.contains(key)) *self.spend.borrow_mut(key) = next else self.spend.add(key, next);
 }
 
 fun emit_authorized(self: &Account, a: &ActionIntent, amount_in: u64, min_out: u64) {

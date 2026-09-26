@@ -56,9 +56,11 @@ struct LeaseIssuer {
 struct RootPolicy {
     bytes32 accountId;
     uint64 policyVersion;
+    bytes32 parentPolicyHash;
     uint32 allowedActions;
     uint8 priceMode;
     uint64 maxLeaseLifetime;
+    uint64 activateBefore;
     PolicyEndpoint[] endpoints;
     LeaseIssuer[] leaseIssuers;
 }
@@ -110,14 +112,18 @@ struct ActionIntent {
 
 struct PauseAccount {
     bytes32 accountId;
-    uint64 pauseNonce;
+    uint64 pauseEpoch;
+    bytes32 pauseId;
+    uint64 deadline;
 }
 
 struct UnpauseAccount {
     bytes32 accountId;
     bytes32 chainRef;
     bytes32 account;
-    uint64 opNonce;
+    uint64 pauseEpoch;
+    bytes32 pauseId;
+    uint64 deadline;
 }
 
 struct RevokeLease {
@@ -173,7 +179,7 @@ library AmaneHash {
         keccak256(abi.encodePacked(POLICY_ENDPOINT_T, ADAPTER_REF_T, ASSET_LIMIT_T, RECIPIENT_T, SWAP_FLOOR_T));
     bytes32 internal constant ROOT_POLICY_TYPEHASH = keccak256(
         abi.encodePacked(
-            "RootPolicy(bytes32 accountId,uint64 policyVersion,uint32 allowedActions,uint8 priceMode,uint64 maxLeaseLifetime,PolicyEndpoint[] endpoints,LeaseIssuer[] leaseIssuers)",
+            "RootPolicy(bytes32 accountId,uint64 policyVersion,bytes32 parentPolicyHash,uint32 allowedActions,uint8 priceMode,uint64 maxLeaseLifetime,uint64 activateBefore,PolicyEndpoint[] endpoints,LeaseIssuer[] leaseIssuers)",
             ADAPTER_REF_T,
             ASSET_LIMIT_T,
             ISSUER_LIMIT_T,
@@ -194,9 +200,11 @@ library AmaneHash {
     bytes32 internal constant ACTION_INTENT_TYPEHASH = keccak256(
         "ActionIntent(bytes32 accountId,bytes32 chainRef,bytes32 account,uint64 policyVersion,bytes32 leaseId,uint64 nonce,uint8 actionKind,bytes32 adapterId,string adapterName,uint32 adapterVersion,bytes32 assetIn,bytes32 assetOut,uint256 amountIn,uint256 minAmountOut,bytes32 recipient,string recipientLabel,uint64 deadline,bytes32 planHash,uint32 planStep)"
     );
-    bytes32 internal constant PAUSE_ACCOUNT_TYPEHASH = keccak256("PauseAccount(bytes32 accountId,uint64 pauseNonce)");
+    bytes32 internal constant PAUSE_ACCOUNT_TYPEHASH = keccak256("PauseAccount(bytes32 accountId,uint64 pauseEpoch,bytes32 pauseId,uint64 deadline)");
     bytes32 internal constant UNPAUSE_ACCOUNT_TYPEHASH =
-        keccak256("UnpauseAccount(bytes32 accountId,bytes32 chainRef,bytes32 account,uint64 opNonce)");
+        keccak256(
+            "UnpauseAccount(bytes32 accountId,bytes32 chainRef,bytes32 account,uint64 pauseEpoch,bytes32 pauseId,uint64 deadline)"
+        );
     bytes32 internal constant REVOKE_LEASE_TYPEHASH = keccak256("RevokeLease(bytes32 accountId,bytes32 leaseId)");
     bytes32 internal constant WITHDRAW_TYPEHASH = keccak256(
         "Withdraw(bytes32 accountId,bytes32 chainRef,bytes32 account,bytes32 assetId,uint256 amount,bytes32 destination,uint64 opNonce,uint64 deadline)"
@@ -303,9 +311,11 @@ library AmaneHash {
                 ROOT_POLICY_TYPEHASH,
                 p.accountId,
                 p.policyVersion,
+                p.parentPolicyHash,
                 p.allowedActions,
                 p.priceMode,
                 p.maxLeaseLifetime,
+                p.activateBefore,
                 keccak256(abi.encodePacked(eps)),
                 keccak256(abi.encodePacked(iss))
             )
@@ -376,11 +386,13 @@ library AmaneHash {
     }
 
     function hash(PauseAccount calldata x) internal pure returns (bytes32) {
-        return keccak256(abi.encode(PAUSE_ACCOUNT_TYPEHASH, x.accountId, x.pauseNonce));
+        return keccak256(abi.encode(PAUSE_ACCOUNT_TYPEHASH, x.accountId, x.pauseEpoch, x.pauseId, x.deadline));
     }
 
     function hash(UnpauseAccount calldata x) internal pure returns (bytes32) {
-        return keccak256(abi.encode(UNPAUSE_ACCOUNT_TYPEHASH, x.accountId, x.chainRef, x.account, x.opNonce));
+        return keccak256(
+            abi.encode(UNPAUSE_ACCOUNT_TYPEHASH, x.accountId, x.chainRef, x.account, x.pauseEpoch, x.pauseId, x.deadline)
+        );
     }
 
     function hash(RevokeLease calldata x) internal pure returns (bytes32) {
