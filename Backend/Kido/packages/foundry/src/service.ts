@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { bindTo, blueprintHash, buildBlockers, isStale, nextRevision, type KidoAgentBlueprint, type RevisionBound } from "@kido/blueprint";
-import { DesignInterview, compileBlueprint, type InterviewModel, type InterviewState, type Question } from "@kido/design-interview";
+import { DesignInterview, RuleBasedInterviewModel, compileBlueprint, templateById, type InterviewModel, type InterviewState, type Question } from "@kido/design-interview";
 import { buildPublicManifest, compileIdentityPlan, type PlannedBinding } from "@kido/identity";
 import { KnowledgeBase } from "@kido/knowledge";
 import { applyPrivacyPlan, compilePrivacy, type PrivacyPlan } from "@kido/privacy";
@@ -11,6 +11,7 @@ import { buildAgentContext, buildSelfModel, compileAmaneAuthority, introspect, t
 import type { AmaneDeploymentManifest } from "@kido/amane-bridge";
 import { authorityEndpoints } from "./endpoints.js";
 import { securityReview, type SecurityReport } from "./review.js";
+import { estimateCosts, type CostAssumptions } from "./costs.js";
 import { evaluateWhatIf, injectionTest, type WhatIf } from "./attack-lab.js";
 import { OpenAIAgentChat } from "@kido/agents";
 import { simulate, type SimulationReport } from "./simulate.js";
@@ -139,9 +140,12 @@ export class Foundry {
     this.knowledge = d.knowledge ?? KnowledgeBase.load();
   }
 
-  async create(objective: string, name?: string): Promise<{ projectId: string; question: Question | null }> {
+  async create(objective: string, name?: string, templateId?: string): Promise<{ projectId: string; question: Question | null }> {
     const projectId = `proj_${randomUUID().slice(0, 12)}`;
-    const iv = await DesignInterview.start(projectId, randomUUID(), objective, this.d.model);
+    const template = templateId ? templateById(templateId) : undefined;
+    if (templateId && !template) throw new LifecycleError("KIDO_UNKNOWN_TEMPLATE", `no interview template ${templateId}`);
+    // A template's objective is read by the deterministic extractor: its answers are already known.
+    const iv = await DesignInterview.start(projectId, randomUUID(), objective || template!.objective, template ? new RuleBasedInterviewModel() : this.d.model, template ? { template } : {});
     const question = iv.next();
     this.d.store.save({ projectId, ...(name?.trim() ? { name: name.trim() } : {}), createdAt: Date.now(), interview: iv.state, revisions: [], privacyPlan: null, identityPlan: [], security: null, simulation: null, build: null });
     return { projectId, question };
@@ -375,6 +379,13 @@ export class Foundry {
     this.requireBlueprint(this.d.store.load(projectId));
     const r = await new OpenAIAgentChat((q: string) => this.introspect(projectId, q) as never).ask(question);
     return { answer: r.answer, toolCalls: r.toolCalls, model: process.env.KIDO_MODEL ?? process.env.OPENAI_MODEL };
+  }
+
+  /** Monthly mainnet running cost of the current revision (registry prices, measured gas). */
+  costs(projectId: string, overrides: Partial<CostAssumptions> = {}) {
+    const p = this.d.store.load(projectId);
+    const bp = this.requireBlueprint(p);
+    return estimateCosts(bp, p.identityPlan, p.build && !isStale(p.build, bp) ? p.build : null, this.registry, overrides);
   }
 
   /** Deterministic answers about the agent from its self-model (bible §13.2). */

@@ -1,7 +1,8 @@
 import { applyResolutions, emptyBlueprint, nextRevision, type KidoAgentBlueprint, type RequirementResolution } from "@kido/blueprint";
 import { CATALOG, byKey, type Choice, type Ctx, type RequirementDef } from "./catalog.js";
 import { RuleBasedInterviewModel, ruleBasedCandidates, type InterviewModel } from "./model.js";
-import { parseThreshold } from "./parse.js";
+import { parseByType, parseThreshold } from "./parse.js";
+import type { InterviewTemplate, TemplateAsk } from "./templates.js";
 import { privateThresholdDeclared, redactNumbers, redactSecrets } from "./sensitive.js";
 
 export interface Question {
@@ -33,6 +34,8 @@ export interface InterviewState {
   prior?: KidoAgentBlueprint | null;
   /** Keys the user explicitly edited since `prior`. */
   edited?: string[];
+  /** The interview template the user chose: only its questions are asked. */
+  template?: { id: string; name: string; asks: TemplateAsk[] };
 }
 
 export interface InterviewOptions {
@@ -40,6 +43,7 @@ export interface InterviewOptions {
 }
 
 const DEFAULTS: InterviewOptions = { maxQuestions: 14 };
+const NUMBER = /\d[\d,]*(?:\.\d+)?/g;
 
 /**
  * Progressive design interview (bible §9). The authoritative state is `InterviewState`, persisted
@@ -49,7 +53,7 @@ const DEFAULTS: InterviewOptions = { maxQuestions: 14 };
 export class DesignInterview {
   private constructor(readonly state: InterviewState, private readonly model: InterviewModel, private readonly opts: InterviewOptions) {}
 
-  static async start(projectId: string, salt: string, objective: string, model: InterviewModel, opts: Partial<InterviewOptions> = {}): Promise<DesignInterview> {
+  static async start(projectId: string, salt: string, objective: string, model: InterviewModel, opts: Partial<InterviewOptions> & { template?: InterviewTemplate } = {}): Promise<DesignInterview> {
     const sec = redactSecrets(objective);
     objective = sec.text;
     const s: InterviewState = { projectId, salt, objective, resolutions: {}, asked: {}, questionsAsked: 0, pending: null, transcript: [{ role: "user", text: objective }], warnings: sec.found ? ["a credential-like value in the request was discarded; it was never stored or sent to a model"] : [], finalized: false };
@@ -69,7 +73,42 @@ export class DesignInterview {
       iv.resolve(def, c.value, c.key === "objective.kind" ? { kind: "INFERRED", from: ["objective"], rule: "objective classification" } : { kind: "USER_ANSWER", quote: c.quote, turn: 0 });
     }
     iv.runInference();
+    if (opts.template) iv.applyTemplate(opts.template);
     return iv;
+  }
+
+  /**
+   * Applies a template's answers with the deterministic parsers, in catalog order (an answer can make
+   * another requirement applicable), and limits the interview to the template's own questions.
+   */
+  private applyTemplate(t: InterviewTemplate) {
+    const rule = new RuleBasedInterviewModel();
+    const pending = new Set(Object.keys(t.presets));
+    const reasons: Record<string, string> = {};
+    // Passes until nothing more applies: a later answer can make an earlier one readable (a private
+    // threshold is only read as private once the privacy answers are in).
+    let progress = true;
+    while (progress && pending.size) {
+      progress = false;
+      for (const d of CATALOG) {
+        if (!pending.has(d.key) || !d.appliesWhen(this.ctx)) continue;
+        const text = t.presets[d.key]!;
+        const privateLevel = d.key === "monitor.condition" && privateThresholdDeclared(this.ctx);
+        const parsed = privateLevel ? parseThreshold(`${text} 0`, this.ctx["objective.kind"] as never) : parseByType(d.answerType, text, this.ctx, d.question(this.ctx).choices);
+        if (!parsed.ok) {
+          reasons[d.key] = parsed.reason;
+          continue;
+        }
+        pending.delete(d.key);
+        progress = true;
+        const value = privateLevel ? { ...(parsed.value as object), threshold: "PRIVATE" } : parsed.value;
+        this.resolve(d, value, { kind: "TEMPLATE", template: t.id, answer: text.slice(0, 2000) });
+        this.runInference();
+      }
+    }
+    for (const k of pending) this.state.warnings.push(`template ${t.id}: ${k} ${reasons[k] ? `could not be applied (${reasons[k]})` : "does not apply to this agent"}`);
+    this.state.template = { id: t.id, name: t.name, asks: t.asks };
+    this.state.transcript.push({ role: "kido", text: `Using the "${t.name}" template: its answers are filled in for you to review before anything is built.` });
   }
 
   static restore(state: InterviewState, model: InterviewModel, opts: Partial<InterviewOptions> = {}): DesignInterview {
@@ -83,6 +122,15 @@ export class DesignInterview {
   /** The next highest-value unresolved question, or null when nothing (askable) remains. */
   next(): Question | null {
     if (this.state.finalized) return null;
+    if (this.state.template) {
+      const ctx = this.ctx;
+      const ask = this.state.template.asks.find((a) => this.state.resolutions[a.key]?.status !== "RESOLVED" && (this.state.asked[a.key] ?? 0) < 2 && byKey(a.key)?.appliesWhen(ctx));
+      if (!ask) return null;
+      const d = byKey(ask.key)!;
+      const reask = (this.state.asked[d.key] ?? 0) > 0;
+      this.state.pending = d.key;
+      return { key: d.key, topic: d.topic, text: ask.text, choices: ask.amounts ? undefined : d.question(ctx).choices, reask };
+    }
     if (this.state.questionsAsked >= this.opts.maxQuestions) return null;
     const ctx = this.ctx;
     const candidates = CATALOG.filter(
@@ -119,6 +167,21 @@ export class DesignInterview {
       this.resolve(def, { ...(p.value as object), threshold: "PRIVATE" }, { kind: "USER_ANSWER", quote: redactNumbers(text), turn: this.state.questionsAsked });
       this.redactPrivateLevel();
       this.runInference();
+      return { accepted: true, next: this.next() };
+    }
+    // A template question that fills several amounts at once ("100 per hour, 1000 total").
+    const multi = this.state.template?.asks.find((a) => a.key === key && a.amounts);
+    if (multi?.amounts) {
+      const nums = text.match(NUMBER) ?? [];
+      if (nums.length < multi.amounts.length) return { accepted: false, note: `give ${multi.amounts.length} amounts, for example: 100 per hour, 1000 total`, next: this.next() };
+      const rule = new RuleBasedInterviewModel();
+      for (const [i, k] of multi.amounts.entries()) {
+        const d = byKey(k)!;
+        const r = await rule.readAnswer(d, d.question(this.ctx), nums[i]!.replace(/,/g, ""), this.ctx);
+        if (r.kind === "UNCLEAR") return { accepted: false, note: `${k}: ${r.reason}`, next: this.next() };
+        this.resolve(d, r.value, { kind: "USER_ANSWER", quote: text.slice(0, 500), turn: this.state.questionsAsked });
+        this.runInference();
+      }
       return { accepted: true, next: this.next() };
     }
     const reading = await this.model.readAnswer(def, q, text, this.ctx);
@@ -206,7 +269,7 @@ export class DesignInterview {
       status: why ? "UNSATISFIABLE" : "RESOLVED",
       value: value as never,
       provenance,
-      confirmed: confirmed && provenance?.kind === "USER_ANSWER",
+      confirmed: confirmed && (provenance?.kind === "USER_ANSWER" || provenance?.kind === "TEMPLATE"),
     };
     if (why) this.state.warnings.push(`${def.key}: ${why}`);
     return why;

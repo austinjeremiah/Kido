@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { z } from "zod";
+import { INTERVIEW_TEMPLATES } from "@kido/design-interview";
 import { LifecycleError, type EvidenceStore, type Foundry, type WalletDeployments } from "@kido/foundry";
 import type { KidoConfig } from "./config.js";
 
@@ -31,7 +32,7 @@ async function body<T>(req: IncomingMessage, schema: z.ZodType<T>): Promise<T> {
 }
 
 const Text = z.object({ text: z.string().min(1).max(4000) });
-const Create = z.object({ objective: z.string().min(1).max(4000), name: z.string().max(120).optional() });
+const Create = z.object({ objective: z.string().min(1).max(4000).optional(), name: z.string().max(120).optional(), template: z.string().max(80).optional() }).refine((b) => b.objective || b.template, "give an objective or a template");
 const Rename = z.object({ name: z.string().min(1).max(120) });
 const Ask = z.object({ question: z.string().min(1).max(1000) });
 const Edit = z.object({ key: z.string().min(1).max(100), text: z.string().min(1).max(4000) });
@@ -43,6 +44,7 @@ const TxHash = z.object({ txHash: Hex32 });
 const Signature = z.object({ signature: Sig });
 const WhatIfBody = z.object({ chain: z.string().max(40), action: z.string().max(20), asset: z.string().max(20), assetOut: z.string().max(20).nullable().optional(), amount: z.string().regex(/^\d{1,40}$/), recipient: z.string().max(100).nullable(), atSecondsFromNow: z.number().int().min(0).max(31_536_000).optional() });
 const Injection = z.object({ instruction: z.string().min(1).max(2000), target: z.string().min(1).max(100), amount: z.string().regex(/^\d{1,40}$/), chain: z.string().max(40).optional() });
+const CostOverrides = z.object({ actionsPerMonth: z.record(z.string().max(20), z.number().int().min(0).max(100_000)), leaseRenewalsPerMonth: z.number().int().min(0).max(100_000), modelCallsPerMonth: z.number().int().min(0).max(10_000_000), outputTokensPerCall: z.number().int().min(0).max(100_000), indexerQueriesPerMonth: z.number().int().min(0).max(1_000_000_000), rpcComputeUnitsPerMonth: z.number().int().min(0).max(1e12) }).partial();
 const EvidenceRef = z.object({ ref: z.string().min(1).max(500) });
 const WalletTx = z.object({ chain: z.string().max(40), label: z.string().max(120), tx: Hex32 });
 const Signed = z.object({ signed: z.array(z.object({ chain: z.string().max(40), message: z.record(z.string(), z.unknown()), signature: Sig })).min(1).max(4) });
@@ -59,9 +61,10 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
 
   route("GET", "/health", () => ({ ok: true, interviewModel: config.model, simulationSigners: config.simulationSigners, chatModel: Boolean(process.env.OPENAI_API_KEY && (process.env.KIDO_MODEL ?? process.env.OPENAI_MODEL)) }));
   route("GET", "/projects", () => ({ projects: foundry.projects() }));
+  route("GET", "/templates", () => ({ templates: INTERVIEW_TEMPLATES.map((t) => ({ id: t.id, name: t.name, description: t.description, objective: t.objective, highlights: t.highlights, questions: t.asks.map((a) => a.text) })) }));
   route("POST", "/projects", async (req) => {
     const b = await body(req, Create);
-    return foundry.create(b.objective, b.name);
+    return foundry.create(b.objective ?? "", b.name, b.template);
   });
   route("GET", "/projects/:id", (_r, p) => foundry.summary(p.id!));
   route("PATCH", "/projects/:id", async (req, p) => foundry.rename(p.id!, (await body(req, Rename)).name));
@@ -87,6 +90,7 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
     const b = await body(req, Injection);
     return foundry.injection(p.id!, b as never);
   });
+  route("POST", "/projects/:id/costs", async (req, p) => foundry.costs(p.id!, await body(req, CostOverrides).catch(() => ({}))));
   route("POST", "/projects/:id/chat", async (req, p) => foundry.chat(p.id!, (await body(req, Ask)).question));
   route("GET", "/projects/:id/self-model", (_r, p) => foundry.selfModel(p.id!));
   route("GET", "/projects/:id/context/:role", (_r, p) => foundry.agentContext(p.id!, p.role!));

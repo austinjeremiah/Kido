@@ -23,6 +23,8 @@ export const ProvenanceSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("USER_ANSWER"), quote: z.string().max(2000), turn: z.number().int().nonnegative() }),
   z.object({ kind: z.literal("SAFE_DEFAULT"), reason: z.string() }),
   z.object({ kind: z.literal("INFERRED"), from: z.array(z.string()), rule: z.string() }),
+  // An answer the user accepted by choosing an interview template (and confirms on review).
+  z.object({ kind: z.literal("TEMPLATE"), template: z.string().max(80), answer: z.string().max(2000) }),
 ]);
 export type Provenance = z.infer<typeof ProvenanceSchema>;
 

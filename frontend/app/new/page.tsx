@@ -3,34 +3,33 @@
 /**
  * Agent creation, live against the Kido backend.
  *
- * The left half is the conversation: the objective, then Kido's design interview one question at a
- * time (the backend decides what to ask and records the answer). The right half shows what the
- * backend now holds: captured requirements, the compiled blueprint, the security review, the
- * simulation and the build. Every step is a Kido lifecycle gate, in Kido's order:
- * describe → requirements → blueprint → security review → simulation → build.
+ * Describe the agent in your own words (Kido interviews you) or pick a template (Kido asks only what
+ * is personal to you: who to pay, whose loan, how much). Then name it — the agent and every
+ * specialist get ENS and SuiNS names — review the agents, names, policies and rates, let the
+ * security review, simulation and build run, and see the monthly running cost of every provider
+ * before the final Continue. Every step is a backend call; nothing is decided on the client.
  */
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { PromptComposer } from '@/components/create/PromptComposer';
 import { CreateSteps, type CreateStepId } from '@/components/create/CreateSteps';
-import { KidoBlueprintBoxes, KidoBuildPane, KidoFindingList, KidoRequirementBoxes, KidoSimulation } from '@/components/create/KidoPanes';
+import { KidoRequirementBoxes } from '@/components/create/KidoPanes';
+import { ChecksPane, CostsPane, IdentityPane, ReviewPane, TemplatePicker, type CheckState } from '@/components/create/FlowPanes';
 import { EmptyState } from '@/components/studio/primitives';
 import { COMPOSER_EXAMPLES } from '@/lib/studio/content/composer';
 import { PROJECT_TEMPLATES } from '@/lib/studio/content/templates';
 import { kido, KidoApiError } from '@/lib/kido/api';
-import type { ProjectSummary, Question } from '@/lib/kido/types';
+import type { CostEstimate, InterviewTemplateInfo, ProjectSummary, Question } from '@/lib/kido/types';
 
-type Stage = 'DESCRIBE' | 'REQUIREMENTS' | 'BLUEPRINT' | 'SECURITY' | 'SIMULATION' | 'BUILD' | 'DONE';
+type Stage = CreateStepId;
 type Turn = { from: 'you' | 'kido'; text: string; note?: string };
-
-const ORDER: Stage[] = ['DESCRIBE', 'REQUIREMENTS', 'BLUEPRINT', 'SECURITY', 'SIMULATION', 'BUILD', 'DONE'];
-const STAGE_FOR: Partial<Record<CreateStepId, Stage>> = { DESCRIBE: 'DESCRIBE', REQUIREMENTS: 'REQUIREMENTS', BLUEPRINT: 'BLUEPRINT', SECURITY_REVIEW: 'SECURITY', SIMULATION: 'SIMULATION' };
-const RAIL: Record<Stage, CreateStepId> = { DESCRIBE: 'DESCRIBE', REQUIREMENTS: 'REQUIREMENTS', BLUEPRINT: 'BLUEPRINT', SECURITY: 'SECURITY_REVIEW', SIMULATION: 'SIMULATION', BUILD: 'BUILD', DONE: 'BUILD' };
-
+const ORDER: Stage[] = ['DESCRIBE', 'QUESTIONS', 'IDENTITY', 'REVIEW', 'CHECKS', 'COSTS'];
 const message = (e: unknown) => (e instanceof KidoApiError || e instanceof Error ? e.message : String(e));
+const usd = (n: number) => n.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 function CreateFlow() {
+  const router = useRouter();
   const [stage, setStage] = useState<Stage>('DESCRIBE');
   const [furthest, setFurthest] = useState<Stage>('DESCRIBE');
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -39,6 +38,16 @@ function CreateFlow() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState(false);
   const [prompt, setPrompt] = useState('');
+  const [label, setLabel] = useState('');
+  const [org, setOrg] = useState('');
+  const [checks, setChecks] = useState<Record<'security' | 'simulation' | 'build', CheckState>>({ security: 'todo', simulation: 'todo', build: 'todo' });
+  const [costs, setCosts] = useState<CostEstimate | null>(null);
+  const [actions, setActions] = useState<Record<string, number>>({});
+  const [included, setIncluded] = useState<Set<string>>(new Set());
+  const [templates, setTemplates] = useState<InterviewTemplateInfo[]>([]);
+  useEffect(() => {
+    kido.templates().then(setTemplates).catch(() => setTemplates([]));
+  }, []);
 
   const params = useSearchParams();
   const seeded = (() => {
@@ -67,7 +76,6 @@ function CreateFlow() {
     return s;
   }, []);
 
-  /* Each step runs one backend call; a gate refusal is shown as Kido's own words. */
   const step = useCallback(
     async (fn: () => Promise<void>) => {
       setBusy(true);
@@ -82,21 +90,28 @@ function CreateFlow() {
     [say],
   );
 
-  /* ── describe → requirements ── */
+  /* ── describe → questions ── */
+  const begin = async (r: { projectId: string; question: Question | null }) => {
+    setProjectId(r.projectId);
+    await refresh(r.projectId);
+    setQuestion(r.question);
+    goTo('QUESTIONS');
+    if (r.question) say({ from: 'kido', text: r.question.text });
+    else await toIdentity(r.projectId);
+  };
   const start = (text: string) =>
     step(async () => {
       setPrompt(text);
       say({ from: 'you', text });
-      const r = await kido.create(text);
-      setProjectId(r.projectId);
-      await refresh(r.projectId);
-      setQuestion(r.question);
-      goTo('REQUIREMENTS');
-      if (r.question) say({ from: 'kido', text: r.question.text });
-      else await toBlueprint(r.projectId);
+      await begin(await kido.create(text));
+    });
+  const applyTemplate = (t: InterviewTemplateInfo) =>
+    step(async () => {
+      say({ from: 'you', text: `Use the "${t.name}" template.` }, { from: 'kido', text: `Everything else is filled in from the template for you to review. ${t.questions.length} questions only you can answer:` });
+      await begin(await kido.create('', t.name, t.id));
     });
 
-  /* ── requirements: one backend question at a time ── */
+  /* ── questions: one backend question at a time ── */
   const answer = (text: string) =>
     step(async () => {
       if (!projectId) return;
@@ -106,87 +121,108 @@ function CreateFlow() {
       setQuestion(r.next);
       if (!r.accepted) say({ from: 'kido', text: r.next?.text ?? 'I could not use that answer.', note: r.note });
       else if (r.next) say({ from: 'kido', text: r.next.text, note: r.note });
-      else await toBlueprint(projectId);
+      else await toIdentity(projectId);
     });
 
-  const toBlueprint = async (id: string) => {
-    const f = await kido.finalize(id);
-    await refresh(id);
-    goTo('BLUEPRINT');
-    say({
-      from: 'kido',
-      text: f.blockers.length
-        ? `The blueprint is compiled, but it cannot be built yet: ${f.blockers.map((b) => b.detail).join('; ')}.`
-        : 'Every requirement is captured and the blueprint is compiled. Read it on the right.',
-      note: 'Continue to the security review.',
-    });
+  /* ── identity: the agent's name and a subname per specialist ── */
+  const toIdentity = async (id: string) => {
+    await kido.finalize(id);
+    const s = await refresh(id);
+    const root = s.identityPlan.find((b) => !b.role)?.name;
+    if (root) {
+      const parts = root.split('.');
+      setLabel(parts[0] ?? '');
+      setOrg(parts.slice(1, -1).join('.'));
+    }
+    goTo('IDENTITY');
+    say({ from: 'kido', text: s.identityPlan.length ? 'Name your agent. It and each of its specialists get an ENS and a SuiNS name.' : 'This agent has no public identity yet. Give it one to publish ENS and SuiNS names, or continue without.' });
   };
-
-  /* ── security review ── */
-  const review = () =>
+  const saveNames = () =>
     step(async () => {
       if (!projectId) return;
+      const slug = (x: string) => x.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
+      const name = `${slug(label)}.${slug(org)}`;
+      if (!slug(label) || !slug(org)) throw new Error('Give both an agent name and an organization.');
+      if (!summary?.blueprint?.identity.public) {
+        const r = await kido.edit(projectId, 'identity.public', 'yes');
+        if (!r.accepted) throw new Error(r.note ?? 'could not make the identity public');
+      }
+      const r = await kido.edit(projectId, 'identity.name', name);
+      if (!r.accepted) throw new Error(r.note ?? 'that name was not accepted');
+      await kido.finalize(projectId);
+      const s = await refresh(projectId);
+      say({ from: 'you', text: name }, { from: 'kido', text: `Names planned: ${s.identityPlan.filter((b) => !b.role).map((b) => b.name).join(' and ')}, plus one per specialist.` });
+    });
+  const toReview = () =>
+    step(async () => {
+      if (!projectId) return;
+      const s = await refresh(projectId);
+      goTo('REVIEW');
+      say({
+        from: 'kido',
+        text: s.blockers.length
+          ? `Here is the agent, but it cannot be built yet: ${s.blockers.map((b) => b.detail).join('; ')}.`
+          : `Here is everything: ${s.blueprint?.agents.length ?? 0} agents, their names, the policy they act under and the rates they may spend at. Do you want to continue?`,
+      });
+    });
+
+  /* ── checks: security review → simulation → build ── */
+  const runChecks = () =>
+    step(async () => {
+      if (!projectId) return;
+      goTo('CHECKS');
+      say({ from: 'you', text: 'Continue.' });
+      setChecks({ security: 'running', simulation: 'todo', build: 'todo' });
       const r = await kido.securityReview(projectId);
       await refresh(projectId);
-      goTo('SECURITY');
-      const blocking = r.findings.filter((f) => f.blocking);
-      say({
-        from: 'kido',
-        text: blocking.length
-          ? `The review found ${blocking.length} blocking issue${blocking.length === 1 ? '' : 's'}; the agent cannot be built until the requirements change.`
-          : `The review is done: ${r.findings.length} finding${r.findings.length === 1 ? '' : 's'}, none blocking.`,
-        note: blocking.length ? 'Open the workbench to edit the requirements.' : 'Continue to the simulation.',
-      });
-    });
-
-  /* ── simulation ── */
-  const simulate = () =>
-    step(async () => {
-      if (!projectId) return;
-      goTo('SIMULATION');
-      const r = await kido.simulate(projectId);
+      if (r.blocking) {
+        setChecks((c) => ({ ...c, security: 'fail' }));
+        say({ from: 'kido', text: `The review found ${r.findings.filter((f) => f.blocking).length} blocking issue(s); change the requirements in the workbench.` });
+        return;
+      }
+      setChecks((c) => ({ ...c, security: 'pass', simulation: 'running' }));
+      const sim = await kido.simulate(projectId);
       await refresh(projectId);
-      const failed = r.results.filter((x) => !x.passed).length;
-      say({
-        from: 'kido',
-        text: failed ? `${failed} scenario${failed === 1 ? '' : 's'} did not behave as expected; the build is blocked.` : `All ${r.results.length} scenarios behaved as expected, including the attacks.`,
-        note: failed ? 'Read the failures on the right.' : 'Continue to build.',
-      });
-    });
-
-  /* ── build ── */
-  const build = () =>
-    step(async () => {
-      if (!projectId) return;
-      goTo('BUILD');
+      if (!sim.passed) {
+        setChecks((c) => ({ ...c, simulation: 'fail' }));
+        say({ from: 'kido', text: `${sim.results.filter((x) => !x.passed).length} scenario(s) did not behave as expected; the build is blocked.` });
+        return;
+      }
+      setChecks((c) => ({ ...c, simulation: 'pass', build: 'running' }));
       await kido.build(projectId);
       await refresh(projectId);
-      goTo('DONE');
-      say({ from: 'kido', text: 'Built. The agent, its monitors, authority and identity plan are ready in the workbench.', note: 'Deploying it creates its Amane accounts; your wallet signs the owner policy.' });
+      setChecks((c) => ({ ...c, build: 'pass' }));
+      const est = await kido.costs(projectId);
+      setCosts(est);
+      setActions(est.assumptions.actionsPerMonth);
+      goTo('COSTS');
+      say({ from: 'kido', text: `Built. Here is what it would cost to run on mainnet: about ${usd(est.totals.monthlyUsd)} a month plus ${usd(est.totals.oneTimeUsd)} to set up.`, note: 'Change how often it acts to see the estimate move.' });
     });
+  const recost = async (next: Record<string, number>) => {
+    setActions(next);
+    if (projectId) setCosts(await kido.costs(projectId, { actionsPerMonth: next }));
+  };
 
   const HEAD: Record<Stage, { title: string; body: string }> = {
-    DESCRIBE: { title: 'What should this agent do?', body: 'Say it in your own words. Kido asks about anything that matters and never invents authority you did not give.' },
-    REQUIREMENTS: { title: 'A few things it needs to know', body: 'Answer in your own words, or pick one of the options.' },
-    BLUEPRINT: { title: 'Here is what it will be', body: 'This is the compiled blueprint. Continue to the security review.' },
-    SECURITY: { title: 'What the review found', body: 'A deterministic review of this blueprint revision.' },
-    SIMULATION: { title: 'Simulation', body: 'Allowed actions, and attacks that must be refused.' },
-    BUILD: { title: 'Building', body: 'Assembling agents, monitors, authority and identity.' },
-    DONE: { title: 'It exists', body: 'The agent is built and ready to open in the workbench.' },
+    DESCRIBE: { title: 'What should this agent do?', body: 'Say it in your own words, or start from a template that asks only three questions.' },
+    QUESTIONS: { title: 'A few things only you know', body: 'Answer in your own words, or pick one of the options.' },
+    IDENTITY: { title: 'Name your agent', body: 'The agent and every specialist get ENS and SuiNS names people can look up.' },
+    REVIEW: { title: 'Here is what it will be', body: 'The agents, their names, the policy they act under and the rates they may spend at.' },
+    CHECKS: { title: 'Checking it', body: 'Security review, simulation with attacks, then the build.' },
+    COSTS: { title: 'What it costs to run', body: 'Every provider it uses, with a realistic monthly cost on mainnet.' },
   };
   const head = HEAD[stage];
   const s = summary;
-  const reviewBlocking = Boolean(s?.security?.blocking);
-  const simFailed = s?.simulation ? !s.simulation.passed : false;
+  const failed = Object.values(checks).includes('fail');
   const workbench = projectId ? `/projects/${projectId}/build` : '/projects';
+  const counted = costs ? costs.lines.filter((l) => !l.optional || included.has(l.id)) : [];
+  const total = counted.reduce((n, l) => n + l.monthlyUsd, 0);
 
-  const Continue = ({ label, onClick, disabled, note }: { label: string; onClick: () => void; disabled?: boolean; note: string }) => (
+  const Bar = ({ note, children }: { note: string; children: React.ReactNode }) => (
     <div className="kc-composer">
       <div className="kc-composer__row">
         <span className="cl-meta">{busy ? 'Working…' : note}</span>
-        <button type="button" className="cl-btn cl-btn-primary" onClick={onClick} disabled={busy || disabled}>
-          {label}
-        </button>
+        <span className="cl-row" style={{ gap: 8 }}>{children}</span>
       </div>
     </div>
   );
@@ -210,45 +246,36 @@ function CreateFlow() {
             ))}
           </div>
 
-          {stage === 'DONE' ? (
+          {stage === 'IDENTITY' ? (
             <div className="kc-composer">
-              <Link href={projectId ? `/projects/${projectId}/overview` : '/projects'} className="cl-btn cl-btn-primary kc-open">
-                Open the workbench
-              </Link>
+              <div className="kf-identity-form">
+                <label><span className="cl-meta">Agent name</span><input className="cl-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="treasury" /></label>
+                <label><span className="cl-meta">Organization</span><input className="cl-input" value={org} onChange={(e) => setOrg(e.target.value)} placeholder="acmecorp" /></label>
+                <span className="cl-meta kf-identity-preview">{label && org ? `${label}.${org}.eth · ${label}.${org}.sui` : ' '}</span>
+              </div>
+              <div className="kc-composer__row">
+                <button type="button" className="cl-btn" onClick={saveNames} disabled={busy}>Save names</button>
+                <button type="button" className="cl-btn cl-btn-primary" onClick={toReview} disabled={busy}>Continue to review</button>
+              </div>
             </div>
-          ) : stage === 'BLUEPRINT' ? (
-            <Continue label="Run the security review" onClick={review} note={s?.blockers.length ? 'Blocked, but the review will explain' : 'Blueprint compiled'} />
-          ) : stage === 'SECURITY' ? (
-            reviewBlocking ? (
-              <div className="kc-composer">
-                <div className="kc-composer__row">
-                  <span className="cl-meta">Blocking findings</span>
-                  <Link href={workbench} className="cl-btn cl-btn-primary">
-                    Edit in the workbench
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <Continue label="Run the simulation" onClick={simulate} note="Review passed" />
-            )
-          ) : stage === 'SIMULATION' ? (
-            simFailed ? (
-              <div className="kc-composer">
-                <div className="kc-composer__row">
-                  <span className="cl-meta">Scenarios failed</span>
-                  <Link href={workbench} className="cl-btn cl-btn-primary">
-                    Open the workbench
-                  </Link>
-                </div>
-              </div>
-            ) : (
-              <Continue label="Build the agent" onClick={build} disabled={!s?.simulation} note={s?.simulation ? 'Every scenario passed' : 'Running'} />
-            )
-          ) : stage === 'BUILD' ? null : (
+          ) : stage === 'REVIEW' ? (
+            <Bar note={s?.blockers.length ? 'Blocked — change it in the workbench' : 'Everything above is what will be built'}>
+              <button type="button" className="cl-btn" onClick={() => setStage('IDENTITY')} disabled={busy}>Back</button>
+              {s?.blockers.length ? <Link href={workbench} className="cl-btn cl-btn-primary">Open the workbench</Link> : <button type="button" className="cl-btn cl-btn-primary" onClick={runChecks} disabled={busy}>Yes, continue</button>}
+            </Bar>
+          ) : stage === 'CHECKS' ? (
+            failed ? (
+              <Bar note="A check failed"><Link href={workbench} className="cl-btn cl-btn-primary">Open the workbench</Link></Bar>
+            ) : null
+          ) : stage === 'COSTS' ? (
+            <Bar note={costs ? `About ${usd(total)} / month on mainnet · free on testnet` : 'Estimating…'}>
+              <button type="button" className="cl-btn cl-btn-primary" onClick={() => projectId && router.push(`/projects/${projectId}/deploy`)} disabled={!projectId}>Continue</button>
+            </Bar>
+          ) : (
             <PromptComposer
-              onSubmit={stage === 'REQUIREMENTS' ? answer : start}
-              placeholder={stage === 'REQUIREMENTS' ? 'Your answer' : undefined}
-              suggestions={stage === 'REQUIREMENTS' ? question?.choices?.map((c) => c.label) : undefined}
+              onSubmit={stage === 'QUESTIONS' ? answer : start}
+              placeholder={stage === 'QUESTIONS' ? 'Your answer' : undefined}
+              suggestions={stage === 'QUESTIONS' ? question?.choices?.map((c) => c.label) : undefined}
               starters={stage === 'DESCRIBE'}
               initialValue={stage === 'DESCRIBE' ? prompt || seeded : ''}
             />
@@ -257,27 +284,26 @@ function CreateFlow() {
 
         <section className="kc-half kc-half--right">
           <CreateSteps
-            current={RAIL[stage]}
-            furthest={RAIL[furthest]}
+            current={stage}
+            furthest={furthest}
             onSelect={(id) => {
-              const target = STAGE_FOR[id];
-              if (target && ORDER.indexOf(target) <= ORDER.indexOf(furthest)) setStage(target);
+              if (ORDER.indexOf(id) <= ORDER.indexOf(furthest)) setStage(id);
             }}
           />
           <div className="kc-stage">
-            {stage === 'DESCRIBE' || !s ? (
-              <EmptyState title="Nothing built yet" body="Describe the agent on the left and it takes shape here." />
-            ) : stage === 'REQUIREMENTS' ? (
+            {stage === 'DESCRIBE' ? (
+              templates.length ? <TemplatePicker templates={templates} onUse={applyTemplate} busy={busy} /> : <EmptyState title="Nothing built yet" body="Describe the agent on the left and it takes shape here." />
+            ) : !s ? null : stage === 'QUESTIONS' ? (
               <KidoRequirementBoxes requirements={s.interview.requirements} pendingKey={question?.key} />
-            ) : stage === 'BLUEPRINT' && s.blueprint ? (
-              <KidoBlueprintBoxes blueprint={s.blueprint} blockers={s.blockers} />
-            ) : stage === 'SECURITY' && s.security ? (
-              <KidoFindingList report={s.security} />
-            ) : stage === 'SIMULATION' ? (
-              <KidoSimulation report={s.simulation} running={busy} />
-            ) : (
-              <KidoBuildPane build={s.build} running={busy} />
-            )}
+            ) : stage === 'IDENTITY' ? (
+              <IdentityPane s={s} />
+            ) : stage === 'REVIEW' ? (
+              <ReviewPane s={s} />
+            ) : stage === 'CHECKS' ? (
+              <ChecksPane s={s} states={checks} />
+            ) : costs ? (
+              <CostsPane est={costs} included={included} onToggle={(id) => setIncluded((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; })} actions={actions} onActions={(a) => void recost(a)} />
+            ) : null}
           </div>
         </section>
       </div>

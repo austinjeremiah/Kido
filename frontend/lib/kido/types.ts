@@ -169,3 +169,30 @@ export interface Portfolio {
 export interface EvidenceFile { id: string; root: 'kido' | 'amane' | 'gauntlet'; path: string; size: number; modifiedAt: number }
 export interface EvidenceResolution { ref: string; files: EvidenceFile[]; note: string | null }
 export interface EvidenceContent { id: string; path: string; root: string; content: string; truncated: boolean; redactions: number; language: 'json' | 'md' | 'text' }
+
+export interface InterviewTemplateInfo { id: string; name: string; description: string; objective: string; highlights: string[]; questions: string[] }
+export interface CostItem { label: string; usd: number; recurring: boolean; basis: string }
+export interface CostSource { label: string; url: string; asOf: string }
+export interface CostLine {
+  id: string;
+  name: string;
+  category: 'protocol' | 'authority' | 'transport' | 'identity' | 'privacy' | 'infrastructure';
+  model: string;
+  paid: boolean;
+  monthlyUsd: number;
+  oneTimeUsd: number;
+  items: CostItem[];
+  summary: string;
+  reason: string;
+  optional: boolean;
+  sources: CostSource[];
+}
+export interface CostAssumptions { actionsPerMonth: Record<string, number>; leaseRenewalsPerMonth: number; modelCallsPerMonth: number; outputTokensPerCall: number; indexerQueriesPerMonth: number; rpcComputeUnitsPerMonth: number }
+export interface CostEstimate {
+  market: { ethUsd: number; ethGasGwei: number; suiTxUsd: number; asOf: string; sources: CostSource[] };
+  assumptions: CostAssumptions;
+  lines: CostLine[];
+  totals: { monthlyUsd: number; oneTimeUsd: number; optionalMonthlyUsd: number };
+  note: string;
+  measured: CostSource;
+}

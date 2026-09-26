@@ -20,7 +20,7 @@ export function buildBlockers(bp: KidoAgentBlueprint, facts: GateFacts = NO_FACT
   for (const r of bp.requirements) {
     if (r.status === "UNKNOWN" && r.class === "USER_REQUIRED" && r.critical) out.push({ code: "KIDO_BLUEPRINT_UNRESOLVED", detail: r.key });
     // A critical user decision counts only when the user actually made it (BREAK F-0515).
-    if (r.status === "RESOLVED" && r.class === "USER_REQUIRED" && r.critical && r.provenance?.kind !== "USER_ANSWER") out.push({ code: "KIDO_BLUEPRINT_UNRESOLVED", detail: `${r.key} (not answered by the user)` });
+    if (r.status === "RESOLVED" && r.class === "USER_REQUIRED" && r.critical && r.provenance?.kind !== "USER_ANSWER" && r.provenance?.kind !== "TEMPLATE") out.push({ code: "KIDO_BLUEPRINT_UNRESOLVED", detail: `${r.key} (not answered by the user)` });
     if (r.status === "UNSATISFIABLE") out.push({ code: "KIDO_BLUEPRINT_UNSATISFIABLE", detail: r.key });
   }
   const a = bp.authority;

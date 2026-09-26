@@ -1,44 +1,26 @@
 'use client';
 
 /**
- * The pipeline, across the top of the pane it drives.
- *
- * These are the backend's real stages, not a decorative progress bar: INTAKE
- * through EXPORT_READY, collapsed to the seven a person cares about. REPAIR is
- * folded into Build because it is a loop back into it rather than a step
- * forward, and SIMULATE and FINAL_VERIFY sit under Tests for the same reason.
- *
- * Approve is listed on its own deliberately. It is the one place the build
- * stops and waits for a human, and folding it into Build would hide the only
- * gate in the pipeline.
- *
- * A step you have already reached is a button back to it. One you have not is
- * inert — not a disabled button, which invites a click and then refuses it, but
- * plain text that was never offered. Build and Tests are never navigable: they
- * are things that happen rather than places to stand, and going "back" to one
- * would only mean watching it again.
+ * The creation pipeline, across the top of the pane it drives: describe the agent (or pick a
+ * template), answer what only you can answer, name it, review what it will be, let the checks run,
+ * and see what it costs before you continue. A step already reached is a button back to it; Checks
+ * is something that happens rather than a place to stand, so it is never navigable.
  */
 import { Check } from 'lucide-react';
 
 export const CREATE_STEPS = [
   { id: 'DESCRIBE', label: 'Describe' },
-  { id: 'REQUIREMENTS', label: 'Requirements' },
-  { id: 'BLUEPRINT', label: 'Blueprint' },
-  { id: 'SECURITY_REVIEW', label: 'Security' },
-  { id: 'SIMULATION', label: 'Simulation' },
-  { id: 'BUILD', label: 'Build' },
+  { id: 'QUESTIONS', label: 'Questions' },
+  { id: 'IDENTITY', label: 'Identity' },
+  { id: 'REVIEW', label: 'Review' },
+  { id: 'CHECKS', label: 'Checks' },
+  { id: 'COSTS', label: 'Costs' },
 ] as const;
 
 export type CreateStepId = (typeof CREATE_STEPS)[number]['id'];
 
 /** Stages that are places to stand rather than things that happen. */
-const NAVIGABLE = new Set<CreateStepId>([
-  'DESCRIBE',
-  'REQUIREMENTS',
-  'BLUEPRINT',
-  'SECURITY_REVIEW',
-  'SIMULATION',
-]);
+const NAVIGABLE = new Set<CreateStepId>(['DESCRIBE', 'QUESTIONS', 'IDENTITY', 'REVIEW', 'COSTS']);
 
 export function CreateSteps({
   current,
