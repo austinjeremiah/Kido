@@ -10,6 +10,8 @@
   },
   "workspaces": [
     "packages/amane-bridge",
+    "packages/kido-runtime",
+    "packages/kido-agents",
     "packages/protocol",
     "packages/policy",
     "packages/adapters",
