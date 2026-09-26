@@ -24,7 +24,8 @@ import {
 import { Popover, MenuItem, MenuLabel } from './Popover';
 import { Badge } from '../primitives';
 import { useWorkbench } from '@/lib/studio/workbench';
-import { respond, streamText } from '@/lib/studio/agent-engine';
+import { streamText } from '@/lib/studio/agent-engine';
+import { kido } from '@/lib/kido/api';
 import { searchMentions, type MentionEntity } from '@/lib/studio/mentions';
 import { useMentionSource } from '@/lib/studio/api/mention-source';
 import { metaForSegment, segmentForPageKind } from '@/lib/studio/nav';
@@ -120,6 +121,7 @@ export function AssistantSidebar({
   const messages = thread?.messages ?? [];
 
   const mentionSource = useMentionSource();
+  const projectCtx = useStudioProject();
   const mentionMatches = useMemo(
     () => (mentionToken ? searchMentions(mentionToken.query, mentionSource) : []),
     [mentionToken, mentionSource],
@@ -213,29 +215,29 @@ export function AssistantSidebar({
       setAttachments([]);
       setStreaming(true);
 
-      const cards = respond({ prompt, context, selectionLabel: selection?.label ?? null, mentions: mentionSource });
-      const first = cards[0];
-      const leadText = first?.kind === 'explanation' ? first.text : '';
-      const rest = first?.kind === 'explanation' ? cards.slice(1) : cards;
-
       cancelRef.current = { cancelled: false };
       const signal = cancelRef.current;
-
-      streamText(
-        leadText || ' ',
-        (soFar) => {
-          updateThread((prev) => prev.map((m) => (m.id === agentMessageId ? { ...m, text: soFar } : m)));
-        },
-        () => {
-          updateThread((prev) =>
-            prev.map((m) => (m.id === agentMessageId ? { ...m, streaming: false, cards: rest } : m)),
-          );
-          setStreaming(false);
-        },
-        signal,
-      );
+      const finish = (text: string) =>
+        streamText(
+          text || ' ',
+          (soFar) => updateThread((prev) => prev.map((m) => (m.id === agentMessageId ? { ...m, text: soFar } : m))),
+          () => {
+            updateThread((prev) => prev.map((m) => (m.id === agentMessageId ? { ...m, streaming: false } : m)));
+            setStreaming(false);
+          },
+          signal,
+        );
+      /* Answers come from the agent's self-model on the backend: deterministic facts, never a guess. */
+      if (projectCtx.isDraft || !projectCtx.kido?.blueprint) {
+        finish('I can answer once this agent has a compiled blueprint. Finish the interview in the Composer first.');
+        return;
+      }
+      kido
+        .introspect(projectCtx.routeProjectId, prompt)
+        .then((r) => finish(r.known ? Object.entries(r.facts).map(([topic, v]) => `${topic}: ${factText(v)}`).join('\n\n') : 'That is not something my self-model covers, so I will not guess. Ask about my limits, actions, payees, providers, privacy, lease or failure behaviour.'))
+        .catch((e: Error) => finish(`I could not reach my self-model: ${e.message}`));
     },
-    [agentDraft, streaming, context, selection, setAgentDraft, updateThread],
+    [agentDraft, streaming, context, selection, setAgentDraft, updateThread, projectCtx],
   );
 
   const stop = () => {
@@ -803,4 +805,12 @@ function ResponseCard({
     default:
       return null;
   }
+}
+
+/** Self-model facts as readable text. */
+function factText(v: unknown): string {
+  if (v === null || v === undefined) return 'unknown';
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (Array.isArray(v)) return v.length ? v.map(factText).join('; ') : 'none';
+  return Object.entries(v as Record<string, unknown>).map(([k, x]) => `${k} ${factText(x)}`).join(', ');
 }

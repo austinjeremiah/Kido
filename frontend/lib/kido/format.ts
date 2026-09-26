@@ -41,3 +41,12 @@ export function amount(baseUnits: string, symbol: string, chain: ChainId, assets
   const frac = decimals ? s.slice(-decimals).replace(/0+$/, '') : '';
   return `${whole}${frac ? `.${frac}` : ''} ${symbol}`;
 }
+
+/** Block explorer links for a chain's transactions and accounts. */
+export function explorerTx(chain: ChainId, tx: string): string {
+  return chain === 'sui-testnet' ? `https://suiscan.xyz/testnet/tx/${tx}` : `https://sepolia.etherscan.io/tx/${tx}`;
+}
+export function explorerAccount(chain: ChainId, account: string): string {
+  return chain === 'sui-testnet' ? `https://suiscan.xyz/testnet/object/${account}` : `https://sepolia.etherscan.io/address/${account}`;
+}
+export const LEASE_STATUS: Record<number, string> = { 0: 'none', 1: 'active', 2: 'revoked' };

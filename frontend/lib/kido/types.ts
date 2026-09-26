@@ -117,3 +117,22 @@ export interface SelfModel {
 }
 export interface Introspection { question: string; topics: string[]; facts: Record<string, unknown>; known: boolean }
 export interface Health { ok: boolean; interviewModel: 'rule' | 'openai'; simulationSigners: boolean }
+
+export interface TxRequest { chainId: number; to?: `0x${string}`; data: `0x${string}`; label: string }
+export interface TypedDataWire { domain: Record<string, unknown>; types: Record<string, { name: string; type: string }[]>; primaryType: string; message: Record<string, unknown> }
+export interface DeploymentChain { account?: string; deployTx?: string; install?: string; activate?: string }
+export interface DeploymentWire {
+  status: 'STARTED' | 'ACCOUNTS_READY' | 'POLICY_SIGNED' | 'ACTIVE';
+  owner: `0x${string}`;
+  accountId: `0x${string}`;
+  blueprintRevision: number;
+  issuer: `0x${string}`;
+  agent: `0x${string}`;
+  chains: Record<string, DeploymentChain>;
+  leaseId?: `0x${string}`;
+}
+export interface ProjectEvent { at: number; type: string; chain?: string; detail: string; tx?: string }
+export interface DeploymentStatus { deployment: DeploymentWire | null; events: ProjectEvent[]; issuerConfigured: boolean; suiRelayer: boolean; evmRpc: boolean }
+export interface RuntimeChain { chain: string; account: string | null; policyVersion: number | null; paused: boolean | null; pauseEpoch: number | null; leaseStatus: number | null; balances: { symbol: string; amount: string; decimals: number }[]; error: string | null }
+export interface Runtime { deployed: boolean; status: DeploymentWire['status'] | null; accountId?: string; owner?: string; leaseId?: string | null; chains: RuntimeChain[] }
+export interface ControlMessage { chain: string; primaryType: string; message: Record<string, unknown>; typedData: TypedDataWire }

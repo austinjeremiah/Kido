@@ -5,6 +5,27 @@
 | Path | What lives there |
 | --- | --- |
 | `frontend/` | The web client: the landing page and the workbench behind it. |
+| `Backend/Kido/` | The Kido backend: design interview, blueprint, security review, simulation, build, wallet-driven deployment, runtime (HTTP API on port 4310). |
+| `Backend/Aname/` | Amane, the on-chain authority layer (Solidity + Move + TypeScript SDK) Kido deploys agents onto. |
+
+## Running everything
+
+```bash
+# 1. Amane SDK (Kido imports it from ../Aname)
+cd Backend/Aname && npm ci && npm run build
+
+# 2. Kido API on 127.0.0.1:4310
+cd ../Kido && npm ci && npm run build && npm run kido:api
+
+# 3. Web app on http://localhost:3000 (proxies /api/* to the Kido API)
+cd ../../frontend && npm ci && npm run dev
+```
+
+The create flow (`/new`) and the workbench run against the API with no keys at all. Deployment
+needs three more backend variables (see `Backend/Kido/.env.example`): `KIDO_ISSUER_KEY` (Kido's
+lease issuer), `KIDO_AGENT_ADDRESS`, and `KIDO_SUI_RELAYER_KEY` for Sui agents. The owner's key is
+never given to the backend: the connected wallet signs the owner policy and, on Ethereum, sends and
+pays for the account transactions.
 
 ## Running the frontend
 
@@ -15,7 +36,7 @@ cp .env.example .env.local   # fill in the WalletConnect project id
 npm run dev                  # http://localhost:3000
 ```
 
-The API server has to be running separately on `127.0.0.1:4310`. The Next
+The Kido API (`Backend/Kido`, `npm run kido:api`) has to be running separately on `127.0.0.1:4310`. The Next
 server rewrites `/api/*` to it, so the browser only ever talks to its own
 origin — there are no CORS headers anywhere in the stack, and setting a public
 API URL in the environment would break that by sending the browser
@@ -33,7 +54,8 @@ npm run typecheck    # tsc --noEmit
 | `app/` | Routes. `page.tsx` is the landing, `projects/[projectId]/*` is the workbench. |
 | `components/landing/` | The wallet handoff from the landing into the product. |
 | `components/studio/` | The workbench: shell, panels, wallet and signing surfaces. |
-| `lib/studio/` | API client, event stream, workbench state, the context agent. |
+| `lib/kido/` | Kido API client, types, React Query hooks, formatting and typed-data helpers. |
+| `lib/studio/` | Workbench state, navigation, the project context the shell reads. |
 | `public/styles/` | Stylesheets in load order; `landing.css` is last and carries every change to the base sheets. |
 | `public/assets`, `public/models` | The landing's scene engine and its models. |
 

@@ -93,19 +93,8 @@ export function StatusBar({
         {item('exec', 'Exec:', environment.executionNetwork, () => go('deploy'), 'sim', 'Open Deploy / environment inspector')}
         <span className="cl-status-sep" />
         {item(
-          'reality',
-          'Reality:',
-          `${environment.realitySource} READ ONLY`,
-          () => go('reality'),
-          'data',
-          'Open Reality Lab',
-        )}
-        <span className="cl-status-sep" />
-        {item('cre', 'CRE:', CRE_MODE_LABEL[creMode], () => go('cre'), statusTone(creStatus), 'Open Chainlink CRE')}
-        <span className="cl-status-sep" />
-        {item(
           'policy',
-          'Policy:',
+          'Build:',
           `${policyState}${policyFreshness.state !== 'FRESH' ? ` · ${policyFreshness.state}` : ''}`,
           () => go('policies'),
           statusTone(policyState),
@@ -113,8 +102,6 @@ export function StatusBar({
         )}
         <span className="cl-status-sep" />
         {item('runtime', 'Runtime:', runtimeState, () => go('runtime'), statusTone(runtimeState), 'Open Runtime')}
-        <span className="cl-status-sep" />
-        {item('sync', 'Sync:', `${sync}s`, () => go('control-plane'), undefined, 'Open Control Plane freshness details')}
         <span className="cl-status-sep" />
         {item(
           'problems',

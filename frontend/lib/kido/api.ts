@@ -2,7 +2,7 @@
  * HTTP client for the Kido API. Requests go to /api/* on this origin; next.config.mjs proxies them
  * to the Kido backend, so the browser needs no CORS. Nothing here holds state or keys.
  */
-import type { Health, Introspection, ProjectRow, ProjectSummary, ProviderRow, Question, SelfModel, SecurityReport, SimulationReport, BuildArtifact, Blueprint, Blocker } from './types';
+import type { ControlMessage, DeploymentStatus, DeploymentWire, ProjectEvent, Runtime, TxRequest, TypedDataWire, Health, Introspection, ProjectRow, ProjectSummary, ProviderRow, Question, SelfModel, SecurityReport, SimulationReport, BuildArtifact, Blueprint, Blocker } from './types';
 
 export class KidoApiError extends Error {
   constructor(message: string, readonly status: number, readonly code: string | null) {
@@ -43,4 +43,15 @@ export const kido = {
   context: (id: string, role: string) => call<Record<string, unknown>>('GET', `/projects/${id}/context/${encodeURIComponent(role)}`),
   registry: () => call<{ providers: ProviderRow[] }>('GET', '/registry').then((r) => r.providers),
   drift: () => call<{ drift: unknown[]; quarantined: unknown[] }>('GET', '/knowledge/drift'),
+  deployment: (id: string) => call<DeploymentStatus>('GET', `/projects/${id}/deployment`),
+  deployStart: (id: string, owner: string, recoverySui?: string) => call<{ deployment: DeploymentWire; transactions: TxRequest[] }>('POST', `/projects/${id}/deploy/start`, { owner, ...(recoverySui ? { recoverySui } : {}) }),
+  deployEvmAccount: (id: string, txHash: string) => call<{ deployment: DeploymentWire }>('POST', `/projects/${id}/deploy/evm-account`, { txHash }),
+  deployPolicy: (id: string) => call<{ typedData: TypedDataWire; summary: { endpoints: number; allowedActions: number; crossChainTotal: Record<string, string> } }>('GET', `/projects/${id}/deploy/policy`),
+  deploySubmitPolicy: (id: string, signature: string) => call<{ deployment: DeploymentWire; transactions: TxRequest[] }>('POST', `/projects/${id}/deploy/policy`, { signature }),
+  deployConfirm: (id: string) => call<{ active: boolean; runtime: Runtime }>('POST', `/projects/${id}/deploy/confirm`),
+  recordTx: (id: string, chain: string, label: string, tx: string) => call<{ ok: true }>('POST', `/projects/${id}/deploy/tx`, { chain, label, tx }),
+  runtime: (id: string) => call<Runtime>('GET', `/projects/${id}/runtime`),
+  activity: (id: string) => call<{ events: ProjectEvent[] }>('GET', `/projects/${id}/activity`).then((r) => r.events),
+  controlPrepare: (id: string, op: 'pause' | 'revoke') => call<{ messages: ControlMessage[] }>('POST', `/projects/${id}/control/${op}/prepare`),
+  controlSubmit: (id: string, op: 'pause' | 'revoke', signed: { chain: string; message: Record<string, unknown>; signature: string }[]) => call<{ transactions: TxRequest[]; results: unknown[] }>('POST', `/projects/${id}/control/${op}`, { signed }),
 };

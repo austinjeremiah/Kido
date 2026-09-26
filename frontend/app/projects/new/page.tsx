@@ -1,14 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-/** /projects/new — the new-project modal presented over the projects list. */
-import { useRouter } from 'next/navigation';
-import { NewProjectModal } from '@/components/studio/NewProjectModal';
-
+/** There is one way to create an agent: the live create flow. */
 export default function NewProjectPage() {
-  const router = useRouter();
-  return (
-    <div className="cl-studio" style={{ minHeight: '100vh', background: 'var(--cl-canvas)' }}>
-      <NewProjectModal open onClose={() => router.push('/projects')} />
-    </div>
-  );
+  redirect('/new');
 }

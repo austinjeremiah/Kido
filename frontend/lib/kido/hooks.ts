@@ -9,6 +9,9 @@ export const keys = {
   selfModel: (id: string) => ['kido', 'self-model', id] as const,
   registry: ['kido', 'registry'] as const,
   health: ['kido', 'health'] as const,
+  deployment: (id: string) => ['kido', 'deployment', id] as const,
+  runtime: (id: string) => ['kido', 'runtime', id] as const,
+  activity: (id: string) => ['kido', 'activity', id] as const,
 };
 
 export const useProjects = () => useQuery({ queryKey: keys.projects, queryFn: kido.projects });
@@ -37,3 +40,7 @@ export function useLifecycle(id: string) {
     rename: m((name: string) => kido.rename(id, name)),
   };
 }
+
+export const useDeployment = (id: string | null) => useQuery({ queryKey: keys.deployment(id ?? ''), queryFn: () => kido.deployment(id!), enabled: Boolean(id) });
+export const useRuntime = (id: string | null, enabled = true) => useQuery({ queryKey: keys.runtime(id ?? ''), queryFn: () => kido.runtime(id!), enabled: Boolean(id) && enabled, refetchInterval: 15_000 });
+export const useActivity = (id: string | null) => useQuery({ queryKey: keys.activity(id ?? ''), queryFn: () => kido.activity(id!), enabled: Boolean(id), refetchInterval: 10_000 });
