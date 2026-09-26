@@ -23,6 +23,7 @@ import { AuthoringUnavailable, MonitorNav, isMonitorSegment } from './Monitoring
 import { CommandPalette } from './CommandPalette';
 import { Modal } from '../dialogs';
 import { SmoothScroll } from '../SmoothScroll';
+import { AgentPatchInbox } from '../AgentPatches';
 import { PANEL_LIMITS, useWorkbench } from '@/lib/studio/workbench';
 import { useControlBridge } from '@/lib/studio/control-bridge';
 import { SEGMENT_TO_RAIL, metaForSegment } from '@/lib/studio/nav';
@@ -266,7 +267,11 @@ export function Workbench({
               </div>
             </SmoothScroll>
           ) : !bottomMaximized ? (
-            <SmoothScroll className="cl-page">{children}</SmoothScroll>
+            <SmoothScroll className="cl-page">
+              {/* Open items for this page, read from the project summary; renders nothing when none. */}
+              <AgentPatchInbox pageKind={metaForSegment(segment).pageKind} inset />
+              {children}
+            </SmoothScroll>
           ) : null}
           {bottomOpen ? (
             <>

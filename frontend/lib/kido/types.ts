@@ -116,7 +116,7 @@ export interface SelfModel {
   upstreamChangePolicy: string;
 }
 export interface Introspection { question: string; topics: string[]; facts: Record<string, unknown>; known: boolean }
-export interface Health { ok: boolean; interviewModel: 'rule' | 'openai'; simulationSigners: boolean }
+export interface Health { ok: boolean; interviewModel: 'rule' | 'openai'; simulationSigners: boolean; chatModel?: boolean }
 
 export interface TxRequest { chainId: number; to?: `0x${string}`; data: `0x${string}`; label: string }
 export interface TypedDataWire { domain: Record<string, unknown>; types: Record<string, { name: string; type: string }[]>; primaryType: string; message: Record<string, unknown> }
@@ -136,3 +136,17 @@ export interface DeploymentStatus { deployment: DeploymentWire | null; events: P
 export interface RuntimeChain { chain: string; account: string | null; policyVersion: number | null; paused: boolean | null; pauseEpoch: number | null; leaseStatus: number | null; balances: { symbol: string; amount: string; decimals: number }[]; error: string | null }
 export interface Runtime { deployed: boolean; status: DeploymentWire['status'] | null; accountId?: string; owner?: string; leaseId?: string | null; chains: RuntimeChain[] }
 export interface ControlMessage { chain: string; primaryType: string; message: Record<string, unknown>; typedData: TypedDataWire }
+
+export type LabLayer = 'KIDO_VALIDATOR' | 'KIDO_COMPILER' | 'AMANE_RULES' | 'NONE';
+export interface LabVerdict { verdict: 'ALLOW' | 'REJECT'; code: string | null; detail: string; layer: LabLayer; intent?: Record<string, string | number> }
+export interface WhatIf { chain: ChainId; action: string; asset: string; assetOut?: string | null; amount: string; recipient: string | null; atSecondsFromNow?: number }
+export interface InjectionResult { stages: { layer: string; outcome: 'PASSED' | 'REFUSED'; reason: string }[]; verdict: LabVerdict }
+export interface ChatAnswer { answer: string; toolCalls: number; model: string }
+export interface RealityProbe { chain: ChainId; label: string; ref: string; ok: boolean; detail: string }
+export interface Reality {
+  heads: { chain: ChainId; head: string | null; error: string | null }[];
+  probes: RealityProbe[];
+  refusals: { chain: ChainId; probe: string; refused: boolean; detail: string }[];
+  deployed: boolean;
+  accounts: Record<string, string | null>;
+}

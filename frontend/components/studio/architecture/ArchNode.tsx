@@ -25,6 +25,11 @@ import {
   Waypoints,
   Wallet,
   Send,
+  Activity,
+  EyeOff,
+  Repeat,
+  UserCheck,
+  Zap,
 } from 'lucide-react';
 import { StatusBadge, statusTone } from '../primitives';
 import type { ArchNodeData, ArchNodeKind } from '@/lib/studio/types';
@@ -48,11 +53,25 @@ const ICONS: Record<ArchNodeKind, React.ComponentType<{ size?: number; strokeWid
   ledger: ScrollText,
 };
 
-export type ArchFlowNodeData = ArchNodeData & { liveOverlay: boolean; dimmed: boolean };
+/** Icons for node categories the shared kind list does not name (monitors, privacy, transports…). */
+const EXTRA_ICONS = {
+  monitor: Activity,
+  privacy: EyeOff,
+  transport: Repeat,
+  payee: UserCheck,
+  action: Zap,
+} as const;
+export type ArchExtraIcon = keyof typeof EXTRA_ICONS;
+
+/**
+ * `chainTag` names the chain a node lives on (shown instead of the generic network role line);
+ * `subtitle` is one short fact under the status; `iconKey` overrides the kind's icon.
+ */
+export type ArchFlowNodeData = ArchNodeData & { liveOverlay: boolean; dimmed: boolean; chainTag?: string; subtitle?: string; iconKey?: ArchExtraIcon };
 
 export function ArchFlowNode({ data, selected }: NodeProps) {
   const d = data as ArchFlowNodeData;
-  const Icon = ICONS[d.kind] ?? Boxes;
+  const Icon = (d.iconKey ? EXTRA_ICONS[d.iconKey] : undefined) ?? ICONS[d.kind] ?? Boxes;
   const status = d.liveOverlay ? (d.liveStatus ?? d.status) : d.status;
   const tone = statusTone(status);
 
@@ -112,7 +131,16 @@ export function ArchFlowNode({ data, selected }: NodeProps) {
             </span>
           ) : null}
         </div>
-        {d.networkRole === 'MAINNET_READ_ONLY' ? (
+        {d.subtitle ? (
+          <div className="cl-meta" style={{ marginTop: 6, fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.subtitle}>
+            {d.subtitle}
+          </div>
+        ) : null}
+        {d.chainTag ? (
+          <div className="cl-meta" style={{ marginTop: 6, fontSize: 10.5 }}>
+            {d.chainTag.toUpperCase()}
+          </div>
+        ) : d.networkRole === 'MAINNET_READ_ONLY' ? (
           <div className="cl-meta" style={{ marginTop: 6, fontSize: 10.5 }}>
             MAINNET · READ ONLY
           </div>

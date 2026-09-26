@@ -74,7 +74,14 @@ export interface RailView {
 }
 
 export const NAV_GROUPS: NavGroup[] = [
-  { id: 'project', label: 'Project', items: [{ id: 'composer', label: 'Composer', segment: 'build', icon: 'message-square', pageKind: 'composer' }] },
+  {
+    id: 'project',
+    label: 'Project',
+    items: [
+      { id: 'composer', label: 'Composer', segment: 'build', icon: 'message-square', pageKind: 'composer' },
+      { id: 'organization', label: 'Agents', segment: 'organization', icon: 'users', pageKind: 'organization' },
+    ],
+  },
   {
     id: 'design',
     label: 'Design',
@@ -82,11 +89,34 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'blueprint', label: 'Blueprint', segment: 'blueprint', icon: 'file-json', pageKind: 'blueprint' },
       { id: 'architecture', label: 'Architecture', segment: 'architecture', icon: 'workflow', pageKind: 'architecture' },
       { id: 'security', label: 'Permissions & Security', segment: 'security', icon: 'shield', pageKind: 'permissions' },
+      { id: 'code', label: 'Code', segment: 'code', icon: 'file-code', pageKind: 'code' },
     ],
   },
-  { id: 'test', label: 'Test', items: [{ id: 'simulation', label: 'Simulation', segment: 'simulation', icon: 'play', pageKind: 'simulation' }] },
-  { id: 'implement', label: 'Integrate', items: [{ id: 'integrations', label: 'Providers', segment: 'integrations', icon: 'database', pageKind: 'integrations' }] },
-  { id: 'deploy', label: 'Deploy', items: [{ id: 'preflight', label: 'Deploy', segment: 'deploy', icon: 'rocket', pageKind: 'deploy' }] },
+  {
+    id: 'test',
+    label: 'Test',
+    items: [
+      { id: 'simulation', label: 'Simulation', segment: 'simulation', icon: 'play', pageKind: 'simulation' },
+      { id: 'attacks', label: 'Attack Lab', segment: 'attacks', icon: 'swords', pageKind: 'attacks' },
+      { id: 'reality', label: 'Reality Lab', segment: 'reality', icon: 'globe', pageKind: 'reality' },
+    ],
+  },
+  {
+    id: 'implement',
+    label: 'Integrate',
+    items: [
+      { id: 'integrations', label: 'Providers', segment: 'integrations', icon: 'database', pageKind: 'integrations' },
+      { id: 'cre', label: 'Privacy & CRE', segment: 'cre', icon: 'link', pageKind: 'cre' },
+    ],
+  },
+  {
+    id: 'deploy',
+    label: 'Deploy',
+    items: [
+      { id: 'preflight', label: 'Deploy', segment: 'deploy', icon: 'rocket', pageKind: 'deploy' },
+      { id: 'deployments', label: 'Deployments', segment: 'deployments', icon: 'box', pageKind: 'deployment' },
+    ],
+  },
   {
     id: 'operate',
     label: 'Operate',
@@ -95,6 +125,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'activity', label: 'Activity', segment: 'activity', icon: 'scroll', pageKind: 'activity' },
       { id: 'policies', label: 'Authority', segment: 'policies', icon: 'shield-check', pageKind: 'policies' },
       { id: 'runtime', label: 'Runtime', segment: 'runtime', icon: 'server', pageKind: 'runtime' },
+      { id: 'control-plane', label: 'Control Plane', segment: 'control-plane', icon: 'radio', pageKind: 'control-plane' },
       { id: 'identity', label: 'Identity', segment: 'identity', icon: 'fingerprint', pageKind: 'identity' },
     ],
   },
@@ -121,6 +152,13 @@ export const ALL_RAIL_VIEWS: RailView[] = [...RAIL_VIEWS, SETTINGS_RAIL_VIEW];
 /** Which rail entry owns a given route segment, so navigation keeps the rail in sync. */
 export const SEGMENT_TO_RAIL: Record<string, RailViewId> = {
   build: 'project',
+  organization: 'project',
+  code: 'design',
+  attacks: 'test',
+  reality: 'test',
+  cre: 'integrations',
+  deployments: 'deploy',
+  'control-plane': 'operate',
   blueprint: 'design',
   architecture: 'design',
   security: 'design',
@@ -161,6 +199,13 @@ export const PAGE_META: Record<string, PageMeta> = {
   "runtime": { segment: "runtime", title: "Runtime", tabTitle: "Runtime", purpose: "The agent's Amane accounts on each chain, their balances and lease state.", pageKind: "runtime", quickPrompts: ["Is your lease active?", "What happens if you are paused?"] },
   "identity": { segment: "identity", title: "Identity", tabTitle: "Identity", purpose: "The agent's public identity (ENS, SuiNS). Names are discovery, never authority.", pageKind: "identity", quickPrompts: ["What is your public name?", "Does your name grant you authority?"] },
   "reports": { segment: "reports", title: "Safety Report", tabTitle: "Safety Report", purpose: "The review, simulation, build and provider status for this revision, in one report.", pageKind: "reports", quickPrompts: ["Summarize your safety guarantees.", "What has not been proven?"] },
+  "organization": { segment: "organization", title: "Agents", tabTitle: "Agents", purpose: "The specialist roles this agent is built from, what each owns and what it may ask of the others.", pageKind: "organization", quickPrompts: ["Which agents do you run?", "Who can move funds?"] },
+  "code": { segment: "code", title: "Code", tabTitle: "Code", purpose: "What each specialist is built from: its exact context, knowledge packs, and the compiled policy and lease.", pageKind: "code", quickPrompts: ["What does your payment agent see?", "Which knowledge packs do you use?"] },
+  "attacks": { segment: "attacks", title: "Attack Lab", tabTitle: "Attack Lab", purpose: "Try to make the agent do something it should not, and see which layer stops it.", pageKind: "attacks", quickPrompts: ["Can a prompt injection move funds?", "What stops a payment to a stranger?"] },
+  "reality": { segment: "reality", title: "Reality Lab", tabTitle: "Reality Lab", purpose: "Every Amane contract checked on the live testnets, and refusal probes against the deployed account.", pageKind: "reality", quickPrompts: ["Are your contracts live?", "Is your account deployed?"] },
+  "cre": { segment: "cre", title: "Privacy & CRE", tabTitle: "Privacy", purpose: "Seal, Nautilus, Chainlink CRE and the secret store: what each protects and what each has proven.", pageKind: "cre", quickPrompts: ["Is your privacy provider live or simulated?", "Who can see your private thresholds?"] },
+  "deployments": { segment: "deployments", title: "Deployments", tabTitle: "Deployments", purpose: "The deployment record per chain: accounts, transactions and the owner.", pageKind: "deployment", quickPrompts: ["Where are you deployed?", "Who owns your accounts?"] },
+  "control-plane": { segment: "control-plane", title: "Control Plane", tabTitle: "Control Plane", purpose: "Emergency controls on every chain, live alerts and the command log.", pageKind: "control-plane", quickPrompts: ["How do I stop you?", "What happens if you are paused?"] },
   "settings": { segment: "settings", title: "Settings", tabTitle: "Settings", purpose: "Project name and local preferences.", pageKind: "settings", quickPrompts: ["What is your agent id?"] },
 };
 

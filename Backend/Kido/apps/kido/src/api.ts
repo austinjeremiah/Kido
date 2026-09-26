@@ -41,6 +41,8 @@ const Sig = z.string().regex(/^0x[0-9a-fA-F]{130}$/);
 const Start = z.object({ owner: Addr, recoveryEvm: Addr.optional(), recoverySui: z.string().regex(/^0x[0-9a-fA-F]{1,64}$/).optional() });
 const TxHash = z.object({ txHash: Hex32 });
 const Signature = z.object({ signature: Sig });
+const WhatIfBody = z.object({ chain: z.string().max(40), action: z.string().max(20), asset: z.string().max(20), assetOut: z.string().max(20).nullable().optional(), amount: z.string().regex(/^\d{1,40}$/), recipient: z.string().max(100).nullable(), atSecondsFromNow: z.number().int().min(0).max(31_536_000).optional() });
+const Injection = z.object({ instruction: z.string().min(1).max(2000), target: z.string().min(1).max(100), amount: z.string().regex(/^\d{1,40}$/), chain: z.string().max(40).optional() });
 const WalletTx = z.object({ chain: z.string().max(40), label: z.string().max(120), tx: Hex32 });
 const Signed = z.object({ signed: z.array(z.object({ chain: z.string().max(40), message: z.record(z.string(), z.unknown()), signature: Sig })).min(1).max(4) });
 
@@ -54,7 +56,7 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
   const routes: [string, RegExp, Handler][] = [];
   const route = (method: string, path: string, h: Handler) => routes.push([method, new RegExp(`^${path.replace(/:(\w+)/g, "(?<$1>[\\w-]+)")}$`), h]);
 
-  route("GET", "/health", () => ({ ok: true, interviewModel: config.model, simulationSigners: config.simulationSigners }));
+  route("GET", "/health", () => ({ ok: true, interviewModel: config.model, simulationSigners: config.simulationSigners, chatModel: Boolean(process.env.OPENAI_API_KEY && (process.env.KIDO_MODEL ?? process.env.OPENAI_MODEL)) }));
   route("GET", "/projects", () => ({ projects: foundry.projects() }));
   route("POST", "/projects", async (req) => {
     const b = await body(req, Create);
@@ -76,6 +78,15 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
   route("POST", "/projects/:id/build", (_r, p) => foundry.build(p.id!));
   route("GET", "/projects/:id/status", (_r, p) => foundry.status(p.id!));
   route("POST", "/projects/:id/introspect", async (req, p) => foundry.introspect(p.id!, (await body(req, Ask)).question));
+  route("POST", "/projects/:id/attack/what-if", async (req, p) => {
+    const b = await body(req, WhatIfBody);
+    return foundry.whatIf(p.id!, b as never);
+  });
+  route("POST", "/projects/:id/attack/injection", async (req, p) => {
+    const b = await body(req, Injection);
+    return foundry.injection(p.id!, b as never);
+  });
+  route("POST", "/projects/:id/chat", async (req, p) => foundry.chat(p.id!, (await body(req, Ask)).question));
   route("GET", "/projects/:id/self-model", (_r, p) => foundry.selfModel(p.id!));
   route("GET", "/projects/:id/context/:role", (_r, p) => foundry.agentContext(p.id!, p.role!));
   const dep = () => deployments ?? (() => { throw new HttpError(503, "BLOCKED_ENV", "deployment is not configured on this backend"); })();
@@ -99,6 +110,8 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
     return dep().record(p.id!, b.chain, b.label, b.tx as `0x${string}`);
   });
   route("GET", "/projects/:id/runtime", (_r, p) => dep().runtime(p.id!));
+  route("GET", "/reality", () => dep().reality());
+  route("GET", "/projects/:id/reality", (_r, p) => dep().reality(p.id!));
   route("GET", "/projects/:id/activity", (_r, p) => ({ events: foundry.loadRecord(p.id!).events ?? [] }));
   route("POST", "/projects/:id/control/:op/prepare", (_r, p) => {
     if (p.op !== "pause" && p.op !== "revoke") throw new HttpError(404, "KIDO_API_NOT_FOUND", `unknown control ${p.op}`);
@@ -133,7 +146,7 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
       throw new HttpError(404, "KIDO_API_NOT_FOUND", `${req.method} ${url.pathname}`);
     } catch (err) {
       if (err instanceof HttpError) return send(err.status, { error: err.code, message: err.message });
-      if (err instanceof LifecycleError) return send(409, { error: err.code, message: err.message });
+      if (err instanceof LifecycleError) return send(err.code === "BLOCKED_ENV" ? 503 : 409, { error: err.code, message: err.message });
       const msg = (err as Error).message ?? String(err);
       if (/^unknown project/.test(msg)) return send(404, { error: "KIDO_API_UNKNOWN_PROJECT", message: msg });
       if (/no pending question|unknown requirement/.test(msg)) return send(409, { error: "KIDO_API_CONFLICT", message: msg });

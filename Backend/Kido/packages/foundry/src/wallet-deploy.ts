@@ -272,6 +272,80 @@ export class WalletDeployments {
     return { deployed: true, status: dep.status, accountId: dep.accountId, owner: dep.owner, leaseId: dep.leaseId ?? null, chains };
   }
 
+  /**
+   * Reality Lab: every Amane contract and package the manifest names, checked on the live chains
+   * (bytecode present on Ethereum, object present and immutable-or-owned on Sui), plus, for a
+   * deployed agent, a refusal probe: a stranger's call to the account is simulated against the real
+   * contract and must revert. Nothing is signed or sent.
+   */
+  async reality(id?: string) {
+    const m = this.d.foundry.manifest as unknown as { evm: Record<string, unknown>; sui: Record<string, unknown> };
+    const collect = (node: unknown, path: string, re: RegExp, out: { label: string; ref: string }[]) => {
+      if (typeof node === "string") {
+        if (re.test(node) && !out.some((o) => o.ref.toLowerCase() === node.toLowerCase())) out.push({ label: path, ref: node });
+      } else if (Array.isArray(node)) node.forEach((v, i) => collect(v, `${path}[${(v as { name?: string })?.name ?? i}]`, re, out));
+      else if (node && typeof node === "object") for (const [k, v] of Object.entries(node)) if (!/Tx$|Digest$|adapterId$|chainRef$|sourceCommit$/.test(k)) collect(v, path ? `${path}.${k}` : k, re, out);
+    };
+    const evmRefs: { label: string; ref: string }[] = [];
+    const suiRefs: { label: string; ref: string }[] = [];
+    collect(m.evm, "", /^0x[0-9a-fA-F]{40}$/, evmRefs);
+    collect(m.sui, "", /^0x[0-9a-f]{64}$/, suiRefs);
+    type Probe = { chain: ChainId; label: string; ref: string; ok: boolean; detail: string };
+    const probes: Probe[] = [];
+    const heads: { chain: ChainId; head: string | null; error: string | null }[] = [];
+    const evmChain = "ethereum-sepolia" as ChainId;
+    const suiChain = "sui-testnet" as ChainId;
+    if (this.d.evm) {
+      const c = this.d.evm.publicClient;
+      try {
+        heads.push({ chain: evmChain, head: (await c.getBlockNumber()).toString(), error: null });
+      } catch (e) {
+        heads.push({ chain: evmChain, head: null, error: (e as Error).message.split("\n")[0] ?? "read failed" });
+      }
+      await Promise.all(evmRefs.map(async (r) => {
+        try {
+          const code = await c.getCode({ address: r.ref as Address });
+          probes.push({ chain: evmChain, ...r, ok: Boolean(code && code !== "0x"), detail: code && code !== "0x" ? `${(code.length - 2) / 2} bytes of code` : "no code at this address (an EOA or a token list entry)" });
+        } catch (e) {
+          probes.push({ chain: evmChain, ...r, ok: false, detail: (e as Error).message.split("\n")[0] ?? "read failed" });
+        }
+      }));
+    } else heads.push({ chain: evmChain, head: null, error: "no Ethereum RPC configured" });
+    if (this.d.sui) {
+      const c = this.d.sui.client as unknown as { core: { getObjects(o: { objectIds: string[] }): Promise<{ objects: ({ objectId: string; owner: unknown; type: string } | Error)[] }> } };
+      try {
+        const res = await c.core.getObjects({ objectIds: suiRefs.map((r) => r.ref) });
+        heads.push({ chain: suiChain, head: "reachable", error: null });
+        res.objects.forEach((o, i) => {
+          const r = suiRefs[i]!;
+          if (o instanceof Error) probes.push({ chain: suiChain, ...r, ok: /emitter/i.test(r.label), detail: /emitter/i.test(r.label) ? "emitter identity (wrapped in the adapter or an address, not a standalone object)" : o.message.split("\n")[0] ?? "not found" });
+          else probes.push({ chain: suiChain, ...r, ok: true, detail: `${o.type === "package" ? "package" : o.type.split("<")[0]}; owner ${typeof o.owner === "object" && o.owner ? Object.keys(o.owner as object)[0] ?? "?" : String(o.owner)}` });
+        });
+      } catch (e) {
+        heads.push({ chain: suiChain, head: null, error: (e as Error).message.split("\n")[0] ?? "read failed" });
+      }
+    } else heads.push({ chain: suiChain, head: null, error: "no Sui client configured (KIDO_SUI_RELAYER_KEY)" });
+
+    const refusals: { chain: ChainId; probe: string; refused: boolean; detail: string }[] = [];
+    const dep = id ? this.load(id).dep : null;
+    if (dep && this.d.evm) {
+      const acct = dep.chains[evmChain]?.account as Address | undefined;
+      if (acct) {
+        const stranger = `0x${keccak256(toHex(`kido:reality:${Date.now()}`)).slice(26)}` as Address;
+        const probe = async (name: string, data: Hex) => {
+          try {
+            await this.d.evm!.publicClient.call({ account: stranger, to: acct, data });
+            refusals.push({ chain: evmChain, probe: name, refused: false, detail: "the call did not revert" });
+          } catch (e) {
+            refusals.push({ chain: evmChain, probe: name, refused: true, detail: ((e as { shortMessage?: string }).shortMessage ?? (e as Error).message).split("\n")[0] ?? "reverted" });
+          }
+        };
+        await probe("stranger releases a reservation", encodeFunctionData({ abi: amaneAccountAbi, functionName: "releaseReservation", args: [keccak256(toHex("kido:reality:reservation"))] }));
+      }
+    }
+    return { heads, probes: probes.sort((a, b) => a.chain.localeCompare(b.chain) || a.label.localeCompare(b.label)), refusals, deployed: Boolean(dep), accounts: dep ? Object.fromEntries(Object.entries(dep.chains).map(([c, s]) => [c, s?.account ?? null])) : {} };
+  }
+
   /** Owner controls: typed data for pause (one controller), unpause (threshold) or revoke (the lease). */
   async controlPrepare(id: string, op: "pause" | "revoke") {
     const { dep } = this.load(id);

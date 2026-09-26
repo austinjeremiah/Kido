@@ -6,8 +6,14 @@
  * A product primitive, not a generic chatbot: it is page-aware, selection-aware,
  * renders structured response cards, and can never itself execute a privileged
  * control. Control suggestions only open the native deterministic dialog.
+ *
+ * Answers come from the backend's live chat model, which reads the agent's
+ * self-model through tools. When the backend has no chat model (health says so,
+ * or chat answers 503) it falls back to deterministic introspection of the
+ * self-model. Every answer is labelled with which of the two produced it.
+ * Threads are kept per project in this browser.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   AtSign,
@@ -25,7 +31,8 @@ import { Popover, MenuItem, MenuLabel } from './Popover';
 import { Badge } from '../primitives';
 import { useWorkbench } from '@/lib/studio/workbench';
 import { streamText } from '@/lib/studio/agent-engine';
-import { kido } from '@/lib/kido/api';
+import { kido, KidoApiError } from '@/lib/kido/api';
+import { useHealth } from '@/lib/kido/hooks';
 import { searchMentions, type MentionEntity } from '@/lib/studio/mentions';
 import { useMentionSource } from '@/lib/studio/api/mention-source';
 import { metaForSegment, segmentForPageKind } from '@/lib/studio/nav';
@@ -62,6 +69,11 @@ function mentionTokenAt(text: string, caret: number): { start: number; query: st
 }
 
 /** Authority tier labels (spec §6.4), shown so the gate is legible. */
+/** Which backend path produced an answer. */
+type AnswerSource = { source: 'model'; model: string; toolCalls: number } | { source: 'introspection'; known: boolean } | { source: 'none' };
+
+const threadsKey = (projectId: string) => `kido.assistant.threads.${projectId}`;
+
 const TIER_LABEL: Record<string, string> = {
   read: 'Read',
   navigate: 'Navigate',
@@ -107,6 +119,39 @@ export function AssistantSidebar({
     { id: 'thr_1', title: 'Current thread', createdAt: '', messages: [] },
   ]);
   const [activeThreadId, setActiveThreadId] = useState('thr_1');
+  const [sources, setSources] = useState<Record<string, AnswerSource>>({});
+  const health = useHealth();
+  const chatAvailable = health.data?.chatModel !== false;
+
+  /* Restore this project's threads after mount (storage is client-only), and save them as they change. */
+  const restoredFor = useRef<string | null>(null);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(threadsKey(projectId));
+      const saved = raw ? (JSON.parse(raw) as { threads: AgentThread[]; sources: Record<string, AnswerSource>; active: string }) : null;
+      if (saved?.threads?.length) {
+        setThreads(saved.threads.map((t) => ({ ...t, messages: t.messages.map((m) => ({ ...m, streaming: false })) })));
+        setSources(saved.sources ?? {});
+        setActiveThreadId(saved.threads.some((t) => t.id === saved.active) ? saved.active : saved.threads[0].id);
+      } else {
+        setThreads([{ id: 'thr_1', title: 'Current thread', createdAt: '', messages: [] }]);
+        setSources({});
+        setActiveThreadId('thr_1');
+      }
+    } catch {
+      /* storage unavailable: history lives for this session only */
+    }
+    restoredFor.current = projectId;
+  }, [projectId]);
+  useEffect(() => {
+    if (restoredFor.current !== projectId || streaming) return;
+    try {
+      window.localStorage.setItem(threadsKey(projectId), JSON.stringify({ threads, sources, active: activeThreadId }));
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threads, sources, activeThreadId, projectId]);
   const [streaming, setStreaming] = useState(false);
   /* The picker is driven by what is under the caret, not by a toggle, so it
      opens as the user types @ and closes when the token stops being one. */
@@ -217,32 +262,61 @@ export function AssistantSidebar({
 
       cancelRef.current = { cancelled: false };
       const signal = cancelRef.current;
-      const finish = (text: string) =>
+      const setText = (text: string, streamingNow: boolean) =>
+        updateThread((prev) => prev.map((m) => (m.id === agentMessageId ? { ...m, text, streaming: streamingNow } : m)));
+      const finish = (text: string, source: AnswerSource) => {
+        setSources((prev) => ({ ...prev, [agentMessageId]: source }));
+        if (signal.cancelled) {
+          setText(`${text}`, false);
+          return;
+        }
         streamText(
           text || ' ',
-          (soFar) => updateThread((prev) => prev.map((m) => (m.id === agentMessageId ? { ...m, text: soFar } : m))),
+          (soFar) => setText(soFar, true),
           () => {
-            updateThread((prev) => prev.map((m) => (m.id === agentMessageId ? { ...m, streaming: false } : m)));
+            setText(text, false);
             setStreaming(false);
           },
           signal,
         );
-      /* Answers come from the agent's self-model on the backend: deterministic facts, never a guess. */
+      };
       if (projectCtx.isDraft || !projectCtx.kido?.blueprint) {
-        finish('I can answer once this agent has a compiled blueprint. Finish the interview in the Composer first.');
+        finish('I can answer once this agent has a compiled blueprint. Finish the interview in the Composer first.', { source: 'none' });
+        return;
+      }
+      const id = projectCtx.routeProjectId;
+      /* Deterministic facts straight from the self-model: the fallback when no model is configured. */
+      const introspect = () =>
+        kido
+          .introspect(id, prompt)
+          .then((r) =>
+            finish(
+              r.known
+                ? Object.entries(r.facts).map(([topic, v]) => `- **${topic}**: ${factText(v)}`).join('\n')
+                : 'That is not something my self-model covers, so I will not guess. Ask about my limits, actions, payees, providers, privacy, lease or failure behaviour.',
+              { source: 'introspection', known: r.known },
+            ),
+          )
+          .catch((e: Error) => finish(`I could not reach my self-model: ${e.message}`, { source: 'none' }));
+      if (!chatAvailable) {
+        void introspect();
         return;
       }
       kido
-        .introspect(projectCtx.routeProjectId, prompt)
-        .then((r) => finish(r.known ? Object.entries(r.facts).map(([topic, v]) => `${topic}: ${factText(v)}`).join('\n\n') : 'That is not something my self-model covers, so I will not guess. Ask about my limits, actions, payees, providers, privacy, lease or failure behaviour.'))
-        .catch((e: Error) => finish(`I could not reach my self-model: ${e.message}`));
+        .chat(id, prompt)
+        .then((r) => finish(r.answer, { source: 'model', model: r.model, toolCalls: r.toolCalls }))
+        .catch((e: unknown) => {
+          if (e instanceof KidoApiError && e.status === 503) return introspect();
+          finish(`The chat model could not answer: ${(e as Error).message}`, { source: 'none' });
+        });
     },
-    [agentDraft, streaming, context, selection, setAgentDraft, updateThread, projectCtx],
+    [agentDraft, streaming, context, setAgentDraft, updateThread, projectCtx, chatAvailable],
   );
 
   const stop = () => {
     cancelRef.current.cancelled = true;
     setStreaming(false);
+    updateThread((prev) => prev.map((m) => (m.streaming ? { ...m, streaming: false, text: m.text?.trim() ? m.text : 'Stopped.' } : m)));
   };
 
   const newThread = () => {
@@ -305,6 +379,11 @@ export function AssistantSidebar({
           <Badge tone="neutral" title="Current agent">
             {agent.name}
           </Badge>
+          {health.data ? (
+            <Badge tone={chatAvailable ? 'pass' : 'data'} title={chatAvailable ? 'Answers come from the live chat model, which reads the self-model' : 'No chat model is configured; answers come from deterministic introspection'}>
+              {chatAvailable ? 'Live model' : 'Introspection'}
+            </Badge>
+          ) : null}
           {selection ? (
             <Badge tone="sim" title={`Selected ${selection.kind}`}>
               Selected: {selection.label}
@@ -336,7 +415,7 @@ export function AssistantSidebar({
             </div>
           </div>
         ) : (
-          messages.map((message) => <MessageView key={message.id} message={message} projectId={projectId} onControlRequest={onControlRequest} />)
+          messages.map((message) => <MessageView key={message.id} message={message} source={sources[message.id]} projectId={projectId} onControlRequest={onControlRequest} />)
         )}
       </div>
 
@@ -519,10 +598,12 @@ export function AssistantSidebar({
 
 function MessageView({
   message,
+  source,
   projectId,
   onControlRequest,
 }: {
   message: AgentMessage;
+  source?: AnswerSource;
   projectId: string;
   onControlRequest: (control: ControlCommand) => void;
 }) {
@@ -547,11 +628,16 @@ function MessageView({
   return (
     <div className="cl-col" style={{ gap: 8 }}>
       {message.text?.trim() ? (
-        <div style={{ fontSize: 12.5, lineHeight: 1.6 }}>
-          {message.text}
+        <div style={{ fontSize: 12.5, lineHeight: 1.6, overflowWrap: 'anywhere' }}>
+          <Markdown text={message.text} />
           {message.streaming ? <span className="cl-pulse">▍</span> : null}
         </div>
+      ) : message.streaming ? (
+        <span className="cl-meta">
+          Thinking<span className="cl-pulse">…</span>
+        </span>
       ) : null}
+      {source && !message.streaming ? <SourceBadge source={source} /> : null}
       {message.cards?.map((card, i) => (
         <ResponseCard key={i} card={card} projectId={projectId} onControlRequest={onControlRequest} />
       ))}
@@ -813,4 +899,112 @@ function factText(v: unknown): string {
   if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (Array.isArray(v)) return v.length ? v.map(factText).join('; ') : 'none';
   return Object.entries(v as Record<string, unknown>).map(([k, x]) => `${k} ${factText(x)}`).join(', ');
+}
+
+function SourceBadge({ source }: { source: AnswerSource }) {
+  if (source.source === 'model')
+    return (
+      <span className="cl-row" style={{ gap: 6 }}>
+        <Badge tone="pass" title="Answered by the backend's live chat model, grounded in the self-model">
+          Live model · {source.model}
+        </Badge>
+        <span className="cl-meta">
+          {source.toolCalls} self-model read{source.toolCalls === 1 ? '' : 's'}
+        </span>
+      </span>
+    );
+  if (source.source === 'introspection')
+    return (
+      <Badge tone="data" title="Deterministic facts from the self-model; no language model involved">
+        Deterministic introspection
+      </Badge>
+    );
+  return null;
+}
+
+/* ------------------------------------------------------------ markdown-ish */
+
+/** Inline spans: `code`, **bold**, *italic*. Everything else is plain text (never HTML). */
+function inline(text: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  const re = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const tok = m[0];
+    if (tok.startsWith('`')) out.push(<code key={m.index} className="cl-mono" style={{ fontSize: '0.92em', background: 'var(--cl-raised)', padding: '0 3px', overflowWrap: 'anywhere' }}>{tok.slice(1, -1)}</code>);
+    else if (tok.startsWith('**')) out.push(<strong key={m.index}>{tok.slice(2, -2)}</strong>);
+    else out.push(<em key={m.index}>{tok.slice(1, -1)}</em>);
+    last = m.index + tok.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+/** Paragraphs, headings, bullet and numbered lists, fenced code — enough for chat answers. */
+function Markdown({ text }: { text: string }) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const blocks: ReactNode[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.trim().startsWith('```')) {
+      const body: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].trim().startsWith('```')) body.push(lines[i++]);
+      i++;
+      blocks.push(<pre key={i} className="cl-mono" style={{ fontSize: 11.5, background: 'var(--cl-raised)', padding: '6px 8px', overflowX: 'auto', margin: '4px 0' }}>{body.join('\n')}</pre>);
+      continue;
+    }
+    const list = /^\s*([-*•]|\d+[.)])\s+/;
+    if (list.test(line)) {
+      const ordered = /^\s*\d/.test(line);
+      const items: string[] = [];
+      while (i < lines.length && (list.test(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && items.length))) {
+        if (list.test(lines[i])) items.push(lines[i].replace(list, ''));
+        else items[items.length - 1] += `\n${lines[i].trim()}`;
+        i++;
+      }
+      const Tag = ordered ? 'ol' : 'ul';
+      blocks.push(
+        <Tag key={i} style={{ margin: '4px 0', paddingLeft: 18, listStyle: ordered ? 'decimal' : 'disc' }}>
+          {items.map((it, k) => (
+            <li key={k} style={{ margin: '2px 0' }}>
+              {it.split('\n').map((part, j) => (
+                <Fragment key={j}>
+                  {j ? <br /> : null}
+                  {inline(part.replace(/\s+$/, ''))}
+                </Fragment>
+              ))}
+            </li>
+          ))}
+        </Tag>,
+      );
+      continue;
+    }
+    const h = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (h) {
+      blocks.push(<div key={i} className="cl-strong" style={{ margin: '6px 0 2px' }}>{inline(h[2])}</div>);
+      i++;
+      continue;
+    }
+    if (!line.trim()) {
+      i++;
+      continue;
+    }
+    const para: string[] = [];
+    while (i < lines.length && lines[i].trim() && !list.test(lines[i]) && !/^#{1,4}\s/.test(lines[i]) && !lines[i].trim().startsWith('```')) para.push(lines[i++]);
+    blocks.push(
+      <p key={i} style={{ margin: '4px 0' }}>
+        {para.map((part, j) => (
+          <Fragment key={j}>
+            {j ? <br /> : null}
+            {inline(part.replace(/\s+$/, ''))}
+          </Fragment>
+        ))}
+      </p>,
+    );
+  }
+  return <>{blocks}</>;
 }

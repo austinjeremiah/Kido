@@ -11,6 +11,8 @@ import { buildAgentContext, buildSelfModel, compileAmaneAuthority, introspect, t
 import type { AmaneDeploymentManifest } from "@kido/amane-bridge";
 import { authorityEndpoints } from "./endpoints.js";
 import { securityReview, type SecurityReport } from "./review.js";
+import { evaluateWhatIf, injectionTest, type WhatIf } from "./attack-lab.js";
+import { OpenAIAgentChat } from "@kido/agents";
 import { simulate, type SimulationReport } from "./simulate.js";
 
 export interface BuildArtifact extends RevisionBound {
@@ -346,6 +348,30 @@ export class Foundry {
     p.build = artifact;
     this.d.store.save(p);
     return artifact;
+  }
+
+  /** Attack Lab: a hand-built action judged by the compiler and the Amane rules for this revision. */
+  whatIf(projectId: string, w: WhatIf) {
+    const bp = this.requireBlueprint(this.d.store.load(projectId));
+    return evaluateWhatIf(bp, this.authority(bp), w);
+  }
+
+  /** Attack Lab: an injected instruction as a compromised specialist's plan, through every layer. */
+  injection(projectId: string, t: { instruction: string; target: string; amount: string; chain?: string }) {
+    const bp = this.requireBlueprint(this.d.store.load(projectId));
+    return injectionTest(bp, this.authority(bp), t);
+  }
+
+  /**
+   * The agent answering in its own words through the live model, grounded only in its self-model
+   * (the model's one tool is introspection). Without a model configured this is BLOCKED_ENV and
+   * callers fall back to the deterministic introspection.
+   */
+  async chat(projectId: string, question: string) {
+    if (!process.env.OPENAI_API_KEY || !(process.env.KIDO_MODEL ?? process.env.OPENAI_MODEL)) throw new LifecycleError("BLOCKED_ENV", "no live model configured (OPENAI_API_KEY and OPENAI_MODEL)");
+    this.requireBlueprint(this.d.store.load(projectId));
+    const r = await new OpenAIAgentChat((q: string) => this.introspect(projectId, q) as never).ask(question);
+    return { answer: r.answer, toolCalls: r.toolCalls, model: process.env.KIDO_MODEL ?? process.env.OPENAI_MODEL };
   }
 
   /** Deterministic answers about the agent from its self-model (bible §13.2). */

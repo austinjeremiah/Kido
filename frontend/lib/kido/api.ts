@@ -2,7 +2,7 @@
  * HTTP client for the Kido API. Requests go to /api/* on this origin; next.config.mjs proxies them
  * to the Kido backend, so the browser needs no CORS. Nothing here holds state or keys.
  */
-import type { ControlMessage, DeploymentStatus, DeploymentWire, ProjectEvent, Runtime, TxRequest, TypedDataWire, Health, Introspection, ProjectRow, ProjectSummary, ProviderRow, Question, SelfModel, SecurityReport, SimulationReport, BuildArtifact, Blueprint, Blocker } from './types';
+import type { ChatAnswer, InjectionResult, LabVerdict, Reality, WhatIf, ControlMessage, DeploymentStatus, DeploymentWire, ProjectEvent, Runtime, TxRequest, TypedDataWire, Health, Introspection, ProjectRow, ProjectSummary, ProviderRow, Question, SelfModel, SecurityReport, SimulationReport, BuildArtifact, Blueprint, Blocker } from './types';
 
 export class KidoApiError extends Error {
   constructor(message: string, readonly status: number, readonly code: string | null) {
@@ -43,6 +43,10 @@ export const kido = {
   context: (id: string, role: string) => call<Record<string, unknown>>('GET', `/projects/${id}/context/${encodeURIComponent(role)}`),
   registry: () => call<{ providers: ProviderRow[] }>('GET', '/registry').then((r) => r.providers),
   drift: () => call<{ drift: unknown[]; quarantined: unknown[] }>('GET', '/knowledge/drift'),
+  whatIf: (id: string, w: WhatIf) => call<LabVerdict>('POST', `/projects/${id}/attack/what-if`, w),
+  injection: (id: string, t: { instruction: string; target: string; amount: string; chain?: string }) => call<InjectionResult>('POST', `/projects/${id}/attack/injection`, t),
+  chat: (id: string, question: string) => call<ChatAnswer>('POST', `/projects/${id}/chat`, { question }),
+  reality: (id?: string) => call<Reality>('GET', id ? `/projects/${id}/reality` : '/reality'),
   deployment: (id: string) => call<DeploymentStatus>('GET', `/projects/${id}/deployment`),
   deployStart: (id: string, owner: string, recoverySui?: string) => call<{ deployment: DeploymentWire; transactions: TxRequest[] }>('POST', `/projects/${id}/deploy/start`, { owner, ...(recoverySui ? { recoverySui } : {}) }),
   deployEvmAccount: (id: string, txHash: string) => call<{ deployment: DeploymentWire }>('POST', `/projects/${id}/deploy/evm-account`, { txHash }),

@@ -7,11 +7,13 @@
  * TESTNET LAB badge · command field · build status · blockers · notifications ·
  * user menu. The environment badge is always visible and never conditional.
  */
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, Bell, Check, ChevronDown, GitCompare, Plus, Search, TriangleAlert, User } from 'lucide-react';
 import { Popover, MenuItem, MenuLabel, MenuSeparator } from './Popover';
 import { StatusBadge } from '../primitives';
 import { WalletChip } from '../wallet/WalletChip';
+import { NewProjectModal } from '../NewProjectModal';
 import { useWorkbench } from '@/lib/studio/workbench';
 import type { Agent, Blocker, Project, ProjectSummary, RevisionSet } from '@/lib/studio/types';
 
@@ -33,9 +35,11 @@ export function TitleBar({
   const router = useRouter();
   const { setPaletteOpen, openBottom, developerMode, setDeveloperMode } = useWorkbench();
   const { revisions, blockers } = project;
+  const [newOpen, setNewOpen] = useState(false);
 
   return (
     <header className="cl-titlebar">
+      <NewProjectModal open={newOpen} onClose={() => setNewOpen(false)} />
       {/* The wordmark is the way out of a project. Every product puts "home"
           here, so leaving it inert stranded you inside the workbench with no
           obvious exit. */}
@@ -88,18 +92,10 @@ export function TitleBar({
               </MenuItem>
             ))}
             <MenuSeparator />
-            <MenuLabel>Organizations</MenuLabel>
-            <MenuItem onClick={close} hint="4 projects">
-              Treasury Department
-            </MenuItem>
-            <MenuItem onClick={close} hint="1 project">
-              Operations
-            </MenuItem>
-            <MenuSeparator />
             <MenuItem
               onClick={() => {
                 close();
-                router.push('/projects/new');
+                setNewOpen(true);
               }}
             >
               <Plus size={13} aria-hidden /> New Agent Project
