@@ -42,6 +42,41 @@ function roleStatus(s: ProjectSummary, role: string): Status {
   return b.missingPacks.length ? 'WARN' : 'READY';
 }
 
+/**
+ * What a role may request, resolved to roles: an entry is either a role name or an action, and an
+ * action resolves to the roles that own it. Entries neither a role nor owned by one are dangling.
+ */
+function requestTargets(roles: Role[], r: Role): { targets: string[]; dangling: string[] } {
+  const targets = new Set<string>();
+  const dangling: string[] = [];
+  for (const q of r.mayRequest) {
+    if (roles.some((x) => x.role === q)) targets.add(q);
+    else {
+      const owners = roles.filter((x) => x.role !== r.role && x.owns.includes(q as never)).map((x) => x.role);
+      if (owners.length) owners.forEach((o) => targets.add(o));
+      else if (!r.owns.includes(q as never)) dangling.push(q);
+    }
+  }
+  return { targets: [...targets], dangling };
+}
+
+/** The role's own ENS / SuiNS names (planned by the identity compiler), or the agent's names for `null`. */
+function namesOf(s: ProjectSummary, role: string | null) {
+  const plan = s.build?.freshness === 'CURRENT' && s.build.identity.length ? s.build.identity : s.identityPlan;
+  return plan.filter((b) => (role ? b.role === role : !b.role));
+}
+
+function NameLine({ b, compact }: { b: ReturnType<typeof namesOf>[number]; compact?: boolean }) {
+  const live = b.liveCapable !== false;
+  return (
+    <span className="cl-row" style={{ gap: 6, minWidth: 0 }} title={b.blockers?.length ? b.blockers.join('\n') : 'Planned; published when the agent is deployed. A name is discovery only, never authority.'}>
+      <Badge tone={b.providerId === 'ens' ? 'data' : 'sim'}>{b.providerId === 'ens' ? 'ENS' : 'SuiNS'}</Badge>
+      <span className="cl-mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: compact ? 11.5 : undefined }}>{b.name}</span>
+      {compact ? null : <Badge tone={live ? 'pass' : 'warn'}>{live ? 'ready to publish' : 'blocked'}</Badge>}
+    </span>
+  );
+}
+
 function Chips({ items, tone = 'neutral' }: { items: string[]; tone?: 'neutral' | 'pass' | 'warn' | 'deny' | 'data' }) {
   if (!items.length) return <span className="cl-meta">none</span>;
   return (
@@ -61,7 +96,8 @@ function Organization({ s }: { s: ProjectSummary }) {
 
   const owned = new Set(roles.flatMap((r) => r.owns));
   const unowned = bp.authority.allowedActions.filter((a) => !owned.has(a));
-  const missingTargets = roles.flatMap((r) => r.mayRequest.filter((q) => !roles.some((x) => x.role === q)).map((q) => `${r.role} → ${q}`));
+  const missingTargets = roles.flatMap((r) => requestTargets(roles, r).dangling.map((q) => `${r.role} → ${q}`));
+  const agentNames = namesOf(s, null);
   const totalContext = s.build?.agents.reduce((n, a) => n + a.contextChars, 0) ?? 0;
 
   if (!roles.length) {
@@ -87,6 +123,19 @@ function Organization({ s }: { s: ProjectSummary }) {
         <BlockerBanner tone="deny" title="Delegation to a role that does not exist">{missingTargets.join(' · ')}</BlockerBanner>
       ) : null}
 
+      {bp.identity.public ? (
+        <Section label="Public identity" actions={<Link className="cl-btn cl-btn-sm" href={`/projects/${s.projectId}/identity`}>Identity</Link>}>
+          <div className="cl-card">
+            <div className="cl-card-body cl-stack" style={{ gap: 8 }}>
+              {agentNames.length ? agentNames.map((b) => <NameLine key={`${b.providerId}:${b.name}`} b={b} />) : <span className="cl-meta">Compile the blueprint to plan the agent&apos;s names.</span>}
+              <p className="cl-meta" style={{ margin: 0, whiteSpace: 'normal' }}>
+                Each specialist below gets its own subname under the agent&apos;s name, carrying its KidoAgentId and role as text records, so anyone can look up who does what. Names are discovery only: authority comes from the Amane policy, never from a name.
+              </p>
+            </div>
+          </div>
+        </Section>
+      ) : null}
+
       <Section
         label="Agents"
         actions={
@@ -106,6 +155,11 @@ function Organization({ s }: { s: ProjectSummary }) {
                   <StatusBadge status={roleStatus(s, r.role)} />
                 </span>
                 <span className="cl-principal-role">{r.owns.length ? `Owns ${r.owns.join(', ')}` : 'Owns no actions — observes and reports'}</span>
+                {namesOf(s, r.role).length ? (
+                  <span className="cl-stack" style={{ gap: 4, margin: '6px 0 2px', minWidth: 0 }}>
+                    {namesOf(s, r.role).map((b) => <NameLine key={b.name} b={b} compact />)}
+                  </span>
+                ) : null}
                 <span className="cl-principal-foot">
                   <span className="cl-num">{b ? b.contextChars.toLocaleString() : '—'}</span>
                   <span className="cl-meta">context chars · {r.knowledgePacks.length} pack{r.knowledgePacks.length === 1 ? '' : 's'}{b?.missingPacks.length ? ` · ${b.missingPacks.length} missing` : ''}</span>
@@ -135,7 +189,7 @@ function Organization({ s }: { s: ProjectSummary }) {
         <div className="cl-card" style={{ overflowX: 'auto' }}>
           <table className="cl-table">
             <thead>
-              <tr><th>Role</th><th>Owns</th><th>May request</th><th>Requested by</th><th>Knowledge packs</th><th>Context</th><th>Missing packs</th><th /></tr>
+              <tr><th>Role</th><th>Names</th><th>Owns</th><th>May request</th><th>Requested by</th><th>Knowledge packs</th><th>Context</th><th>Missing packs</th><th /></tr>
             </thead>
             <tbody>
               {roles.map((r) => {
@@ -143,9 +197,10 @@ function Organization({ s }: { s: ProjectSummary }) {
                 return (
                   <tr key={r.role} data-selected={r.role === selected ? '' : undefined} onClick={() => setSelected(r.role)} style={{ cursor: 'pointer' }}>
                     <td><strong>{r.role}</strong></td>
+                    <td><span className="cl-stack" style={{ gap: 4 }}>{namesOf(s, r.role).map((b) => <NameLine key={b.name} b={b} compact />)}{namesOf(s, r.role).length ? null : <span className="cl-meta">none</span>}</span></td>
                     <td><Chips items={r.owns} tone="pass" /></td>
-                    <td><Chips items={r.mayRequest} tone="warn" /></td>
-                    <td><Chips items={roles.filter((x) => x.mayRequest.includes(r.role)).map((x) => x.role)} /></td>
+                    <td><Chips items={requestTargets(roles, r).targets} tone="warn" /></td>
+                    <td><Chips items={roles.filter((x) => requestTargets(roles, x).targets.includes(r.role)).map((x) => x.role)} /></td>
                     <td><Chips items={r.knowledgePacks} tone="data" /></td>
                     <td className="cl-num">{b ? b.contextChars.toLocaleString() : '—'}</td>
                     <td>{b ? <Chips items={b.missingPacks} tone="deny" /> : <span className="cl-meta">not built</span>}</td>
@@ -214,12 +269,30 @@ function RoleDetail({ s, sm, role }: { s: ProjectSummary; sm: SelfModel | undefi
               { key: 'ctx', label: 'Context size', value: b ? `${b.contextChars.toLocaleString()} chars` : <span className="cl-meta">Not built yet.</span>, note: b ? 'The exact text is on the Code page.' : undefined },
               { key: 'missing', label: 'Missing packs', value: b ? <Chips items={b.missingPacks} tone="deny" /> : <span className="cl-meta">—</span> },
               { key: 'build', label: 'Build', value: s.build ? `r${s.build.buildRevision} of blueprint r${s.build.blueprintRevision}` : <span className="cl-meta">Not built.</span> },
-              { key: 'may', label: 'May request', value: <Chips items={role.mayRequest} tone="warn" /> },
-              { key: 'by', label: 'Requested by', value: <Chips items={bp.agents.filter((x) => x.mayRequest.includes(role.role)).map((x) => x.role)} /> },
+              { key: 'may', label: 'May request', value: <Chips items={requestTargets(bp.agents, role).targets} tone="warn" />, note: role.mayRequest.length ? `asks for ${role.mayRequest.join(', ')}` : undefined },
+              { key: 'by', label: 'Requested by', value: <Chips items={bp.agents.filter((x) => requestTargets(bp.agents, x).targets.includes(role.role)).map((x) => x.role)} /> },
             ]}
           />
         </div>
         <div>
+          {namesOf(s, role.role).length ? (
+            <>
+              <div className="cl-label cl-spec-group">Identity</div>
+              <Spec
+                rows={namesOf(s, role.role).map((b) => ({
+                  key: b.name,
+                  label: b.providerId === 'ens' ? `ENS · ${chainLabel(b.chain)}` : `SuiNS · ${chainLabel(b.chain)}`,
+                  value: (
+                    <span className="cl-stack" style={{ gap: 4, minWidth: 0 }}>
+                      <span className="cl-mono" style={{ wordBreak: 'break-all' }}>{b.name}</span>
+                      <Badge tone={b.liveCapable !== false ? 'pass' : 'warn'}>{b.liveCapable !== false ? 'ready to publish' : 'blocked'}</Badge>
+                    </span>
+                  ),
+                  note: b.blockers?.length ? b.blockers.join('; ') : b.records && Object.keys(b.records).length ? `records: ${Object.entries(b.records).map(([k, v]) => `${k}=${v}`).join(', ')}` : 'discovery only',
+                }))}
+              />
+            </>
+          ) : null}
           <div className="cl-label cl-spec-group">Authority</div>
           <Spec
             rows={[
@@ -239,13 +312,14 @@ function DelegationGraph({ s, selected, onSelect }: { s: ProjectSummary; selecte
   const roles = s.blueprint!.agents;
   const { nodes, edges } = useMemo(() => {
     const depth = new Map<string, number>();
-    const roots = roles.filter((r) => !roles.some((x) => x.mayRequest.includes(r.role)));
+    const roots = roles.filter((r) => !roles.some((x) => requestTargets(roles, x).targets.includes(r.role)));
     const queue = (roots.length ? roots : roles.slice(0, 1)).map((r) => ({ role: r.role, d: 0 }));
     while (queue.length) {
       const { role, d } = queue.shift()!;
       if (depth.has(role)) continue;
       depth.set(role, d);
-      roles.find((r) => r.role === role)?.mayRequest.forEach((q) => queue.push({ role: q, d: d + 1 }));
+      const rr = roles.find((r) => r.role === role);
+      if (rr) requestTargets(roles, rr).targets.forEach((q) => queue.push({ role: q, d: d + 1 }));
     }
     roles.forEach((r) => depth.has(r.role) || depth.set(r.role, 0));
     const perCol = new Map<number, number>();
@@ -259,14 +333,14 @@ function DelegationGraph({ s, selected, onSelect }: { s: ProjectSummary; selecte
       };
       return { id: r.role, type: 'arch', position: { x: d * 300, y: row * 130 }, selected: r.role === selected, data };
     });
-    const edges: Edge[] = roles.flatMap((r) => r.mayRequest.filter((q) => roles.some((x) => x.role === q)).map((q) => ({
+    const edges: Edge[] = roles.flatMap((r) => requestTargets(roles, r).targets.map((q) => ({
       id: `${r.role}->${q}`, source: r.role, target: q, label: 'may request', animated: false,
       style: { stroke: 'var(--cl-warn)', strokeWidth: 1.4, strokeDasharray: '5 4' },
       labelStyle: { fill: 'var(--cl-warn)', fontSize: 9.5 }, labelBgStyle: { fill: 'var(--cl-panel)' },
     })));
     return { nodes, edges };
   }, [roles, s, selected]);
-  const pairs = roles.flatMap((r) => r.mayRequest.map((q) => `${r.role} → ${q}`));
+  const pairs = roles.flatMap((r) => requestTargets(roles, r).targets.map((q) => `${r.role} → ${q} (${r.mayRequest.join(', ')})`));
 
   return (
     <div className="cl-grid cl-grid-2" style={{ alignItems: 'start', gap: 16, gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)' }}>

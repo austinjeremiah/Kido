@@ -24,10 +24,17 @@ describe("identity core", () => {
     expect(dnsEncode("repay.acme.eth")).toBe("0x0572657061790461636d650365746800");
   });
 
-  it("Ethereum-only public agent → one ENS binding carrying its KidoAgentId", () => {
+  it("Ethereum-only public agent → one ENS name carrying its KidoAgentId, plus a subname per specialist", () => {
     const b = bp(["ethereum-sepolia"], true);
     const plan = compileIdentityPlan(b, reg, buildPublicManifest(b, blueprintHash(b)));
-    expect(plan.map((p) => [p.providerId, p.name])).toEqual([["ens", "repaydebt.acme-kido.eth"]]);
+    expect(plan.filter((p) => !p.role).map((p) => [p.providerId, p.name])).toEqual([["ens", "repaydebt.acme-kido.eth"]]);
+    const subs = plan.filter((p) => p.role);
+    expect(subs.map((p) => p.role)).toEqual(b.agents.map((a) => a.role));
+    for (const sp of subs) {
+      expect(sp.parent).toBe("repaydebt.acme-kido.eth");
+      expect(sp.name).toBe(`${sp.label}.repaydebt.acme-kido.eth`);
+      expect(sp.records).toEqual({ "kido-agent-id": b.kidoAgentId, "kido-agent-role": sp.role });
+    }
     expect(plan[0]!.records["kido-agent-id"]).toBe(b.kidoAgentId);
     expect(JSON.parse(plan[0]!.records["agent-context"]!).authorityNote).toMatch(/not financial authority/);
   });
@@ -35,7 +42,8 @@ describe("identity core", () => {
   it("Sui-only public agent → SuiNS only, with the registration blocker surfaced (no fake success)", () => {
     const b = bp(["sui-testnet"], true);
     const plan = compileIdentityPlan(b, reg, buildPublicManifest(b, blueprintHash(b)));
-    expect(plan.map((p) => p.providerId)).toEqual(["suins"]);
+    expect(plan.filter((p) => !p.role).map((p) => p.providerId)).toEqual(["suins"]);
+    expect(plan.filter((p) => p.role).every((p) => p.providerId === "suins" && !p.liveCapable)).toBe(true);
     expect(plan[0]!.liveCapable).toBe(false);
     expect(plan[0]!.blockers.join()).toMatch(/BC-SUINS-1/);
     expect(plan[0]!.records).toEqual({}); // SuiNS has no free-form text records
@@ -44,8 +52,8 @@ describe("identity core", () => {
   it("dual-chain agent → ENS + SuiNS bindings of the same KidoAgentId", () => {
     const b = bp(["ethereum-sepolia", "sui-testnet"], true);
     const plan = compileIdentityPlan(b, reg, buildPublicManifest(b, blueprintHash(b)));
-    expect(plan.map((p) => p.providerId).sort()).toEqual(["ens", "suins"]);
-    expect(plan.find((p) => p.providerId === "ens")!.records["kido-agent-id"]).toBe(b.kidoAgentId);
+    expect(plan.filter((p) => !p.role).map((p) => p.providerId).sort()).toEqual(["ens", "suins"]);
+    expect(plan.find((p) => p.providerId === "ens" && !p.role)!.records["kido-agent-id"]).toBe(b.kidoAgentId);
   });
 
   it("internal agents get no public binding", () => {

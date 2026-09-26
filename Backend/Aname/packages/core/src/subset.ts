@@ -216,6 +216,13 @@ export function assertActionIsSubset(policy: RootPolicy, lease: AgentLease, inte
     if (!le.recipients.some((r) => eq32(r, intent.recipient))) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
     const r = root.recipients.find((x) => eq32(x.recipientId, intent.recipient)) ?? fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
     if (r.label !== intent.recipientLabel) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'label mismatch');
+  } else if (intent.actionKind === ActionKind.BRIDGE) {
+    // Only to a pinned recipient (another endpoint of this account); the destination endpoint
+    // enforces what the funds may be used for (planHash commits to the destination spec).
+    if (!le.recipients.some((r) => eq32(r, intent.recipient))) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
+    const r = root.recipients.find((x) => eq32(x.recipientId, intent.recipient)) ?? fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
+    if (r.label !== intent.recipientLabel) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'label mismatch');
+    effectiveMinOut = 0n;
   } else if (intent.actionKind === ActionKind.REPAY && ctx.repay) {
     if (!le.beneficiaries.some((b) => eq32(b, intent.recipient))) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'beneficiary');
     const b = root.beneficiaries.find((x) => eq32(x.recipientId, intent.recipient)) ?? fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'beneficiary');

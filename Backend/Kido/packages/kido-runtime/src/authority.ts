@@ -55,7 +55,7 @@ export type AuthorityResult =
     }
   | { ok: false; blockers: string[] };
 
-const KIND: Partial<Record<Action, number>> = { PAY: ActionKind.PAY, SWAP: ActionKind.SWAP, REPAY: ActionKind.REPAY };
+const KIND: Partial<Record<Action, number>> = { PAY: ActionKind.PAY, SWAP: ActionKind.SWAP, REPAY: ActionKind.REPAY, BRIDGE: ActionKind.BRIDGE };
 
 function recipientId(family: AuthorityEndpoint["family"], address: string, account: Bytes32): Bytes32 {
   if (address === "SELF") return account;
@@ -126,7 +126,13 @@ export function compileAmaneAuthority(bp: KidoAgentBlueprint, endpoints: Authori
         if (out && !assetLimits.some((l) => l.assetId === out.assetId)) assetLimits.push({ assetId: out.assetId, maxPerAction: 0n, maxPerEpoch: 0n, maxTotal: 0n });
       }
     }
-    const payees = a.payees.filter((p) => p.chain === chain).map((p) => ({ recipientId: recipientId(ep.family, p.address, ep.account), label: p.label }));
+    // BRIDGE may only deliver to this deployment's own Amane account on another chain: those accounts
+    // are the only bridge recipients pinned, so a bridge can never pay out to an outside address.
+    const peers = actions.includes("BRIDGE")
+      ? endpoints.filter((e) => e.chain !== chain && bp.chains.includes(e.chain)).map((e) => ({ recipientId: e.account, label: `amane-${e.chain}` }))
+      : [];
+    if (actions.includes("BRIDGE") && peers.length === 0) blockers.push(`BRIDGE on ${chain} has no other Amane endpoint to deliver to`);
+    const payees = [...a.payees.filter((p) => p.chain === chain).map((p) => ({ recipientId: recipientId(ep.family, p.address, ep.account), label: p.label })), ...peers];
     const beneficiaries = a.beneficiaries.filter((p) => p.chain === chain).map((p) => ({ recipientId: recipientId(ep.family, p.address, ep.account), label: p.label }));
     const floors = actions.includes("SWAP")
       ? a.swapFloors.filter((f) => f.chain === chain).map((f) => {

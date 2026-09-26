@@ -279,7 +279,8 @@ export class Foundry {
     const privacyPlan = compilePrivacy(bp, this.registry);
     bp = applyPrivacyPlan(bp, privacyPlan);
     const identityPlan = compileIdentityPlan(bp, this.registry, buildPublicManifest(bp, blueprintHash(bp)));
-    if (identityPlan.length) bp = nextRevision(bp, { identity: { ...bp.identity, bindings: identityPlan.map((b) => ({ provider: b.providerId as "ens" | "suins", chain: b.chain, name: b.name, status: "PLANNED" as const })) } });
+    // The blueprint records the agent's own names; specialists' subnames live in the identity plan.
+    if (identityPlan.length) bp = nextRevision(bp, { identity: { ...bp.identity, bindings: identityPlan.filter((b) => !b.role).map((b) => ({ provider: b.providerId as "ens" | "suins", chain: b.chain, name: b.name, status: "PLANNED" as const })) } });
     p.interview = iv.state;
     p.revisions.push(bp);
     p.privacyPlan = privacyPlan;

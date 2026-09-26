@@ -44,9 +44,12 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
   // them. (BREAK F-0521)
   const limits: LimitSpec[] = [];
   const assets: KidoAgentBlueprint["assets"] = [];
-  const floor = ctx["limits.swap_floor"] as { minOutPerIn: string; assetIn: string; assetOut: string } | undefined;
+  // One floor per swapped pair; an older single-floor answer is a list of one.
+  type Floor = { minOutPerIn: string; assetIn: string; assetOut: string };
+  const rawFloor = ctx["limits.swap_floor"] as Floor | Floor[] | undefined;
+  const floors: Floor[] = rawFloor === undefined ? [] : Array.isArray(rawFloor) ? rawFloor : [rawFloor];
   if (financial) {
-    const held = new Set([...spend, ...(allowed.includes("SWAP") && floor ? [floor.assetIn, floor.assetOut] : [])]);
+    const held = new Set([...spend, ...(allowed.includes("SWAP") ? floors.flatMap((f) => [f.assetIn, f.assetOut]) : [])]);
     const w = ctx["limits.window"] as AmountValue | undefined, t = ctx["limits.total"] as AmountValue | undefined;
     const pa = (ctx["limits.per_action"] as AmountValue | undefined) ?? w;
     for (const c of chains) {
@@ -125,7 +128,12 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
       public: isPublic,
       organization: name ? (name.split(/[.-]/).filter(Boolean).slice(-1)[0] ?? null) : null,
       bindings: isPublic
-        ? chains.flatMap((c) => reg.find("identity", c, "RESOLVE").map((p) => ({ provider: p.providerId as "ens" | "suins", chain: c, name: null, status: "PLANNED" as const })))
+        ? chains.flatMap((c) => reg.find("identity", c, "RESOLVE").map((p) => {
+            // "treasury.acme" names the agent `treasury` under the organization `acme`.
+            const parts = name ? name.split(".").filter(Boolean) : [];
+            const tld = p.providerId === "ens" ? "eth" : "sui";
+            return { provider: p.providerId as "ens" | "suins", chain: c, name: parts.length >= 2 ? `${parts.join(".")}.${tld}` : null, status: "PLANNED" as const };
+          }))
         : [],
       advertisedCapabilities: isPublic ? allowed.map((a) => `kido:${a.toLowerCase()}`) : [],
       endpoints: {},
@@ -148,11 +156,9 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
       beneficiaries,
       bridgeAllowed,
       leaseLifetimeSeconds: Number(ctx["authority.lease_lifetime"] ?? byKey("authority.lease_lifetime")?.safeDefault?.(ctx) ?? KIDO_DEFAULTS.leaseLifetimeSeconds),
-      swapFloors: (() => {
-        const f = floor;
-        if (!f || !allowed.includes("SWAP")) return [];
-        return chains.filter((c) => reg.assetsOn(c).some((a) => a.symbol === f.assetIn) && reg.assetsOn(c).some((a) => a.symbol === f.assetOut)).map((c) => ({ chain: c, ...f }));
-      })(),
+      swapFloors: allowed.includes("SWAP")
+        ? floors.flatMap((f) => chains.filter((c) => reg.assetsOn(c).some((a) => a.symbol === f.assetIn) && reg.assetsOn(c).some((a) => a.symbol === f.assetOut)).map((c) => ({ chain: c, ...f })))
+        : [],
     },
     monitors,
     triggers: monitors.map((m) => ({ id: `${m.id}-trigger`, kind: "MONITOR", monitor: m.id })),

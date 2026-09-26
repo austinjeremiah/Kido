@@ -57,7 +57,7 @@ export interface SecurityFinding { id: string; class: string; severity: string; 
 export interface SecurityReport { blueprintRevision: number; findings: SecurityFinding[]; blocking: boolean; generatedAt: number; freshness: Freshness }
 export interface ScenarioResult { id: string; family: string; expected: string; actual: string; code: string | null; passed: boolean; note: string }
 export interface SimulationReport { blueprintRevision: number; results: ScenarioResult[]; passed: boolean; generatedAt: number; freshness: Freshness }
-export type PlannedBinding = { providerId: string; chain: ChainId; name: string; parent?: string; label?: string } & Record<string, unknown>;
+export type PlannedBinding = { providerId: string; chain: ChainId; name: string; parent?: string; label?: string; role?: string; liveCapable?: boolean; blockers?: string[]; records?: Record<string, string> } & Record<string, unknown>;
 export interface BuildArtifact {
   blueprintRevision: number;
   buildRevision: number;

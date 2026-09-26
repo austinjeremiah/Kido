@@ -128,6 +128,8 @@ export interface PlannedBinding {
   records: PublicRecords;
   liveCapable: boolean;
   blockers: string[];
+  /** Set on a specialist's own subname under the agent's name (e.g. `swap.treasury.acme.eth`). */
+  role?: string;
 }
 
 function slug(s: string, max: number): string {
@@ -148,7 +150,10 @@ export function compileIdentityPlan(bp: KidoAgentBlueprint, reg: ProviderRegistr
     const p = sel.selected[0];
     if (!p) continue;
     const tld = p.providerId === "ens" ? "eth" : "sui";
-    const parent = `${org.length < 5 ? `${org}-kido` : org}.${tld}`;
+    // A name the owner chose in the interview wins over the derived `<role>.<org>` name.
+    const chosen = bp.identity.bindings.find((b) => b.provider === p.providerId && b.chain === chain)?.name;
+    const [chosenLabel, ...chosenParent] = chosen ? chosen.split(".") : [];
+    const parent = chosen && chosenParent.length >= 2 ? chosenParent.join(".") : `${org.length < 5 ? `${org}-kido` : org}.${tld}`;
     const records: PublicRecords =
       p.providerId === "ens"
         ? { "agent-context": JSON.stringify(manifest), "kido-agent-id": manifest.kidoAgentId, ...(manifest.webEndpoint ? { "agent-endpoint[web]": manifest.webEndpoint } : {}), ...(manifest.mcpEndpoint ? { "agent-endpoint[mcp]": manifest.mcpEndpoint } : {}) }
@@ -158,7 +163,20 @@ export function compileIdentityPlan(bp: KidoAgentBlueprint, reg: ProviderRegistr
       const st = p.capabilityStatus?.[c]?.status ?? p.status;
       return st === "VERIFIED_LIVE" ? [] : [`${p.providerId} ${c}: ${p.capabilityStatus?.[c]?.note ?? p.statusNote}`];
     });
-    out.push({ providerId: p.providerId, chain, name: `${role}.${parent}`, parent, label: role, records, liveCapable: blockers.length === 0, blockers });
+    const label = chosen && chosenParent.length >= 2 ? slug(chosenLabel!, 20) : role;
+    const agentName = `${label}.${parent}`;
+    out.push({ providerId: p.providerId, chain, name: agentName, parent, label, records, liveCapable: blockers.length === 0, blockers });
+    // Every specialist is discoverable under the agent's name. Names are discovery only: a
+    // specialist's subname carries its role, never authority.
+    const subBlockers = ["SUBNAME", ...(p.providerId === "ens" ? ["TEXT_RECORDS"] : [])].flatMap((c) => {
+      const st = p.capabilityStatus?.[c]?.status ?? p.status;
+      return st === "VERIFIED_LIVE" ? [] : [`${p.providerId} ${c}: ${p.capabilityStatus?.[c]?.note ?? p.statusNote}`];
+    });
+    for (const a of bp.agents) {
+      const sub = slug(a.role.replace(/Agent$/, ""), 20);
+      const subRecords: PublicRecords = p.providerId === "ens" ? { "kido-agent-id": manifest.kidoAgentId, "kido-agent-role": a.role } : {};
+      out.push({ providerId: p.providerId, chain, name: `${sub}.${agentName}`, parent: agentName, label: sub, records: subRecords, liveCapable: blockers.length === 0 && subBlockers.length === 0, blockers: [...new Set([...blockers, ...subBlockers])], role: a.role });
+    }
   }
   return out;
 }

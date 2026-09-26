@@ -177,7 +177,9 @@ export const CATALOG: RequirementDef[] = [
       // Before a protocol is chosen, offer every action some provider executes on the chosen chains.
       const cs = chains(c).length ? chains(c) : interviewChains().map((x) => x.chainId);
       const options = new Set<string>(protos.length ? protos.flatMap((p) => reg().actionsOf(p)) : reg().providers.filter((p) => p.chains.some((ch) => cs.includes(ch))).flatMap((p) => reg().actionsOf(p.providerId)));
-      if ((kind(c) === "PAYMENTS" || options.size === 0) && payProviders(c).length) options.add("PAY");
+      if (payProviders(c).length) options.add("PAY");
+      // Bridging is an action only once the owner allowed it and a transport executes it on every chosen chain.
+      if (c["authority.bridge"] === true && chains(c).length > 1 && chains(c).every((ch) => reg().executors("BRIDGE", ch).length)) options.add("BRIDGE");
       return { text: "Which actions may it take?", choices: [...options].map((a) => ({ value: a, label: ACTION_LABEL[a] ?? a })) };
     },
   },
@@ -288,7 +290,8 @@ export const CATALOG: RequirementDef[] = [
       const spend = spendList(c)[0];
       const other = spendable(c, (c["protocols"] as string[] | undefined) ?? []).find((s) => s !== spend);
       const eg = spend && other ? ` For example: at least 0.95 ${other} for each ${spend}.` : " For example: at least 0.95 of the token you receive for each token you sell.";
-      return { text: `What is the worst exchange rate you would accept for a swap?${eg}` };
+      const perPair = chains(c).length > 1 ? " If it swaps on more than one chain, give one rate per pair." : "";
+      return { text: `What is the worst exchange rate you would accept for a swap?${eg}${perPair}` };
     },
   },
   {

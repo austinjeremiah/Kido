@@ -63,7 +63,9 @@ export function evaluateWhatIf(bp: KidoAgentBlueprint, authority: AuthorityResul
 export function injectionTest(bp: KidoAgentBlueprint, authority: AuthorityResult | null, t: { instruction: string; target: string; amount: string; chain?: string | undefined }): { stages: { layer: string; outcome: "PASSED" | "REFUSED"; reason: string }[]; verdict: LabVerdict } {
   const chain = (t.chain ?? bp.chains[0]!) as ChainId;
   if (!bp.chains.includes(chain)) return { stages: [{ layer: "Kido compiler", outcome: "REFUSED", reason: `${chain} is not one of this agent's chains` }], verdict: { verdict: "REJECT", code: "KIDO_PLAN_CHAIN_NOT_IN_BLUEPRINT", detail: "no account or policy exists on that chain", layer: "KIDO_COMPILER" } };
-  const act = (bp.authority.allowedActions.find((a) => SPECIALIST_FOR[a]) ?? "PAY") as SemanticStep["action"];
+  // The specialist a thief would hijack: one whose action is actually routed on this chain, payments first.
+  const routed = bp.authority.allowedActions.filter((a) => SPECIALIST_FOR[a] && bp.actions.some((r) => r.action === a && r.chain === chain));
+  const act = (routed.includes("PAY") ? "PAY" : (routed[0] ?? "PAY")) as SemanticStep["action"];
   const asset = bp.authority.limits.find((l) => l.chain === chain)?.asset ?? bp.assets[0]?.symbol ?? "";
   const plan = {
     objective: t.instruction.slice(0, 200),

@@ -118,3 +118,28 @@ describe('action ⊆ lease', () => {
     ));
   it('AM-ACT-013 wrong lease id', () => expect(act({ leaseId: FIXTURE.planHash })).toThrow('AMANE_ACTION_WRONG_LEASE'));
 });
+
+describe('BRIDGE ⊆ lease (mirrors AmaneAccount._validate BRIDGE)', () => {
+  const bridgeAdapter = FIXTURE.planHash;
+  const peer = { recipientId: FIXTURE.evmAccount, label: 'Amane Sepolia endpoint' };
+  const policy = fixturePolicy();
+  policy.allowedActions = actionMask(ActionKind.SWAP, ActionKind.PAY, ActionKind.BRIDGE);
+  const pe = policy.endpoints.find((e) => e.chainRef === FIXTURE.suiChainRef && e.account === FIXTURE.suiAccount)!;
+  pe.adapters.push({ adapterId: bridgeAdapter, adapterName: 'Wormhole Bridge', adapterVersion: 1 });
+  pe.recipients.push(peer);
+  const base = fixtureLease();
+  const lease: AgentLease = {
+    ...base,
+    allowedActions: policy.allowedActions,
+    endpoints: base.endpoints.map((e) => (e.chainRef === FIXTURE.suiChainRef ? { ...e, adapters: [...e.adapters, bridgeAdapter], recipients: [...e.recipients, peer.recipientId] } : e)),
+  };
+  const bridge = { actionKind: ActionKind.BRIDGE, adapterId: bridgeAdapter, adapterName: 'Wormhole Bridge', recipient: peer.recipientId, recipientLabel: peer.label, assetOut: FIXTURE.planHash };
+  const act = (o: Parameters<typeof fixtureAction>[0] = {}) => () => assertActionIsSubset(policy, lease, fixtureAction({ ...bridge, ...o }), ctx);
+
+  it('bridge to the pinned peer endpoint is accepted; the arrival asset is the destination\'s concern', () => expect(act()).not.toThrow());
+  it('bridge to an unpinned recipient is refused', () => expect(act({ recipient: FIXTURE.recovery })).toThrow('AMANE_ACTION_RECIPIENT_NOT_ALLOWED'));
+  it('bridge recipient label must match the root policy', () => expect(act({ recipientLabel: 'Amane Sepolia' })).toThrow('AMANE_ACTION_RECIPIENT_NOT_ALLOWED'));
+  it('bridge is bounded by the per-action cap', () => expect(act({ amountIn: 25_000001n })).toThrow('AMANE_BUDGET_PER_ACTION'));
+  it('bridge needs BRIDGE in the lease', () =>
+    expect(() => assertActionIsSubset(policy, { ...lease, allowedActions: actionMask(ActionKind.SWAP, ActionKind.PAY) }, fixtureAction(bridge), ctx)).toThrow('AMANE_ACTION_KIND_NOT_ALLOWED'));
+});

@@ -253,12 +253,19 @@ export function parseAllocation(s: string, ctx: Ctx): Parsed {
   return ok({ asset, share: share.toFixed(4).replace(/0+$/, "").replace(/\.$/, "") });
 }
 
-/** "at least 0.95 AMSUI for each AMUSD" → { minOutPerIn: "0.95", assetOut: "AMSUI", assetIn: "AMUSD" }. */
+/**
+ * "at least 0.95 AMSUI for each AMUSD" → { minOutPerIn: "0.95", assetOut: "AMSUI", assetIn: "AMUSD" }.
+ * Several rates ("… and at least 0.9 AMSUI per AMUSD") give one floor per pair.
+ */
 export function parseSwapFloor(s: string): Parsed {
-  const m = /(\d+(?:\.\d+)?)\s*([A-Za-z]{2,10})\s*(?:for|per)\s*(?:each|every|one|1|a)?\s*([A-Za-z]{2,10})/i.exec(s);
-  if (!m) return bad("expected a rate like '0.95 AMSUI per AMUSD'");
-  if (Number(m[1]) <= 0) return bad("rate must be positive");
-  return ok({ minOutPerIn: m[1], assetOut: m[2]!.toUpperCase(), assetIn: m[3]!.toUpperCase() });
+  const re = /(\d+(?:\.\d+)?)\s*([A-Za-z]{2,10})\s*(?:for|per)\s*(?:each|every|one|1|a)?\s*([A-Za-z]{2,10})/gi;
+  const found = [...s.matchAll(re)];
+  if (!found.length) return bad("expected a rate like '0.95 AMSUI per AMUSD'");
+  if (found.some((m) => Number(m[1]) <= 0)) return bad("rate must be positive");
+  // Symbols take the registry's spelling (wAMUSD, not WAMUSD); unknown tickers are upper-cased.
+  const canonical = (t: string) => interviewRegistry().assets.find((a) => a.symbol.toLowerCase() === t.toLowerCase())?.symbol ?? t.toUpperCase();
+  const floors = found.map((m) => ({ minOutPerIn: m[1]!, assetOut: canonical(m[2]!), assetIn: canonical(m[3]!) }));
+  return ok(floors.length === 1 ? floors[0] : floors);
 }
 
 /** Seconds from "7200", "2 hours", "90 minutes". */

@@ -46,7 +46,7 @@ export interface CompileContext {
 
 export type Compiled = { ok: true; intent: ActionIntent } | { ok: false; code: string; detail: string };
 
-const KIND: Partial<Record<BaseAction, number>> = { PAY: ActionKind.PAY, SWAP: ActionKind.SWAP, REPAY: ActionKind.REPAY };
+const KIND: Partial<Record<BaseAction, number>> = { PAY: ActionKind.PAY, SWAP: ActionKind.SWAP, REPAY: ActionKind.REPAY, BRIDGE: ActionKind.BRIDGE };
 
 function recipientFor(step: SemanticStep, b: EndpointBinding): { recipientId: Bytes32; label: string } {
   if (step.payee === null) return { recipientId: ZERO32, label: "" };
@@ -77,6 +77,13 @@ export function compileStep(step: SemanticStep, planHash: Bytes32, planStep: num
   if (step.action === "SWAP") {
     assetOut = step.assetOut ? b.assets[step.assetOut] : undefined;
     if (!assetOut) return { ok: false, code: "KIDO_PLAN_UNKNOWN_ASSET", detail: `swap output ${step.assetOut} on ${step.chain}` };
+  } else if (step.action === "BRIDGE") {
+    // Kido bridges only to this account's own endpoint on another chain, never to a payee: the
+    // chain would accept any pinned recipient, so this is Kido's stricter rule on top.
+    const dest = step.payee?.startsWith("amane-") ? ctx.bindings[step.payee.slice("amane-".length) as Chain] : undefined;
+    if (!dest || dest.chain === step.chain) return { ok: false, code: "KIDO_PLAN_BRIDGE_NOT_TO_OWN_ENDPOINT", detail: `a bridge may only deliver to this agent's own Amane account on another chain, not ${step.payee ?? "nobody"}` };
+    assetOut = step.assetOut ? dest.assets[step.assetOut] : assetId;
+    if (!assetOut) return { ok: false, code: "KIDO_PLAN_UNKNOWN_ASSET", detail: `bridge arrival ${step.assetOut} on ${dest.chain}` };
   } else if (step.action === "REPAY") {
     assetOut = b.debtTokens[step.asset];
     if (!assetOut) return { ok: false, code: "KIDO_PLAN_UNKNOWN_ASSET", detail: `no pinned debt token for ${step.asset} on ${step.chain}` };

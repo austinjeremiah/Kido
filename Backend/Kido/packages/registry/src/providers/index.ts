@@ -426,6 +426,7 @@ export const PROVIDERS: ProviderManifest[] = [
         sourceRefs: [],
       }),
       failureModes: ["delivery timeout", "duplicate delivery"],
+      ...(id === "wormhole" ? { execution: [{ action: "BRIDGE", capability: "TOKEN_TRANSFER", adapter: "amane-wormhole-bridge", amaneAdapter: "Wormhole Bridge", shipped: true }] } : {}),
       limitations: id === "wormhole"
         ? ["transport is never authority", "Sepolia↔Sui testnet route via Token Bridge with manual redeem; single testnet guardian", "NTT requires self-deployment and core exactly 6.1.4"]
         : ["transport is never authority", "Sepolia→Sui pathway supported but no ready token route (own OFT pair needed)", "Sui SDK depends on @mysten/sui 1.x JSON-RPC, which is shut down (F-0407)"],
