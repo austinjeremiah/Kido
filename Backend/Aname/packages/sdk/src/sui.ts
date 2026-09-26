@@ -237,15 +237,10 @@ export class AmaneSuiEndpoint {
         const code = this.abortCode(sim.FailedTransaction!.status);
         if (!code) return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: JSON.stringify(sim.FailedTransaction!.status) };
         if (!opts.submitRejected) return classifyCode(this.chain, code);
-        await this.pinGas(tx);
+        return await this.landRejected(tx);
       }
       const res = await this.client.signAndExecuteTransaction({ transaction: tx, signer: this.relayer, include: { effects: true, events: true } });
-      const done = res.Transaction ?? res.FailedTransaction!;
-      await this.client.waitForTransaction({ digest: done.digest });
-      if (res.Transaction) return { kind: 'EXECUTED', chain: this.chain, tx: done.digest };
-      const code = this.abortCode(done.status);
-      if (code) return classifyCode(this.chain, code, done.digest);
-      return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: JSON.stringify(done.status), tx: done.digest };
+      return await this.settle(res);
     } catch (err) {
       const message = (err as Error).message.split('\n')[0]!;
       const code = this.abortCodeFromMessage(message);
@@ -254,12 +249,33 @@ export class AmaneSuiEndpoint {
     }
   }
 
-  /// A fully specified gas configuration lets a transaction that is known to abort be submitted
-  /// without the SDK's resolution dry-run refusing to build it.
+  private async settle(res: Awaited<ReturnType<SuiGrpcClient['executeTransaction']>>): Promise<AmaneOutcome> {
+    const done = res.Transaction ?? res.FailedTransaction!;
+    await this.client.waitForTransaction({ digest: done.digest });
+    if (res.Transaction) return { kind: 'EXECUTED', chain: this.chain, tx: done.digest };
+    const code = this.abortCode(done.status);
+    if (code) return classifyCode(this.chain, code, done.digest);
+    return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: JSON.stringify(done.status), tx: done.digest };
+  }
+
+  /// The client's resolver refuses to build a transaction whose simulation aborts, so a rejected
+  /// action is built as a transaction kind (checks disabled), completed with a pinned gas
+  /// configuration, and executed from raw bytes. Validators accept it and record the abort.
+  private async landRejected(tx: Transaction): Promise<AmaneOutcome> {
+    const kind = await tx.build({ client: this.client, onlyTransactionKind: true });
+    const full = Transaction.fromKind(kind);
+    full.setSender(this.relayer.toSuiAddress());
+    await this.pinGas(full);
+    const bytes = await full.build();
+    const { signature } = await this.relayer.signTransaction(bytes);
+    return this.settle(await this.client.executeTransaction({ transaction: bytes, signatures: [signature], include: { effects: true } }));
+  }
+
   private async pinGas(tx: Transaction) {
     const owner = this.relayer.toSuiAddress();
     const [{ referenceGasPrice }, coins] = await Promise.all([this.client.getReferenceGasPrice(), this.client.listCoins({ owner, limit: 1 })]);
-    const coin = coins.objects[0] ?? (() => { throw new Error('relayer has no SUI gas coin'); })();
+    const coin = coins.objects[0];
+    if (!coin) throw new Error('relayer has no SUI gas coin');
     tx.setGasPrice(BigInt(referenceGasPrice));
     tx.setGasBudget(50_000_000);
     tx.setGasPayment([{ objectId: coin.objectId, version: coin.version, digest: coin.digest }]);

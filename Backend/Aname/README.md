@@ -103,5 +103,5 @@ AMANE_DEMO_KEYS=... AMANE_EVM_RELAYER_KEY=... SEPOLIA_RPC_URL=... npx tsx script
 - `chainRef` on Sui is asserted by the creator, because Move cannot read the chain id. Clients check the live chain identifier before signing and fail closed if it changes (testnet resets). The account object id in every struct prevents cross-endpoint replay.
 - The Sui adapter id is derived from the witness type name, which an upgrade does not change. Adapter packages must be published immutable, and this is checked off-chain.
 - Upstream protocols (Cetus, Aave, Uniswap) are mutable. An adapter pins its bindings and fails closed on drift, with funds left in the vault.
-- On Sui, rejected actions are currently verified by simulation against live state. Landed failure receipts are produced on Sepolia.
+- A single RPC can lie about receipts. The SDK can land rejected actions on both chains so that every reported rejection has an on-chain receipt, but a client that trusts one RPC cannot detect false receipts.
 - A price floor exists only in `TESTNET_FIXED` mode: the owner sets it per pair in token units, for project-owned pools. Oracle modes are future work.
