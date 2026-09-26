@@ -63,7 +63,9 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
   }
 
   const payees = financial ? ((ctx["payees"] as { label: string; chain: ChainId; address: string }[] | undefined) ?? []).filter((p) => chains.includes(p.chain)) : [];
-  const beneficiaries = financial && allowed.includes("REPAY") && ctx["beneficiary"] === "SELF" ? [...new Set(bindings.filter((b) => b.action === "REPAY").map((b) => b.chain))].map((c) => ({ label: "self", chain: c, address: "SELF" })) : [];
+  // The one wallet whose debt REPAY may reduce, only on a chain where REPAY is executed.
+  const ben = ctx["beneficiary"] as { label: string; chain: ChainId; address: string } | undefined;
+  const beneficiaries = financial && allowed.includes("REPAY") && ben && bindings.some((b) => b.action === "REPAY" && b.chain === ben.chain) ? [ben] : [];
 
   const privateValues: PrivateValueSpec[] = ctx["privacy.required"] === true
     ? ((ctx["privacy.values"] as { id: string; kind: PrivateValueSpec["kind"]; description: string }[] | undefined) ?? []).map((v) => ({

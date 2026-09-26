@@ -26,6 +26,12 @@ export interface EndpointBinding {
   adapters: Partial<Record<BaseAction, AdapterBinding>>;
   /** Approved payees by human label, exactly as pinned in the Root Policy. */
   payees: Record<string, { recipientId: Bytes32; label: string }>;
+  /** Pinned REPAY beneficiaries by label. */
+  beneficiaries: Record<string, { recipientId: Bytes32; label: string }>;
+  /** asset symbol → id of the debt token REPAY reduces, as pinned in the policy. */
+  debtTokens: Record<string, Bytes32>;
+  /** The endpoint's core enforces REPAY. */
+  repay: boolean;
 }
 
 export interface CompileContext {
@@ -40,11 +46,11 @@ export interface CompileContext {
 
 export type Compiled = { ok: true; intent: ActionIntent } | { ok: false; code: string; detail: string };
 
-const KIND: Partial<Record<BaseAction, number>> = { PAY: ActionKind.PAY, SWAP: ActionKind.SWAP };
+const KIND: Partial<Record<BaseAction, number>> = { PAY: ActionKind.PAY, SWAP: ActionKind.SWAP, REPAY: ActionKind.REPAY };
 
 function recipientFor(step: SemanticStep, b: EndpointBinding): { recipientId: Bytes32; label: string } {
   if (step.payee === null) return { recipientId: ZERO32, label: "" };
-  const known = b.payees[step.payee];
+  const known = (step.action === "REPAY" ? b.beneficiaries : b.payees)[step.payee];
   if (known) return known;
   // An unknown payee is still encoded faithfully. Kido's preflight rejects it; if Kido itself is
   // compromised and skips preflight, Amane rejects it on-chain because it is not a pinned member.
@@ -61,11 +67,20 @@ function recipientFor(step: SemanticStep, b: EndpointBinding): { recipientId: By
 export function compileStep(step: SemanticStep, planHash: Bytes32, planStep: number, ctx: CompileContext, opts: { preflight: boolean }): Compiled {
   const b = ctx.bindings[step.chain];
   const kind = KIND[step.action];
-  if (kind === undefined) return { ok: false, code: "KIDO_PLAN_ACTION_UNSUPPORTED", detail: `${step.action} has no Amane adapter in v1` };
+  if (kind === undefined) return { ok: false, code: "KIDO_PLAN_ACTION_UNSUPPORTED", detail: `${step.action} has no Amane enforcement rule` };
   const adapter = b.adapters[step.action];
   if (!adapter) return { ok: false, code: "KIDO_REGISTRY_NO_ADAPTER", detail: `${step.action} on ${step.chain}` };
   const assetId = b.assets[step.asset];
   if (!assetId) return { ok: false, code: "KIDO_PLAN_UNKNOWN_ASSET", detail: `${step.asset} on ${step.chain}` };
+  // SWAP names its output asset; REPAY's "output" is the pinned debt token of the input asset.
+  let assetOut: Bytes32 | undefined = assetId;
+  if (step.action === "SWAP") {
+    assetOut = step.assetOut ? b.assets[step.assetOut] : undefined;
+    if (!assetOut) return { ok: false, code: "KIDO_PLAN_UNKNOWN_ASSET", detail: `swap output ${step.assetOut} on ${step.chain}` };
+  } else if (step.action === "REPAY") {
+    assetOut = b.debtTokens[step.asset];
+    if (!assetOut) return { ok: false, code: "KIDO_PLAN_UNKNOWN_ASSET", detail: `no pinned debt token for ${step.asset} on ${step.chain}` };
+  }
   const r = recipientFor(step, b);
   const intent: ActionIntent = {
     accountId: ctx.accountId,
@@ -79,7 +94,7 @@ export function compileStep(step: SemanticStep, planHash: Bytes32, planStep: num
     adapterName: adapter.adapterName,
     adapterVersion: adapter.adapterVersion,
     assetIn: assetId,
-    assetOut: assetId,
+    assetOut,
     amountIn: step.amount,
     minAmountOut: 0n,
     recipient: r.recipientId,
@@ -90,7 +105,7 @@ export function compileStep(step: SemanticStep, planHash: Bytes32, planStep: num
   };
   if (opts.preflight) {
     try {
-      assertActionIsSubset(ctx.policy, ctx.lease, intent, { now: ctx.now(), chainRef: b.chainRef, account: b.account });
+      assertActionIsSubset(ctx.policy, ctx.lease, intent, { now: ctx.now(), chainRef: b.chainRef, account: b.account, repay: b.repay });
     } catch (err) {
       const code = (err as { code?: string }).code ?? "AMANE_UNKNOWN";
       return { ok: false, code: `KIDO_PLAN_OUT_OF_POLICY:${code}`, detail: (err as Error).message };

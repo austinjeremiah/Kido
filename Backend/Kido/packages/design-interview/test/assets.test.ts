@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildBlockers } from "@kido/blueprint";
 import { ProviderRegistry } from "@kido/registry";
-import { parseAmount } from "../src/index.js";
+import { parseAmount, parseBeneficiary } from "../src/index.js";
 import { drive } from "./break-helpers.js";
 
 const FACTS = new ProviderRegistry().gateFacts();
@@ -13,6 +13,15 @@ const RESCUE = {
   "monitor.condition": "health factor below 1.5",
 };
 const OBJECTIVE = "Protect my Aave position, swapping on Cetus, using liquidity on Ethereum and Sui";
+
+describe("REPAY beneficiary", () => {
+  it("takes the one wallet the user names and never one they refuse", () => {
+    const a = `0x${"aa".repeat(20)}`, b = `0x${"bb".repeat(20)}`;
+    expect(parseBeneficiary(`not ${a}, my wallet is ${b}`)).toEqual({ ok: true, value: { label: "owner position", chain: "ethereum-sepolia", address: b } });
+    expect(parseBeneficiary(`${a} and ${b}`).ok).toBe(false);
+    expect(parseBeneficiary("my own wallet").ok).toBe(false);
+  });
+});
 
 describe("spend assets per chain", () => {
   it("one amount becomes a budget in each chosen asset, in that asset's own decimals", () => {

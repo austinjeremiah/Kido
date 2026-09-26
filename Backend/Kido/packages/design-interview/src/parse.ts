@@ -149,16 +149,25 @@ export function parseThreshold(s: string, kind?: ObjectiveKind): Parsed {
 
 export function parsePayees(s: string): Parsed {
   const out: { label: string; chain: ChainId; address: string }[] = [];
-  const re = /([A-Za-z][\w .-]{0,40}?)\s*[:=-]?\s*(0x[0-9a-fA-F]{64}|0x[0-9a-fA-F]{40})\b/g;
+  const re = /(?:([A-Za-z][\w .-]{0,40}?)\s*[:=-]?\s*)?(0x[0-9a-fA-F]{64}|0x[0-9a-fA-F]{40})\b/g;
   for (const m of s.matchAll(re)) {
     if (negatedAt(s, m.index ?? 0) || negatedAt(s, (m.index ?? 0) + m[0].length - m[2]!.length)) continue;
     const addr = m[2]!;
-    const label = m[1]!.trim().replace(/\s+(on|at)$/i, "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
+    const label = (m[1] ?? "").trim().replace(/\s+(on|at)$/i, "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-|-$/g, "");
     const chain = interviewChains().find((c) => isChainAddress(c.chainId, addr, interviewChains()))?.chainId;
     if (!chain) continue;
     out.push({ label: label || `payee-${out.length + 1}`, chain, address: addr });
   }
   return out.length ? ok(out) : bad("expected name + address pairs");
+}
+
+/** The one wallet whose debt REPAY may reduce; an address the user refuses is never taken. */
+export function parseBeneficiary(s: string): Parsed {
+  const p = parsePayees(s);
+  if (!p.ok) return bad("expected the wallet address that holds the loan");
+  const all = p.value as { label: string; chain: ChainId; address: string }[];
+  if (all.length !== 1) return bad("name exactly one wallet");
+  return ok({ label: "owner position", chain: all[0]!.chain, address: all[0]!.address });
 }
 
 export function parsePrivacyValues(s: string): Parsed {
@@ -245,6 +254,7 @@ export function parseByType(type: AnswerType, text: string, ctx: Ctx, choices?: 
     case "protocols": return parseProtocols(text);
     case "threshold": return parseThreshold(text, ctx["objective.kind"] as ObjectiveKind | undefined);
     case "payees": return parsePayees(text);
+    case "beneficiary": return parseBeneficiary(text);
     case "privacy_values": return parsePrivacyValues(text);
     case "hidden_from": return parseHiddenFrom(text);
     case "plaintext": return parsePlaintext(text);

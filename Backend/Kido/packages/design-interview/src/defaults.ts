@@ -17,6 +17,11 @@ export const KIDO_DEFAULTS = {
   crossChainRecoveryDeadlineSeconds: 3600,
   /** Transport statuses acceptable for a planned bridge route. */
   transportStatuses: ["VERIFIED_LIVE", "MOCK_ONLY"] as string[],
+  /**
+   * Minimum debt reduction per unit spent that a REPAY must achieve, pinned into the policy. Interest
+   * accrues between reading and repaying a debt, so an exact 1:1 would reject honest repayments.
+   */
+  repayMinReductionPerSpent: "0.9999",
   /** Knowledge every generated agent receives. */
   basePacks: ["platform/kido", "platform/actions"],
 } as const;

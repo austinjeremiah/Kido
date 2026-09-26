@@ -7,7 +7,7 @@ const humanDuration = (secs: number) => (secs % 3600 === 0 ? (secs === 3600 ? "o
 export type AnswerType =
   | "authority_mode" | "yesno" | "chains" | "protocols" | "actions" | "autonomy" | "asset" | "amount"
   | "payees" | "threshold" | "identity_name" | "privacy_values" | "hidden_from" | "plaintext" | "disclosure"
-  | "recovery" | "objective_kind" | "swap_floor" | "duration";
+  | "recovery" | "objective_kind" | "swap_floor" | "duration" | "beneficiary";
 
 export type ObjectiveKind = "LENDING_PROTECTION" | "REBALANCE" | "PAYMENTS" | "LIQUIDITY" | "TREASURY" | "MONITORING" | "RESEARCH" | "OTHER";
 
@@ -202,13 +202,12 @@ export const CATALOG: RequirementDef[] = [
   {
     key: "beneficiary",
     topic: "AUTHORITY",
-    class: "SAFE_DEFAULT",
+    class: "USER_REQUIRED",
     critical: true,
     bucket: 3,
-    answerType: "yesno",
+    answerType: "beneficiary",
     appliesWhen: (c) => financial(c) && acts(c).includes("REPAY"),
-    question: () => ({ text: "It will only ever repay your own position's debt. Is that right?" }),
-    safeDefault: () => "SELF",
+    question: () => ({ text: "Which wallet holds the loan it should protect? It will only ever repay that wallet's debt." }),
   },
   {
     key: "assets.spend",

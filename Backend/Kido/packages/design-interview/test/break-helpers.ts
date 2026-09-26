@@ -16,6 +16,7 @@ const DEFAULTS: Record<string, string> = {
   protocols: "Uniswap",
   chains: "Ethereum",
   payees: `acme: ${EVM_A}`,
+  beneficiary: `my wallet ${EVM_B}`,
   "assets.spend": "AMUSD",
   "limits.window": "100",
   "limits.total": "400",

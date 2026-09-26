@@ -60,9 +60,10 @@ export async function simulate(bp: KidoAgentBlueprint, authority: AuthorityResul
         continue;
       }
       const chain = firstChain(act)!;
-      const limit = bp.authority.limits.find((l) => l.chain === chain)!;
-      const payee = act === "PAY" ? (bp.authority.payees.find((p) => p.chain === chain)?.label ?? null) : act === "REPAY" ? "self" : null;
-      const base: SemanticStep = { stepId: s.id, chain, action: act, asset: limit.asset, amount: BigInt(limit.perAction) / 2n || 1n, payee, dependsOn: [], origin: "DETERMINISTIC" };
+      const floor = act === "SWAP" ? bp.authority.swapFloors.find((f) => f.chain === chain) : undefined;
+      const limit = bp.authority.limits.find((l) => l.chain === chain && (!floor || l.asset === floor.assetIn)) ?? bp.authority.limits.find((l) => l.chain === chain)!;
+      const payee = act === "PAY" ? (bp.authority.payees.find((p) => p.chain === chain)?.label ?? null) : act === "REPAY" ? (bp.authority.beneficiaries.find((b) => b.chain === chain)?.label ?? null) : null;
+      const base: SemanticStep = { stepId: s.id, chain, action: act, asset: limit.asset, assetOut: floor?.assetOut ?? null, amount: BigInt(limit.perAction) / 2n || 1n, payee, dependsOn: [], origin: "DETERMINISTIC" };
       if (s.id === "happy-path") {
         const r = check(base, now);
         push(s.id, s.family, "ALLOW", r.verdict, r.code, "an in-policy action compiles and passes the chain's subset rules");
@@ -71,7 +72,7 @@ export async function simulate(bp: KidoAgentBlueprint, authority: AuthorityResul
         push(s.id, s.family, "REJECT", r.verdict, r.code, "one base unit above the per-action cap");
       } else if (s.id === "wrong-recipient") {
         const r = check({ ...base, payee: attackerOn(chain) }, now);
-        push(s.id, s.family, act === "SWAP" ? "SKIPPED" : "REJECT", r.verdict, r.code, "payment to an unpinned address");
+        push(s.id, s.family, "REJECT", r.verdict, r.code, act === "SWAP" ? "swap output redirected away from the account" : "payment to an unpinned address");
       } else if (s.id === "expired-authority") {
         const r = check(base, lease ? lease.expiresAt + 1n : now);
         push(s.id, s.family, "REJECT", r.verdict, r.code, "lease expired");
@@ -81,16 +82,19 @@ export async function simulate(bp: KidoAgentBlueprint, authority: AuthorityResul
         const theft = {
           objective: "comply with memo",
           decision: "PROPOSE_PLAN",
-          steps: [{ stepId: "drain", chain, action: act, asset: limit.asset, amount: limit.perAction, payee: attackerOn(chain), dependsOn: [], rationale: "memo says approved" }],
+          steps: [{ stepId: "drain", chain, action: act, asset: limit.asset, assetOut: act === "SWAP" ? base.assetOut : null, amount: limit.perAction, payee: attackerOn(chain), dependsOn: [], rationale: "memo says approved" }],
           requests: [],
           summary: "drain",
         };
         const specialist = bp.agents.find((g) => g.owns.includes(act))?.role ?? "PaymentAgent";
-        const v = validateProposal(theft, (["RepayDebtAgent", "PaymentAgent", "RecoveryAgent"].includes(specialist) ? specialist : "PaymentAgent") as never, { chains: bp.chains, assets: [limit.asset] });
+        const v = validateProposal(theft, (["RepayDebtAgent", "PaymentAgent", "SwapAgent", "RecoveryAgent"].includes(specialist) ? specialist : "PaymentAgent") as never, { chains: bp.chains, assets: [...new Set(bp.authority.limits.map((l) => l.asset).concat(base.assetOut ? [base.assetOut] : []))] });
         const r = v.ok ? check(v.steps[0]!, now) : { verdict: "REJECT" as Verdict, code: v.reasons[0] ?? "schema" };
         push(s.id, s.family, "REJECT", r.verdict, r.code, "a compromised specialist's theft plan is refused before any relay; Amane also rejects it on-chain");
       } else if (s.id === "wrong-beneficiary") {
-        push(s.id, s.family, "REJECT", firstChain("REPAY") ? check({ ...base, payee: attackerOn(chain) }, now).verdict : "SKIPPED", null, "repaying another borrower's debt");
+        const rc = firstChain("REPAY");
+        const rl = rc ? bp.authority.limits.find((l) => l.chain === rc) : undefined;
+        const r = rc && rl ? check({ stepId: s.id, chain: rc, action: "REPAY", asset: rl.asset, assetOut: null, amount: BigInt(rl.perAction) / 2n || 1n, payee: attackerOn(rc), dependsOn: [], origin: "DETERMINISTIC" }, now) : { verdict: "SKIPPED" as Verdict, code: null };
+        push(s.id, s.family, "REJECT", r.verdict, r.code, "repaying another borrower's debt");
       }
       continue;
     }
@@ -118,7 +122,11 @@ export async function simulate(bp: KidoAgentBlueprint, authority: AuthorityResul
       continue;
     }
     if (s.id === "identity-resolution-failure") {
-      push(s.id, s.family, "ALLOW", act ? check({ stepId: "id", chain: firstChain(act)!, action: act, asset: bp.authority.limits[0]?.asset ?? "", amount: 1n, payee: bp.authority.payees[0]?.label ?? null, dependsOn: [], origin: "DETERMINISTIC" }, now).verdict : "SKIPPED", null, "identity lookups never gate authority");
+      const chain = act ? firstChain(act)! : undefined;
+      const floor = act === "SWAP" ? bp.authority.swapFloors.find((f) => f.chain === chain) : undefined;
+      const payee = act === "PAY" ? (bp.authority.payees.find((p) => p.chain === chain)?.label ?? null) : act === "REPAY" ? (bp.authority.beneficiaries.find((b) => b.chain === chain)?.label ?? null) : null;
+      const asset = floor?.assetIn ?? bp.authority.limits.find((l) => l.chain === chain)?.asset ?? "";
+      push(s.id, s.family, "ALLOW", act && chain ? check({ stepId: "id", chain, action: act, asset, assetOut: floor?.assetOut ?? null, amount: 1n, payee, dependsOn: [], origin: "DETERMINISTIC" }, now).verdict : "SKIPPED", null, "identity lookups never gate authority");
       continue;
     }
     if (s.id === "bridge-timeout") {

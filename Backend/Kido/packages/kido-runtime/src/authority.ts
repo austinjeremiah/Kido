@@ -27,6 +27,12 @@ export interface AuthorityEndpoint {
   /** semantic action → shipped Amane adapter (absent = not shipped on this chain) */
   adapters: Partial<Record<Action, AdapterBinding>>;
   recovery: { recipientId: Bytes32; label: string };
+  /** asset symbol → debt token id REPAY reduces (from the registry's asset data). */
+  debtTokens: Record<string, Bytes32>;
+  /** The core at this endpoint enforces REPAY. */
+  repay: boolean;
+  /** Minimum debt reduction per unit spent, pinned into the policy for each REPAY pair. */
+  repayFloor: { num: bigint; den: bigint };
 }
 
 export interface AuthorityCompileOptions {
@@ -101,6 +107,7 @@ export function compileAmaneAuthority(bp: KidoAgentBlueprint, endpoints: Authori
     const actions = a.allowedActions.filter((act) => {
       if (KIND[act] === undefined) return excludedActions.push({ chain, action: act, reason: "no Amane enforcement rule for this action" }), false;
       if (!ep.adapters[act]) return excludedActions.push({ chain, action: act, reason: `Amane adapter for ${act} not shipped on ${chain}` }), false;
+      if (act === "REPAY" && !ep.repay) return excludedActions.push({ chain, action: act, reason: `the Amane core on ${chain} does not enforce REPAY` }), false;
       return true;
     });
     for (const act of actions) granted.add(KIND[act]!);
@@ -120,8 +127,13 @@ export function compileAmaneAuthority(bp: KidoAgentBlueprint, endpoints: Authori
           return { assetIn: ai.assetId, assetOut: ao.assetId, minOutNumerator: num, minOutDenominator: den };
         })
       : [];
+    // REPAY pairs: each budgeted asset with a known debt token, at the pinned minimum reduction ratio.
+    const repayPairs = actions.includes("REPAY")
+      ? limits.filter((l) => ep.debtTokens[l.asset]).map((l) => ({ assetIn: ep.assets[l.asset]!.assetId, assetOut: ep.debtTokens[l.asset]!, minOutNumerator: ep.repayFloor.num, minOutDenominator: ep.repayFloor.den }))
+      : [];
+    if (actions.includes("REPAY") && repayPairs.length === 0) blockers.push(`REPAY on ${chain} has no budgeted asset with a known debt token`);
     const adapters = actions.map((act) => ep.adapters[act]!);
-    policyEndpoints.push({ chainRef: ep.chainRef, account: ep.account, epochSeconds: BigInt([...windows][0]!), adapters, assets: assetLimits, recipients: payees, beneficiaries, swapFloors: floors, recoveryDestinations: [ep.recovery] });
+    policyEndpoints.push({ chainRef: ep.chainRef, account: ep.account, epochSeconds: BigInt([...windows][0]!), adapters, assets: assetLimits, recipients: payees, beneficiaries, swapFloors: [...floors, ...repayPairs], recoveryDestinations: [ep.recovery] });
     leaseEndpoints.push({ chainRef: ep.chainRef, account: ep.account, adapters: adapters.map((x) => x.adapterId), assets: assetLimits, recipients: payees.map((p) => p.recipientId), beneficiaries: beneficiaries.map((b) => b.recipientId) });
     bindings[chain] = {
       chain,
@@ -129,10 +141,13 @@ export function compileAmaneAuthority(bp: KidoAgentBlueprint, endpoints: Authori
       account: ep.account,
       assets: Object.fromEntries(Object.entries(ep.assets).map(([k, v]) => [k, v.assetId])),
       adapters: Object.fromEntries(actions.map((act) => [act, ep.adapters[act]!])),
-      payees: Object.fromEntries([...payees, ...beneficiaries].map((p) => [p.label, p])),
+      payees: Object.fromEntries(payees.map((p) => [p.label, p])),
+      beneficiaries: Object.fromEntries(beneficiaries.map((p) => [p.label, p])),
+      debtTokens: Object.fromEntries(repayPairs.map((r) => [limits.find((l) => ep.assets[l.asset]!.assetId === r.assetIn)!.asset, r.assetOut])),
+      repay: ep.repay && actions.includes("REPAY"),
     };
   }
-  if (granted.size === 0) blockers.push("no allowed action has a shipped Amane adapter");
+  if (granted.size === 0) blockers.push(`no allowed action can be enforced by Amane: ${excludedActions.map((x) => x.reason).join("; ") || "none requested"}`);
   if (blockers.length) return { ok: false, blockers };
 
   const policy: RootPolicy = {

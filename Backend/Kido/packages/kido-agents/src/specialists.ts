@@ -17,6 +17,13 @@ export const SPECIALISTS = {
     mayNotPropose: ["BORROW", "WITHDRAW"],
     mayReasonAbout: ["funding source", "repayment amount", "repayment order"],
   },
+  SwapAgent: {
+    name: "SwapAgent",
+    owns: ["SWAP"],
+    mayRequest: ["BRIDGE"],
+    mayNotPropose: ["BORROW", "WITHDRAW"],
+    mayReasonAbout: ["which pair and pool", "swap size against the owner floor", "timing"],
+  },
   PaymentAgent: {
     name: "PaymentAgent",
     owns: ["PAY"],

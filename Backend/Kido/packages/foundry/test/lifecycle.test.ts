@@ -85,23 +85,42 @@ describe("foundry lifecycle", () => {
     expect(() => foundry.build(id)).toThrow(/KIDO_LIFECYCLE_NOT_FINALIZED/);
   });
 
-  it("an action whose Amane adapter is not shipped blocks the build instead of being granted", async () => {
-    const id = await interview("Build me an agent that protects my Aave position.", {
-      "authority.mode": "Act on its own within limits I set",
-      "authority.withdraw": "No, never",
-      "actions.allowed": "It may repay my debt",
-      "authority.autonomy": "Only when a condition it can prove on-chain occurs",
-      "limits.window": "500 USDC",
-      "limits.total": "2,000",
-      "identity.public": "no",
-      "privacy.required": "no",
-      "monitor.condition": "health factor below 1.5",
-      "recovery.partial": "stop and notify me",
-    });
+  const AAVE = {
+    "authority.mode": "Act on its own within limits I set",
+    "authority.withdraw": "No, never",
+    "actions.allowed": "It may repay my debt",
+    beneficiary: `my wallet 0x${"cd".repeat(20)}`,
+    "authority.autonomy": "Only when a condition it can prove on-chain occurs",
+    "limits.window": "500 USDC",
+    "limits.total": "2,000",
+    "identity.public": "no",
+    "privacy.required": "no",
+    "monitor.condition": "health factor below 1.5",
+    "recovery.partial": "stop and notify me",
+  };
+
+  it("an Aave guardian with a pinned wallet passes every gate on the v2 core", async () => {
+    const id = await interview("Build me an agent that protects my Aave position.", AAVE);
     expect(foundry.finalize(id).blockers).toEqual([]);
-    const review = foundry.securityReview(id);
-    expect(review.findings.some((f) => f.blocking && /adapter/.test(f.evidence))).toBe(true);
-    await foundry.simulate(id);
-    expect(() => foundry.build(id)).toThrow(/KIDO_LIFECYCLE_BLOCKING_FINDINGS/);
+    expect(foundry.securityReview(id).findings.filter((f) => f.blocking)).toEqual([]);
+    const sim = await foundry.simulate(id);
+    const verdict = Object.fromEntries(sim.results.map((r) => [r.id, r.actual]));
+    expect(verdict).toMatchObject({ "happy-path": "ALLOW", overspend: "REJECT", "wrong-beneficiary": "REJECT", "prompt-injection": "REJECT" });
+    expect(sim.passed).toBe(true);
+    expect(foundry.build(id).authority.excludedActions).toEqual([]);
+  });
+
+  it("on a core that cannot enforce REPAY the action is excluded and the build is blocked", async () => {
+    const v1 = { ...manifest, evm: { ...manifest.evm } } as typeof manifest;
+    delete (v1.evm as { accountCoreVersion?: number }).accountCoreVersion;
+    const old = new Foundry({ store: new FileProjectStore(mkdtempSync(join(tmpdir(), "kido-foundry-v1-"))), model: new RuleBasedInterviewModel(), amaneManifest: v1, signers: { controllers: [addr()], issuer: addr(), agent: addr() } });
+    const { projectId, question } = await old.create("Build me an agent that protects my Aave position.");
+    let q = question;
+    while (q) q = (await old.answer(projectId, AAVE[q.key as keyof typeof AAVE]!)).next;
+    old.finalize(projectId);
+    const review = old.securityReview(projectId);
+    expect(review.findings.some((f) => f.blocking && /REPAY/.test(f.evidence))).toBe(true);
+    await old.simulate(projectId);
+    expect(() => old.build(projectId)).toThrow(/KIDO_LIFECYCLE_BLOCKING_FINDINGS/);
   });
 });

@@ -38,6 +38,7 @@ describe("design interview", () => {
       "authority.mode": "Act on its own within limits I set",
       "authority.withdraw": "No, never",
       "actions.allowed": "It may repay my debt",
+      beneficiary: `the loan is on my wallet 0x${"cd".repeat(20)}`,
       "authority.autonomy": "Only when a condition it can prove on-chain occurs",
       "limits.window": "500 USDC",
       "limits.total": "2,000",
@@ -55,7 +56,7 @@ describe("design interview", () => {
     expect(buildBlockers(bp, FACTS)).toEqual([]);
     expect(bp.authority).toMatchObject({ mode: "BOUNDED_AUTONOMOUS_FINANCE", provider: "AMANE", allowedActions: ["REPAY"], forbiddenActions: ["BORROW", "WITHDRAW"] });
     expect(bp.authority.limits).toEqual([{ chain: "ethereum-sepolia", asset: "USDC", perAction: "250000000", perWindow: "500000000", windowSeconds: 3600, total: "2000000000" }]);
-    expect(bp.authority.beneficiaries).toEqual([{ label: "self", chain: "ethereum-sepolia", address: "SELF" }]);
+    expect(bp.authority.beneficiaries).toEqual([{ label: "owner position", chain: "ethereum-sepolia", address: `0x${"cd".repeat(20)}` }]);
     expect(bp.monitors[0]).toMatchObject({ metric: "HEALTH_FACTOR", op: "LT", threshold: "1.5", response: "DETERMINISTIC_ACTION", action: "REPAY" });
     expect(bp.identity.bindings).toEqual([{ provider: "ens", chain: "ethereum-sepolia", name: null, status: "PLANNED" }]);
     expect(bp.privacy).toEqual({ required: false, values: [], providers: [] });

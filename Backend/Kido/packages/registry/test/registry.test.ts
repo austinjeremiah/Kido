@@ -14,10 +14,9 @@ describe("provider registry", () => {
   });
 
   it("KIDO-REG-001 capability lookup returns chain-appropriate providers without protocol branching", () => {
-    // Swap adapters are planned but not shipped, so they are found only by a planning lookup.
-    expect(reg.find("protocol", "sui-testnet", "DEX_SWAP", PLANNING).map((p) => p.providerId)).toEqual(["cetus-clmm"]);
-    expect(reg.find("protocol", "ethereum-sepolia", "DEX_SWAP", PLANNING).map((p) => p.providerId)).toEqual(["uniswap-v3"]);
-    expect(reg.find("protocol", "ethereum-sepolia", "DEX_SWAP")).toEqual([]);
+    expect(reg.find("protocol", "sui-testnet", "DEX_SWAP").map((p) => p.providerId)).toEqual(["cetus-clmm"]);
+    expect(reg.find("protocol", "ethereum-sepolia", "DEX_SWAP").map((p) => p.providerId)).toEqual(["uniswap-v3"]);
+    expect(reg.find("protocol", "ethereum-sepolia", "LENDING_REPAY").map((p) => p.providerId)).toEqual(["aave-v3"]);
     expect(reg.find("identity", "sui-testnet", "RESOLVE").map((p) => p.providerId)).toEqual(["suins"]);
     expect(reg.find("identity", "ethereum-sepolia", "RESOLVE").map((p) => p.providerId)).toEqual(["ens"]);
   });

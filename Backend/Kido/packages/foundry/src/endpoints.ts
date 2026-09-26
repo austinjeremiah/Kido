@@ -3,6 +3,13 @@ import type { Action, ChainId, KidoAgentBlueprint } from "@kido/blueprint";
 import { ActionKind, evmAssetId, suiAdapterId, suiAssetId, type AmaneDeploymentManifest, type Bytes32 } from "@kido/amane-bridge";
 import { CHAINS, type ChainFamily, type ChainProfile, type ProviderRegistry } from "@kido/registry";
 import type { AuthorityEndpoint } from "@kido/runtime";
+import { KIDO_DEFAULTS } from "@kido/design-interview";
+
+/** "0.9999" → 9999/10000, exactly. */
+function ratio(s: string): { num: bigint; den: bigint } {
+  const [i, f = ""] = s.split(".");
+  return { num: BigInt(i! + f), den: 10n ** BigInt(f.length) };
+}
 
 /** Per chain family: how Amane identifies assets, adapters and simulation accounts. The manifest is keyed by family too. */
 const FAMILY: Record<ChainFamily, {
@@ -42,6 +49,23 @@ export function authorityEndpoints(bp: KidoAgentBlueprint, manifest: AmaneDeploy
     const assets = Object.fromEntries(reg.assetsOn(chain).map((a) => [a.symbol, { assetId: fam.assetId(a.ref), decimals: a.decimals }]));
     const adapters: AuthorityEndpoint["adapters"] = {};
     for (const a of fam.adapters(manifest)) adapters[a.actionKind as Action] = { adapterId: a.adapterId, adapterName: a.name, adapterVersion: a.version };
-    return { chain, family: profile.family, chainRef: manifest[profile.family].chainRef as Bytes32, account, assets, adapters, recovery: { recipientId: account, label: "owner recovery" } };
+    // REPAY needs a core that enforces it (EVM account core v2 per the Amane manifest).
+    const coreVersion = Number((manifest[profile.family] as { accountCoreVersion?: number }).accountCoreVersion ?? 1);
+    const repayProviders = reg.executors("REPAY", chain).map((p) => p.providerId);
+    const debtTokens = Object.fromEntries(
+      reg.assetsOn(chain).flatMap((a) => repayProviders.map((p) => a.debtTokens?.[p]).filter(Boolean).slice(0, 1).map((ref) => [a.symbol, fam.assetId(ref!)])),
+    );
+    return {
+      chain,
+      family: profile.family,
+      chainRef: manifest[profile.family].chainRef as Bytes32,
+      account,
+      assets,
+      adapters,
+      recovery: { recipientId: account, label: "owner recovery" },
+      debtTokens,
+      repay: profile.family === "evm" && coreVersion >= 2 && Boolean(adapters.REPAY),
+      repayFloor: ratio(KIDO_DEFAULTS.repayMinReductionPerSpent),
+    };
   });
 }

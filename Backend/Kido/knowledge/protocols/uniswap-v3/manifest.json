@@ -65,8 +65,8 @@
       "action": "SWAP",
       "capability": "DEX_SWAP",
       "adapter": "uniswap-v3-swap",
-      "amaneAdapter": "AMANE_UNISWAP_V3_SWAP_V1",
-      "shipped": false
+      "amaneAdapter": "Uniswap V3 Swap",
+      "shipped": true
     }
   ]
 }

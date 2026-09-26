@@ -16,7 +16,7 @@ describe("specialist contracts", () => {
   });
 
   it("amounts must be positive base-unit integers", () => {
-    const step = { stepId: "a", chain: "sui-testnet", action: "PAY", asset: "AMUSD", payee: null, dependsOn: [], rationale: "" };
+    const step = { stepId: "a", chain: "sui-testnet", action: "PAY", asset: "AMUSD", assetOut: null, payee: null, dependsOn: [], rationale: "" };
     const plan = (amount: string) => ({ objective: "x", decision: "PROPOSE_PLAN", steps: [{ ...step, amount }], requests: [], summary: "" });
     expect(PlanProposalSchema.safeParse(plan("1000000")).success).toBe(true);
     for (const bad of ["0", "-1", "1.5", "1e6"]) expect(PlanProposalSchema.safeParse(plan(bad)).success).toBe(false);

@@ -67,7 +67,7 @@ export const payInvoiceResponder: DeterministicResponder<PaymentWorld> = {
     if (w.approvedPayees[c].includes(inv.payee) && inv.amount <= w.perActionCap[c] && w.vaultBalance[c] >= inv.amount) {
       return {
         kind: "ACTIONS",
-        steps: [{ stepId: "pay", chain: c, action: "PAY", asset: inv.asset, amount: inv.amount, payee: inv.payee, dependsOn: [], origin: "DETERMINISTIC" }],
+        steps: [{ stepId: "pay", chain: c, action: "PAY", asset: inv.asset, assetOut: null, amount: inv.amount, payee: inv.payee, dependsOn: [], origin: "DETERMINISTIC" }],
       };
     }
     const total = payable.reduce((s, x) => s + w.vaultBalance[x], 0n);

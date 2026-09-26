@@ -12,10 +12,12 @@ describe("BREAK: status honesty", () => {
   });
 
   it("break_F0528_unshipped_execution_adapter_counted_as_live_capability", () => {
-    // Aave REPAY / Uniswap and Cetus SWAP adapters are shipped:false (Amane v1 ships PAY only).
+    // An execution capability whose adapter is not shipped is never live, whatever the provider status.
+    const unshipped = new ProviderRegistry(reg.providers.map((p) => (p.execution ? { ...p, execution: p.execution.map((e) => ({ ...e, shipped: false })) } : p)));
     for (const [chain, cap] of [["ethereum-sepolia", "LENDING_REPAY"], ["ethereum-sepolia", "DEX_SWAP"], ["sui-testnet", "DEX_SWAP"]] as const) {
-      const s = reg.select({ kind: "protocol", chain, capabilities: [cap], acceptStatus: LIVE });
+      const s = unshipped.select({ kind: "protocol", chain, capabilities: [cap], acceptStatus: LIVE });
       expect(s.selected, `${chain}:${cap}`).toEqual([]);
+      expect(reg.select({ kind: "protocol", chain, capabilities: [cap], acceptStatus: LIVE }).selected.length, `${chain}:${cap} shipped`).toBe(1);
     }
   });
 

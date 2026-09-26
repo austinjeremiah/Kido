@@ -123,6 +123,9 @@ export function compilePaymentMandate(m: PaymentMandate, endpoints: EndpointFact
         assets: { [m.asset]: e.assetId },
         adapters: { PAY: e.pay },
         payees: Object.fromEntries(m.payees.map((p) => [p.label, { recipientId: p.recipient[e.chain], label: p.label }])),
+        beneficiaries: {},
+        debtTokens: {},
+        repay: false,
       } satisfies EndpointBinding,
     ]),
   ) as Record<Chain, EndpointBinding>;

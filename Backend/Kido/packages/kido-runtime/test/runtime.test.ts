@@ -65,7 +65,7 @@ const world = (evm: bigint, sui: bigint): PaymentWorld => ({
   perActionCap: { "ethereum-sepolia": 20_000000n, "sui-testnet": 20_000000n },
   vaultBalance: { "ethereum-sepolia": evm, "sui-testnet": sui },
 });
-const inv = (id: string, amount: bigint, payee = "acme-supplies", memo = ""): Invoice => ({ id, payee, asset: "AMUSD", amount, preferredChain: "ethereum-sepolia", memo });
+const inv = (id: string, amount: bigint, payee = "acme-supplies", memo = ""): Invoice => ({ id, payee, asset: "AMUSD", assetOut: null, amount, preferredChain: "ethereum-sepolia", memo });
 const gate = new ReasoningGate([payInvoiceResponder]);
 const known = { chains: ["ethereum-sepolia", "sui-testnet"] as const, assets: ["AMUSD"] };
 
@@ -109,7 +109,7 @@ describe("monitor + reasoning gate", () => {
 });
 
 describe("specialist proposals are untrusted", () => {
-  const step = (o: Record<string, unknown> = {}) => ({ stepId: "s1", chain: "sui-testnet", action: "PAY", asset: "AMUSD", amount: "5000000", payee: "acme-supplies", dependsOn: [], rationale: "", ...o });
+  const step = (o: Record<string, unknown> = {}) => ({ stepId: "s1", chain: "sui-testnet", action: "PAY", asset: "AMUSD", assetOut: null, amount: "5000000", payee: "acme-supplies", dependsOn: [], rationale: "", ...o });
   const plan = (steps: unknown[], o: Record<string, unknown> = {}) => ({ objective: "pay invoice", decision: "PROPOSE_PLAN", steps, requests: [], summary: "", ...o });
 
   it("a compliant split plan validates and gets a stable plan hash", () => {
@@ -142,7 +142,7 @@ describe("specialist proposals are untrusted", () => {
 });
 
 describe("compiler preflight (defence in depth before Amane)", () => {
-  const base = { stepId: "s1", chain: "sui-testnet" as const, action: "PAY" as const, asset: "AMUSD", amount: 5_000000n, payee: "acme-supplies", dependsOn: [], origin: "PaymentAgent" as const };
+  const base = { stepId: "s1", chain: "sui-testnet" as const, action: "PAY" as const, asset: "AMUSD", assetOut: null, amount: 5_000000n, payee: "acme-supplies", dependsOn: [], origin: "PaymentAgent" as const };
 
   it("an in-policy step compiles to an exact intent bound to endpoint, lease and plan", () => {
     const c = compileStep(base, h("cc"), 0, ctx, { preflight: true });

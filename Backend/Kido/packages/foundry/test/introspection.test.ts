@@ -39,6 +39,7 @@ const RESCUE = {
   "authority.withdraw": "No, never",
   "authority.bridge": "no",
   "actions.allowed": "repay my debt and swap tokens",
+  beneficiary: `my wallet 0x${"cd".repeat(20)}`,
   "authority.autonomy": "Only when a condition it can prove on-chain occurs",
   "assets.spend": "USDC on Ethereum and AMUSD on Sui",
   "limits.window": "500",

@@ -24,6 +24,8 @@ export const ProposedStepSchema = z
     chain: ChainSchema,
     action: BaseActionSchema,
     asset: z.string().min(1).max(16),
+    /** SWAP only: the asset received. Null for every other action. */
+    assetOut: z.string().min(1).max(16).nullable(),
     amount: baseUnits,
     payee: z.string().max(80).nullable(),
     dependsOn: z.array(z.string()).max(8),

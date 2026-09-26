@@ -68,4 +68,6 @@ export interface AssetEntry {
   note: string;
   /** Providers whose actions can spend this asset on this chain. */
   usableWith: string[];
+  /** Debt token a lending provider's REPAY reduces for this asset (provider id → token ref). */
+  debtTokens?: Record<string, string>;
 }

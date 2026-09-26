@@ -72,8 +72,8 @@
       "action": "REPAY",
       "capability": "LENDING_REPAY",
       "adapter": "aave-v3-repay",
-      "amaneAdapter": "AMANE_AAVE_V3_REPAY_V1",
-      "shipped": false
+      "amaneAdapter": "Aave V3 Repay",
+      "shipped": true
     }
   ]
 }

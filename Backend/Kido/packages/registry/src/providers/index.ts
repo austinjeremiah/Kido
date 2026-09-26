@@ -258,7 +258,7 @@ export const PROVIDERS: ProviderManifest[] = [
     status: "VERIFIED_LIVE",
     statusNote: "addresses verified with cast on Sepolia",
     knowledgePack: "protocols/aave-v3",
-    execution: [{ action: "REPAY", capability: "LENDING_REPAY", adapter: "aave-v3-repay", amaneAdapter: "AMANE_AAVE_V3_REPAY_V1", shipped: false }],
+    execution: [{ action: "REPAY", capability: "LENDING_REPAY", adapter: "aave-v3-repay", amaneAdapter: "Aave V3 Repay", shipped: true }],
   },
   {
     schemaVersion: "kido.provider/v1",
@@ -293,7 +293,7 @@ export const PROVIDERS: ProviderManifest[] = [
     status: "VERIFIED_LIVE",
     statusNote: "addresses verified with cast on Sepolia",
     knowledgePack: "protocols/uniswap-v3",
-    execution: [{ action: "SWAP", capability: "DEX_SWAP", adapter: "uniswap-v3-swap", amaneAdapter: "AMANE_UNISWAP_V3_SWAP_V1", shipped: false }],
+    execution: [{ action: "SWAP", capability: "DEX_SWAP", adapter: "uniswap-v3-swap", amaneAdapter: "Uniswap V3 Swap", shipped: true }],
   },
   {
     schemaVersion: "kido.provider/v1",
@@ -328,7 +328,7 @@ export const PROVIDERS: ProviderManifest[] = [
     status: "VERIFIED_LIVE",
     statusNote: "objects verified via Sui GraphQL",
     knowledgePack: "protocols/cetus-clmm",
-    execution: [{ action: "SWAP", capability: "DEX_SWAP", adapter: "cetus-clmm-swap", amaneAdapter: "AMANE_CETUS_CLMM_SWAP_V1", shipped: false }],
+    execution: [{ action: "SWAP", capability: "DEX_SWAP", adapter: "cetus-clmm-swap", amaneAdapter: "Cetus CLMM Swap", shipped: true }],
   },
   {
     schemaVersion: "kido.provider/v1",
@@ -351,13 +351,13 @@ export const PROVIDERS: ProviderManifest[] = [
       sourceRefs: ["Aname/README.md", "Aname/deployments/testnet.json"],
     }),
     failureModes: ["lease expired/revoked", "account paused", "RPC outage (operational, not a policy verdict)"],
-    limitations: ["testnet prototype, not audited", "v1 ships PAY; SWAP/REPAY adapters pending"],
+    limitations: ["testnet prototype, not audited", "EVM core v2 (new accounts) enforces REPAY; v1 accounts and the Sui core enforce SWAP and PAY", "adapters: Transfer Pay (both), Uniswap V3 Swap and Aave V3 Repay (Sepolia), Cetus CLMM Swap (Sui)"],
     sources: [],
     status: "VERIFIED_LIVE",
     statusNote: "live two-chain gauntlet 40/40; deployments read from the Amane manifest",
     knowledgePack: "platform/amane",
     deploymentManifestRef: "Aname/deployments/testnet.json",
-    execution: [{ action: "PAY", capability: "BOUNDED_EXECUTION", adapter: "amane-transfer-pay", amaneAdapter: "Transfer Pay v1", shipped: true }],
+    execution: [{ action: "PAY", capability: "BOUNDED_EXECUTION", adapter: "amane-transfer-pay", amaneAdapter: "Transfer Pay", shipped: true }],
   },
   {
     schemaVersion: "kido.provider/v1",

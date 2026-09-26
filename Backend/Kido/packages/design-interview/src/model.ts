@@ -30,7 +30,7 @@ export interface InterviewModel {
 
 const quoted = (source: string, quote: string) => quote.length > 0 && source.toLowerCase().includes(quote.toLowerCase().trim());
 
-const DIRECT_ONLY = new Set<string>(["yesno", "amount", "payees", "actions", "chains", "duration", "swap_floor", "threshold", "authority_mode"]);
+const DIRECT_ONLY = new Set<string>(["yesno", "amount", "payees", "beneficiary", "actions", "chains", "duration", "swap_floor", "threshold", "authority_mode"]);
 
 function firstMatch(text: string, re: RegExp): string | undefined {
   const m = re.exec(text);
