@@ -5,6 +5,7 @@
  * actually proven. Providers this blueprint uses are listed first.
  */
 import { useState } from 'react';
+import { EvidenceList } from '@/components/studio/Evidence';
 import { StudioPage } from '@/components/studio/PageScaffold';
 import { Badge, Card, Skeleton, TabStrip } from '@/components/studio/primitives';
 import { useKido } from '@/components/studio/kido';
@@ -33,6 +34,12 @@ function Provider({ p, used }: { p: ProviderRow; used: boolean }) {
         </>
       ) : null}
       {i.blocker ? <p className="cl-meta">Blocked ({i.blocker.type}): {i.blocker.actionRequired}</p> : null}
+      {i.evidence.length || i.blocker?.evidence ? (
+        <>
+          <p className="cl-label">Evidence</p>
+          <EvidenceList items={[...i.evidence, ...(i.blocker?.evidence ? [i.blocker.evidence] : [])]} />
+        </>
+      ) : null}
       {Object.keys(p.capabilityStatus).length ? (
         <p className="cl-meta">{Object.entries(p.capabilityStatus).map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>
       ) : null}

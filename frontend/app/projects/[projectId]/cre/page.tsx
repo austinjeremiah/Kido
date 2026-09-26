@@ -12,7 +12,8 @@
  */
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { EyeOff, FileCheck2, ShieldCheck, ShieldOff, ShieldQuestion } from 'lucide-react';
+import { EyeOff, ShieldCheck, ShieldOff, ShieldQuestion } from 'lucide-react';
+import { EvidenceList } from '@/components/studio/Evidence';
 import { StudioPage } from '@/components/studio/PageScaffold';
 import { Badge, BlockerBanner, Card, EmptyState, KeyValue, Section, Skeleton } from '@/components/studio/primitives';
 import { WithProject } from '@/components/studio/kido';
@@ -154,7 +155,7 @@ function ProviderCard({ p, usedBy }: { p: ProviderRow; usedBy: string[] }) {
         <div style={{ marginTop: 12 }}>
           <BlockerBanner tone="warn" title={`Blocked · ${S(impl.blocker.type)}`}>
             <div><strong>Required:</strong> {impl.blocker.actionRequired}</div>
-            <div className="cl-mono" style={{ fontSize: 11.5, marginTop: 4 }}>Evidence: {impl.blocker.evidence}</div>
+            <div style={{ marginTop: 4 }}><EvidenceList items={[impl.blocker.evidence]} compact /></div>
           </BlockerBanner>
         </div>
       ) : null}
@@ -192,18 +193,7 @@ function ProviderCard({ p, usedBy }: { p: ProviderRow; usedBy: string[] }) {
         </div>
         <div>
           <div className="cl-label" style={{ marginBottom: 6 }}>Evidence</div>
-          {impl.evidence.length ? (
-            <ul className="cl-col" style={{ gap: 4, margin: 0, padding: 0, listStyle: 'none' }}>
-              {impl.evidence.map((e) => (
-                <li key={e} className="cl-row" style={{ gap: 6, alignItems: 'flex-start' }}>
-                  <FileCheck2 size={12} aria-hidden style={{ marginTop: 3, flex: '0 0 auto', color: 'var(--cl-ink-3)' }} />
-                  <span className="cl-mono" style={{ fontSize: 11.5 }}>{e}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="cl-meta" style={{ margin: 0 }}>No evidence recorded.</p>
-          )}
+          <EvidenceList items={impl.evidence} />
         </div>
       </div>
     </Card>

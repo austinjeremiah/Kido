@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { ExternalLink, FileJson, Printer, X } from 'lucide-react';
+import { EvidenceList } from '@/components/studio/Evidence';
 import { StudioPage } from '@/components/studio/PageScaffold';
 import { Badge, BlockerBanner, Card, EmptyState, KeyValue, Section, Skeleton, StatusBadge, TabStrip } from '@/components/studio/primitives';
 import { GateButton, NotYet, WithProject, nextGate, useKido } from '@/components/studio/kido';
@@ -341,7 +342,7 @@ function Evidence({ s, sm, registry, dep, reality }: { s: ProjectSummary; sm: Se
                       <td className="cl-mono">{p.providerId}<div className="cl-meta">{p.kind}</div></td>
                       <td><Badge tone={PROVIDER_TONE[p.status] ?? 'neutral'}>{p.status}</Badge>{p.statusNote ? <div className="cl-meta" style={{ whiteSpace: 'normal', marginTop: 4 }}>{p.statusNote}</div> : null}</td>
                       <td><Badge tone={PROVIDER_TONE[p.implementation.status] ?? 'neutral'}>{p.implementation.status}</Badge></td>
-                      <td style={{ whiteSpace: 'normal' }}>{p.implementation.evidence.length ? <ul style={{ margin: 0, paddingLeft: 16 }}>{p.implementation.evidence.map((e) => <li key={e} className="cl-mono" style={{ fontSize: 11.5 }}>{e}</li>)}</ul> : <span className="cl-dim">none recorded</span>}</td>
+                      <td style={{ whiteSpace: 'normal' }}><EvidenceList items={p.implementation.evidence} compact /></td>
                     </tr>
                   ))}
                 </tbody>

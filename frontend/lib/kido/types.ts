@@ -165,3 +165,7 @@ export interface Portfolio {
   positions: LendingPosition[];
   readAt: number;
 }
+
+export interface EvidenceFile { id: string; root: 'kido' | 'amane' | 'gauntlet'; path: string; size: number; modifiedAt: number }
+export interface EvidenceResolution { ref: string; files: EvidenceFile[]; note: string | null }
+export interface EvidenceContent { id: string; path: string; root: string; content: string; truncated: boolean; redactions: number; language: 'json' | 'md' | 'text' }

@@ -1,9 +1,10 @@
-import { resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { isAddress } from "viem";
 import { loadAmaneManifest } from "@kido/amane-bridge";
 import { OpenAIInterviewModel, RuleBasedInterviewModel, type InterviewModel } from "@kido/design-interview";
-import { FileProjectStore, Foundry, WalletDeployments } from "@kido/foundry";
+import { EvidenceStore, FileProjectStore, Foundry, WalletDeployments } from "@kido/foundry";
 import { createPublicClient, http, type Hex } from "viem";
 import { sepolia } from "viem/chains";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
@@ -66,4 +67,14 @@ export function createDeployments(foundry: Foundry, env: NodeJS.ProcessEnv = pro
     ...(issuerKey ? { issuer: privateKeyToAccount(issuerKey) } : {}),
     ...(agent ? { agent } : {}),
   });
+}
+
+/**
+ * Read-only access to the evidence the registry cites: this backend (KIDO_REPO_ROOT, default the
+ * working directory), the Amane repository (the manifest's repository), and the testnet evidence
+ * directory (KIDO_GAUNTLET_DIR; unavailable when it does not exist).
+ */
+export function createEvidence(c: KidoConfig, env: NodeJS.ProcessEnv = process.env): EvidenceStore {
+  const gauntlet = resolve(env.KIDO_GAUNTLET_DIR ?? "../../../.gauntlet");
+  return new EvidenceStore({ kido: resolve(env.KIDO_REPO_ROOT ?? "."), amane: resolve(dirname(c.amaneManifestPath), ".."), gauntlet: existsSync(gauntlet) ? gauntlet : undefined });
 }

@@ -8,3 +8,4 @@ export * from "./sui.js";
 export * from "./wormhole.js";
 export * from "./wallet-deploy.js";
 export * from "./attack-lab.js";
+export * from "./evidence.js";

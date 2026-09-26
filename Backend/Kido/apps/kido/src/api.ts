@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { z } from "zod";
-import { LifecycleError, type Foundry, type WalletDeployments } from "@kido/foundry";
+import { LifecycleError, type EvidenceStore, type Foundry, type WalletDeployments } from "@kido/foundry";
 import type { KidoConfig } from "./config.js";
 
 const MAX_BODY = 64 * 1024;
@@ -43,6 +43,7 @@ const TxHash = z.object({ txHash: Hex32 });
 const Signature = z.object({ signature: Sig });
 const WhatIfBody = z.object({ chain: z.string().max(40), action: z.string().max(20), asset: z.string().max(20), assetOut: z.string().max(20).nullable().optional(), amount: z.string().regex(/^\d{1,40}$/), recipient: z.string().max(100).nullable(), atSecondsFromNow: z.number().int().min(0).max(31_536_000).optional() });
 const Injection = z.object({ instruction: z.string().min(1).max(2000), target: z.string().min(1).max(100), amount: z.string().regex(/^\d{1,40}$/), chain: z.string().max(40).optional() });
+const EvidenceRef = z.object({ ref: z.string().min(1).max(500) });
 const WalletTx = z.object({ chain: z.string().max(40), label: z.string().max(120), tx: Hex32 });
 const Signed = z.object({ signed: z.array(z.object({ chain: z.string().max(40), message: z.record(z.string(), z.unknown()), signature: Sig })).min(1).max(4) });
 
@@ -52,7 +53,7 @@ type Handler = (req: IncomingMessage, params: Record<string, string>) => Promise
  * Kido HTTP API: a thin transport over the Foundry state machine. Every lifecycle transition is a
  * foundry gate; this layer only parses input and maps errors.
  */
-export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulationSigners" | "model">, deployments?: WalletDeployments): Server {
+export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulationSigners" | "model">, deployments?: WalletDeployments, evidence?: EvidenceStore): Server {
   const routes: [string, RegExp, Handler][] = [];
   const route = (method: string, path: string, h: Handler) => routes.push([method, new RegExp(`^${path.replace(/:(\w+)/g, "(?<$1>[\\w-]+)")}$`), h]);
 
@@ -129,6 +130,15 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
     const m = foundry.registry.get(p.id!);
     if (!m) throw new HttpError(404, "KIDO_API_UNKNOWN_PROVIDER", `unknown provider ${p.id}`);
     return m;
+  });
+  const ev = () => evidence ?? (() => { throw new HttpError(503, "BLOCKED_ENV", "evidence access is not configured on this backend"); })();
+  route("POST", "/evidence/resolve", async (req) => ev().resolve((await body(req, EvidenceRef)).ref));
+  route("GET", "/evidence/file/:id", (_r, p) => {
+    try {
+      return ev().read(p.id!);
+    } catch (e) {
+      throw new HttpError(404, "KIDO_API_NOT_FOUND", (e as Error).message);
+    }
   });
   route("GET", "/knowledge/drift", () => ({ drift: foundry.knowledge.drift(foundry.registry), quarantined: foundry.knowledge.quarantined }));
 
