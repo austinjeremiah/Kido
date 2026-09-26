@@ -1,0 +1,9 @@
+[package]
+name = "amane_wormhole"
+edition = "2024"
+license = "MIT"
+
+[dependencies]
+amane = { local = "../amane" }
+wormhole = { git = "https://github.com/wormhole-foundation/wormhole.git", subdir = "sui/wormhole", rev = "2df4000c5bd228e5ce3a3d87f0475837071587f9" }
+token_bridge = { git = "https://github.com/wormhole-foundation/wormhole.git", subdir = "sui/token_bridge", rev = "2df4000c5bd228e5ce3a3d87f0475837071587f9" }

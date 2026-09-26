@@ -14,6 +14,7 @@ import {
   type RootPolicy,
   type UnpauseAccount,
   type Withdraw,
+  type DestSpec,
 } from '@amane/core';
 import { classifyCode, suiAbortName, type AmaneOutcome } from './outcome.js';
 
@@ -23,6 +24,18 @@ const CLOCK = '0x6';
 const snake = (s: string) => s.replace(/[A-Z]/g, (c, i) => (i ? '_' : '') + c.toLowerCase());
 const bytes = (h: string) => Array.from(hexToBytes(h as Hex));
 const utf8 = (s: string) => Array.from(new TextEncoder().encode(s));
+
+/// Addresses a BRIDGE through the Amane Wormhole adapter. Token Bridge and Wormhole calls go to
+/// their latest published package ids (they enforce "latest version only").
+export interface WormholeSuiRoute {
+  adapterPackage: string;
+  bridge: string;
+  coinType: string;
+  tokenBridge: { package: string; state: string };
+  wormhole: { package: string; state: string };
+  /** Wormhole message fee in MIST (0 on testnet at the time of writing; read it from the core state). */
+  messageFee?: bigint;
+}
 
 /// Relays signed Amane messages to one Sui account object. The signer only pays gas.
 export class AmaneSuiEndpoint {
@@ -247,6 +260,109 @@ export class AmaneSuiEndpoint {
 
   async vaultBalance(coinType: string): Promise<bigint> {
     return BigInt(bcs.u64().parse(await this.view('vault_balance', () => [], [coinType])));
+  }
+
+  async reservedOf(coinType: string): Promise<bigint> {
+    return BigInt(bcs.u64().parse(await this.view('reserved_of', () => [], [coinType])));
+  }
+
+  async quarantinedOf(coinType: string): Promise<bigint> {
+    return BigInt(bcs.u64().parse(await this.view('quarantined_of', () => [], [coinType])));
+  }
+
+  async intentUsed(intent: Bytes32): Promise<boolean> {
+    return bcs.bool().parse(await this.view('intent_used', (tx) => [tx.pure.vector('u8', bytes(intent))]));
+  }
+
+  async reservation(intent: Bytes32): Promise<{ exists: boolean; remaining: bigint; deadline: bigint }> {
+    const tx = new Transaction();
+    tx.setSender(this.relayer.toSuiAddress());
+    tx.moveCall({ target: `${this.packageId}::account::reservation`, arguments: [tx.object(this.objectId), tx.pure.vector('u8', bytes(intent))] });
+    const res = await this.client.simulateTransaction({ transaction: tx, include: { commandResults: true } });
+    if (!res.Transaction) throw new Error(`view reservation failed: ${JSON.stringify(res.FailedTransaction?.status)}`);
+    const [e, r, d] = res.commandResults![0]!.returnValues;
+    return { exists: bcs.bool().parse(e!.bcs), remaining: BigInt(bcs.u64().parse(r!.bcs)), deadline: BigInt(bcs.u64().parse(d!.bcs)) };
+  }
+
+  // ---------------------------------------------------------------- cross-chain
+
+  private destSpec(tx: Transaction, d: DestSpec): TransactionArgument {
+    return tx.moveCall({
+      target: `${this.packageId}::account::dest_spec`,
+      arguments: [
+        tx.pure.u8(d.actionKind),
+        tx.pure.vector('u8', bytes(d.adapterId)),
+        tx.pure.vector('u8', bytes(d.recipient)),
+        tx.pure.vector('u8', utf8(d.recipientLabel)),
+        tx.pure.vector('u8', bytes(d.asset)),
+        tx.pure.u256(d.minArrival),
+        tx.pure.u64(d.deadline),
+      ],
+    });
+  }
+
+  private witness(route: WormholeSuiRoute) {
+    return `${route.adapterPackage}::wormhole_bridge::WormholeBridgeV1`;
+  }
+
+  /// BRIDGE out: the core's ticket becomes a Token Bridge transfer to the pinned peer adapter with
+  /// payload `intent ‖ destination`, published as a Wormhole message in the same transaction.
+  /// With `reservedFor`, the input comes from that reservation (the return leg of a round trip).
+  bridgeOutWormhole(route: WormholeSuiRoute, intent: ActionIntent, agentSig: Hex, opts: { submitRejected?: boolean; reservedFor?: Bytes32 } = {}) {
+    const tx = new Transaction();
+    const common = [this.build(tx, 'ActionIntent', intent), tx.pure.vector('u8', bytes(agentSig)), tx.object(CLOCK)];
+    const ticket = opts.reservedFor
+      ? tx.moveCall({ target: `${this.packageId}::account::authorize_bridge_reserved`, typeArguments: [this.witness(route), route.coinType], arguments: [tx.object(this.objectId), tx.pure.vector('u8', bytes(opts.reservedFor)), ...common] })
+      : tx.moveCall({ target: `${this.packageId}::account::authorize_bridge`, typeArguments: [this.witness(route), route.coinType], arguments: [tx.object(this.objectId), ...common] });
+    const asset = tx.moveCall({ target: `${route.tokenBridge.package}::state::verified_asset`, typeArguments: [route.coinType], arguments: [tx.object(route.tokenBridge.state)] });
+    const transfer = tx.moveCall({ target: `${route.adapterPackage}::wormhole_bridge::send`, typeArguments: [route.coinType], arguments: [tx.object(route.bridge), ticket, asset] });
+    const msg = tx.moveCall({ target: `${route.tokenBridge.package}::transfer_tokens_with_payload::transfer_tokens_with_payload`, typeArguments: [route.coinType], arguments: [tx.object(route.tokenBridge.state), transfer] });
+    const [fee] = tx.splitCoins(tx.gas, [route.messageFee ?? 0n]);
+    tx.moveCall({ target: `${route.wormhole.package}::publish_message::publish_message`, arguments: [tx.object(route.wormhole.state), fee!, msg, tx.object(CLOCK)] });
+    return this.run(tx, opts);
+  }
+
+  /// Redeems a signed transfer VAA through the adapter; the core re-checks the source intent and
+  /// reserves the arrival (or, with `recovery`, quarantines an undeliverable one).
+  redeemWormhole(route: WormholeSuiRoute, vaa: Uint8Array, src: ActionIntent, srcSig: Hex, dest: DestSpec, opts: { submitRejected?: boolean; recovery?: boolean } = {}) {
+    const tx = new Transaction();
+    const verified = tx.moveCall({ target: `${route.wormhole.package}::vaa::parse_and_verify`, arguments: [tx.object(route.wormhole.state), tx.pure.vector('u8', Array.from(vaa)), tx.object(CLOCK)] });
+    const msg = tx.moveCall({ target: `${route.tokenBridge.package}::vaa::verify_only_once`, arguments: [tx.object(route.tokenBridge.state), verified] });
+    const receipt = tx.moveCall({ target: `${route.tokenBridge.package}::complete_transfer_with_payload::authorize_transfer`, typeArguments: [route.coinType], arguments: [tx.object(route.tokenBridge.state), msg] });
+    tx.moveCall({
+      target: `${route.adapterPackage}::wormhole_bridge::${opts.recovery ? 'redeem_to_recovery' : 'redeem'}`,
+      typeArguments: [route.coinType],
+      arguments: [tx.object(route.bridge), tx.object(this.objectId), receipt, this.build(tx, 'ActionIntent', src), tx.pure.vector('u8', bytes(srcSig)), this.destSpec(tx, dest), tx.object(CLOCK)],
+    });
+    return this.run(tx, opts);
+  }
+
+  payReserved(coinType: string, reservedFor: Bytes32, intent: ActionIntent, agentSig: Hex, opts: { submitRejected?: boolean } = {}) {
+    const tx = new Transaction();
+    tx.moveCall({
+      target: `${this.packageId}::account::pay_reserved`,
+      typeArguments: [coinType],
+      arguments: [tx.object(this.objectId), tx.pure.vector('u8', bytes(reservedFor)), this.build(tx, 'ActionIntent', intent), tx.pure.vector('u8', bytes(agentSig)), tx.object(CLOCK)],
+    });
+    return this.run(tx, opts);
+  }
+
+  releaseReservation(reservedFor: Bytes32, opts: { submitRejected?: boolean } = {}) {
+    const tx = new Transaction();
+    tx.moveCall({ target: `${this.packageId}::account::release_reservation`, arguments: [tx.object(this.objectId), tx.pure.vector('u8', bytes(reservedFor)), tx.object(CLOCK)] });
+    return this.run(tx, opts);
+  }
+
+  /// Sequence of the Wormhole message a transaction published from `emitter` (an EmitterCap id).
+  async wormholeSequence(digest: string, emitter: string): Promise<bigint> {
+    const res = await this.client.getTransaction({ digest, include: { events: true } });
+    const events = (res.Transaction ?? res.FailedTransaction)?.events ?? [];
+    for (const e of events) {
+      if (!e.eventType.endsWith('::publish_message::WormholeMessage')) continue;
+      const parsed = bcs.struct('WormholeMessage', { sender: bcs.Address, sequence: bcs.u64(), nonce: bcs.u32(), payload: bcs.vector(bcs.u8()), consistency_level: bcs.u8(), timestamp: bcs.u64() }).parse(e.bcs);
+      if (suiObjectToBytes32(parsed.sender) === suiObjectToBytes32(emitter)) return BigInt(parsed.sequence);
+    }
+    throw new Error(`no Wormhole message from ${emitter} in ${digest}`);
   }
 
   // ---------------------------------------------------------------- execution

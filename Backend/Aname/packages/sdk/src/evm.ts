@@ -119,6 +119,29 @@ export class AmaneEvmEndpoint {
     return this.send('executeReserved', [intent, action, agentSig], opts);
   }
 
+  /** Destination-failure path: redeems an undeliverable arrival straight into quarantine. */
+  recoverArrival(src: ActionIntent, srcSig: Hex, dest: DestSpec, transportId: Bytes32, transportData: Hex, opts: { submitRejected?: boolean } = {}) {
+    return this.send('recoverArrival', [src, srcSig, dest, transportId, transportData], opts);
+  }
+
+  /** Moves an expired, unspent reservation into quarantine. */
+  releaseReservation(intent: Bytes32, opts: { submitRejected?: boolean } = {}) {
+    return this.send('releaseReservation', [intent], opts);
+  }
+
+  /** (locked for ordinary actions, of which quarantined) for one token. */
+  async locked(token: Address): Promise<{ reserved: bigint; quarantined: bigint }> {
+    const read = (functionName: 'reservedOf' | 'quarantinedOf') =>
+      this.publicClient.readContract({ address: this.address, abi: amaneAccountAbi, functionName, args: [token] }) as Promise<bigint>;
+    const [reserved, quarantined] = await Promise.all([read('reservedOf'), read('quarantinedOf')]);
+    return { reserved, quarantined };
+  }
+
+  async reservation(intent: Bytes32): Promise<{ remaining: bigint; deadline: bigint }> {
+    const r = (await this.publicClient.readContract({ address: this.address, abi: amaneAccountAbi, functionName: 'reservations', args: [intent] })) as readonly unknown[];
+    return { deadline: r[5] as bigint, remaining: r[6] as bigint };
+  }
+
   executeAction(intent: ActionIntent, agentSig: Hex, opts: { submitRejected?: boolean } = {}) {
     return this.send('executeAction', [intent, agentSig], opts);
   }
