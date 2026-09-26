@@ -24,6 +24,8 @@ export interface PrivacyPlan {
 
 /** Values the running agent must use in computation (as opposed to only store). */
 const COMPUTED = new Set(["PRIVATE_POLICY", "PRIVATE_STRATEGY", "PRIVATE_API_RESPONSE", "PRIVATE_INPUT", "CONFIDENTIAL_COMPUTE", "VERIFIABLE_COMPUTE", "PRIVATE_MODEL_CONTEXT"]);
+/** Secrets the owner provides once and the agent needs again on every run: they must persist encrypted. */
+const PERSISTENT_SECRET = new Set(["PRIVATE_API_CREDENTIAL", "PRIVATE_POLICY", "PRIVATE_STRATEGY", "PRIVATE_INPUT"]);
 const BACKEND_BLIND = new Set(["NORMAL_KIDO_BACKEND", "CLOUD_HOST", "EVERYONE_EXCEPT_APPROVED_ENCLAVE"]);
 
 /** Bible §27.3: required capabilities for one private value, or the contradiction that makes it unsatisfiable. */
@@ -48,6 +50,9 @@ export function requiredCapabilities(v: PrivateValueSpec): { caps: string[]; con
       if (blindBackend && (computed || v.kind === "PRIVATE_API_CREDENTIAL")) caps.push("VERIFIABLE_COMPUTE");
       if (v.kind === "PRIVATE_API_CREDENTIAL" || v.kind === "PRIVATE_API_RESPONSE") caps.push("PRIVATE_API_ACCESS");
       if (decision && computed) caps.push("DECISION_ONLY_OUTPUT");
+      // Kido's backend cannot hold a secret it must not see, and an enclave is ephemeral: the value
+      // persists encrypted, with decryption granted only to the attested enclave.
+      if (blindBackend && PERSISTENT_SECRET.has(v.kind)) caps.push("SECRET_ACCESS_CONTROL");
       return { caps: [...new Set(caps)] };
     }
     case "DON":

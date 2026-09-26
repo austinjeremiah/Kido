@@ -28,17 +28,18 @@ describe("privacy requirements compiler", () => {
     expect(p.values[0]!.reasons[0]).toMatch(/contradicts/);
   });
 
-  it("API key hidden from the backend, plaintext only in an enclave → Nautilus on Sui, planning-only with its live blocker", () => {
+  it("API key hidden from the backend, plaintext only in an enclave → Seal (persistent, enclave-only access) + Nautilus on Sui, planning-only with its live blocker", () => {
     const p = compilePrivacy(bp(["sui-testnet"], [v({ id: "api-key", hiddenFrom: ["NORMAL_KIDO_BACKEND"], plaintextBoundary: "APPROVED_ENCLAVE" })]), reg);
-    expect(p.values[0]).toMatchObject({ status: "SATISFIED_PLANNING_ONLY", selected: ["nautilus"] });
+    expect(p.values[0]).toMatchObject({ status: "SATISFIED_PLANNING_ONLY" });
+    expect([...p.values[0]!.selected].sort()).toEqual(["nautilus", "seal"]);
     expect(p.liveBlockers.join()).toMatch(/BE-NAUT-1/);
   });
 
-  it("private threshold with decision-only output: Sui → Nautilus, Ethereum → CRE (different providers, same Kido role)", () => {
+  it("private threshold with decision-only output: Sui → Seal + Nautilus, Ethereum → CRE (different providers, same Kido role)", () => {
     const val = v({ id: "risk-threshold", kind: "PRIVATE_POLICY", hiddenFrom: ["PUBLIC_CHAIN", "AI_AGENT", "NORMAL_KIDO_BACKEND"], plaintextBoundary: "APPROVED_ENCLAVE", allowedDisclosure: "DECISION_ONLY" });
     const p = compilePrivacy(bp(["sui-testnet", "ethereum-sepolia"], [val]), reg);
     const bySel = Object.fromEntries(p.values.map((x) => [x.chain, x.selected]));
-    expect(bySel["sui-testnet"]).toEqual(["nautilus"]);
+    expect([...bySel["sui-testnet"]!].sort()).toEqual(["nautilus", "seal"]);
     expect(bySel["ethereum-sepolia"]).toEqual(["chainlink-cre"]);
     expect(p.values[0]!.requiredCapabilities).toEqual(expect.arrayContaining(["CONFIDENTIAL_COMPUTE", "VERIFIABLE_COMPUTE", "DECISION_ONLY_OUTPUT"]));
     expect(p.values.every((x) => x.trust.length > 0)).toBe(true);

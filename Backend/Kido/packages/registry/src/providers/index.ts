@@ -139,7 +139,8 @@ export const PROVIDERS: ProviderManifest[] = [
     kind: "privacy",
     category: "confidential-compute",
     chains: ["ethereum-sepolia"],
-    capabilities: ["CONFIDENTIAL_COMPUTE", "PRIVATE_API_ACCESS", "SECRET_ACCESS_CONTROL", "DECISION_ONLY_OUTPUT"],
+    // DON-signed reports make results verifiable on-chain (VERIFIABLE_COMPUTE).
+    capabilities: ["CONFIDENTIAL_COMPUTE", "VERIFIABLE_COMPUTE", "PRIVATE_API_ACCESS", "SECRET_ACCESS_CONTROL", "DECISION_ONLY_OUTPUT"],
     version: "cre-sdk 1.22.0 / cre CLI v1.35.0",
     sdk: [{ package: "@chainlink/cre-sdk", version: "1.22.0" }],
     deployments: { "ethereum-sepolia": { keystoneForwarder: "0xF8344CFd5c43616a4366C34E3EEE75af79a74482", mockForwarder: "0x15fC6ae953E024d975e77382eEeC56A9101f9F88", kidoReceiverMockForwarder: "0x41032ee6b7a635b16ead62d0bcc20a9be05a5164" } },
