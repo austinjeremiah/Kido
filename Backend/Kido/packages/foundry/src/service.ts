@@ -7,7 +7,7 @@ import { buildPublicManifest, compileIdentityPlan, type PlannedBinding } from "@
 import { KnowledgeBase } from "@kido/knowledge";
 import { applyPrivacyPlan, compilePrivacy, type PrivacyPlan } from "@kido/privacy";
 import { ProviderRegistry } from "@kido/registry";
-import { compileAmaneAuthority, type AuthorityResult } from "@kido/runtime";
+import { buildAgentContext, buildSelfModel, compileAmaneAuthority, introspect, type AgentRuntimeState, type AuthorityResult, type RuntimeSnapshot } from "@kido/runtime";
 import type { AmaneDeploymentManifest } from "@kido/amane-bridge";
 import { authorityEndpoints } from "./endpoints.js";
 import { securityReview, type SecurityReport } from "./review.js";
@@ -206,6 +206,21 @@ export class Foundry {
     p.build = artifact;
     this.d.store.save(p);
     return artifact;
+  }
+
+  /** Deterministic answers about the agent from its self-model (bible §13.2). */
+  introspect(projectId: string, question: string, runtime: RuntimeSnapshot = {}) {
+    const bp = this.requireBlueprint(this.d.store.load(projectId));
+    return introspect(buildSelfModel(bp, runtime), question);
+  }
+
+  selfModel(projectId: string, runtime: RuntimeSnapshot = {}) {
+    return buildSelfModel(this.requireBlueprint(this.d.store.load(projectId)), runtime);
+  }
+
+  /** The exact context a specialist would receive (bible §13.1). */
+  agentContext(projectId: string, role: string, state: AgentRuntimeState = {}) {
+    return buildAgentContext(role, this.requireBlueprint(this.d.store.load(projectId)), state, this.knowledge);
   }
 
   status(projectId: string) {

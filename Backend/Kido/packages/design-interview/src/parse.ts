@@ -36,7 +36,20 @@ export function parseChains(s: string): Parsed {
   return hit.length ? ok(hit) : bad(`expected ${all.map((c) => c.label).join(", ")} or all`);
 }
 
-/** Human amount → token base units, with the asset chosen earlier. Exact integer arithmetic only. */
+/** The spend assets chosen earlier; a single asset may be stored as a plain symbol. */
+export const spendAssets = (ctx: Ctx): string[] => {
+  const v = ctx["assets.spend"];
+  return Array.isArray(v) ? (v as string[]) : typeof v === "string" ? [v] : [];
+};
+
+/** An amount per spend asset in base units: a plain string for one asset, a symbol → units map for several. */
+export type AmountValue = string | Record<string, string>;
+export const amountFor = (v: AmountValue | undefined, asset: string): string | undefined => (typeof v === "string" ? v : v?.[asset]);
+
+/**
+ * Human amount → base units of each spend asset (the same nominal amount of each), with exact
+ * integer arithmetic only.
+ */
 export function parseAmount(s: string, ctx: Ctx): Parsed {
   const t = s.replace(/\$/g, " ").trim();
   if (/(^|[\s(])-\s*\d/.test(t)) return bad("amount must be positive");
@@ -44,19 +57,30 @@ export function parseAmount(s: string, ctx: Ctx): Parsed {
   const m = /(?<![\d.,])(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?(?![\d,.]*\d)\s*(k|thousand|m|million)?\b/i.exec(t);
   if (!m) return bad("expected an amount");
   if (/\d,\d{1,2}(?!\d)/.test(t)) return bad("ambiguous decimal comma");
-  const symbol = ctx["assets.spend"] as string | undefined;
-  if (!symbol) return bad("choose the token before setting amounts");
-  const dec = interviewRegistry().decimalsOf(symbol);
-  if (dec === undefined) return bad(`unknown decimals for ${symbol}`);
+  const symbols = spendAssets(ctx);
+  if (!symbols.length) return bad("choose the token before setting amounts");
   const frac = m[2] ?? "";
   const scale = /^(k|thousand)$/i.test(m[3] ?? "") ? 3 : /^(m|million)$/i.test(m[3] ?? "") ? 6 : 0;
-  if (frac.length > dec + scale) return bad("too many decimals for this token");
   const digits = BigInt(m[1]!.replace(/,/g, "") + frac);
-  let units = digits * 10n ** BigInt(dec + scale);
-  units /= 10n ** BigInt(frac.length);
-  if (units <= 0n) return bad("amount must be positive");
-  if (units > MAX_UNITS) return bad("amount is implausibly large");
-  return ok(units.toString());
+  const out: Record<string, string> = {};
+  for (const symbol of symbols) {
+    const dec = interviewRegistry().decimalsOf(symbol);
+    if (dec === undefined) return bad(`unknown decimals for ${symbol}`);
+    if (frac.length > dec + scale) return bad(`too many decimals for ${symbol}`);
+    const units = (digits * 10n ** BigInt(dec + scale)) / 10n ** BigInt(frac.length);
+    if (units <= 0n) return bad("amount must be positive");
+    if (units > MAX_UNITS) return bad("amount is implausibly large");
+    out[symbol] = units.toString();
+  }
+  return ok(symbols.length === 1 ? out[symbols[0]!] : out);
+}
+
+/** One or more offered assets, from affirmed mentions only; "all"/"both" picks every offered one. */
+export function parseAssets(s: string, choices: { value: string; label: string }[]): Parsed {
+  const all = hasAffirmed(s, /\b(both|all( of them)?|either)\b/i) && !hasNegator(s);
+  const hits = all ? choices.map((c) => c.value) : choices.filter((c) => hasAffirmed(s, aliasRe([c.value]))).map((c) => c.value);
+  if (!hits.length) return parseChoice(s, choices);
+  return ok(hits.length === 1 ? hits[0] : hits);
 }
 
 /** Picks one option from affirmed (non-negated) mentions only; ambiguous or negated-only answers are unclear. */
@@ -229,7 +253,7 @@ export function parseByType(type: AnswerType, text: string, ctx: Ctx, choices?: 
       const name = text.trim().toLowerCase().replace(/[^a-z0-9. -]/g, "").replace(/\s+/g, "-");
       return name.length >= 3 ? ok(name.slice(0, 63)) : bad("name too short");
     }
-    case "asset": return parseChoice(text, choices ?? []);
+    case "asset": return parseAssets(text, choices ?? []);
     case "authority_mode": return parseChoice(text, choices ?? [], MODE_SYNONYMS);
     case "autonomy": return parseChoice(text, choices ?? [], { OWNER_APPROVAL: /approv|ask me/, VERIFIABLE_CONDITION: /condition|verif|prove|only when/, AUTOMATIC: /automatic|always|whenever/ });
     case "recovery": return parseChoice(text, choices ?? [{ value: "FAIL_CLOSED", label: "keep" }], { WAKE_RECOVERY_AGENT: /\brecover\w*|try again|within (my )?limits/, HALT_AND_NOTIFY: /\b(stop|halt|notify|tell me)\b/, FAIL_CLOSED: /\b(keep|yes|fine|ok)\b/ });

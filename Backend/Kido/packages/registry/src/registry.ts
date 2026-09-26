@@ -87,6 +87,7 @@ export class ProviderRegistry {
     return {
       provider: (id) => this.get(id),
       secretStoreId: this.providers.find((p) => p.kind === "privacy" && p.capabilities.includes("SECRET_STORAGE"))?.providerId,
+      assetsFor: (id, chain) => (this.get(id) ? this.assetsFor(id, chain as ChainId).map((a) => a.symbol) : undefined),
       isAddress: (chain, address) => isChainAddress(chain, address),
     };
   }

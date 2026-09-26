@@ -56,6 +56,9 @@ describe("Kido API", () => {
     expect(b.status).toBe(200);
     expect(b.json.kind).toBe("build");
     expect((await call("GET", `/projects/${id}/status`)).json).toMatchObject({ build: "CURRENT" });
+    const ask = await call("POST", `/projects/${id}/introspect`, { question: "Who can you pay?" });
+    expect(ask.json.facts.actions.allowed).toEqual(["PAY"]);
+    expect((await call("GET", `/projects/${id}/context/PaymentAgent`)).json.role).toBe("PaymentAgent");
   });
 
   it("rejects bad input and unknown resources with typed errors", async () => {

@@ -14,6 +14,8 @@ const USAGE = `kido <command> [args]
   simulate <project>                run the simulation scenarios
   build <project>                   build (only when every gate passes)
   status <project>                  lifecycle status
+  ask <project> "<question>"        introspect the agent from its self-model
+  context <project> <role>          the exact context a specialist receives
   registry                          providers and their status
   drift                             knowledge drift report`;
 
@@ -38,6 +40,8 @@ export async function runCli(argv: string[], out: (s: string) => void = console.
     simulate: () => (need(1), foundry.simulate(a[0]!)),
     build: () => (need(1), foundry.build(a[0]!)),
     status: () => (need(1), foundry.status(a[0]!)),
+    ask: () => (need(2), foundry.introspect(a[0]!, a.slice(1).join(" "))),
+    context: () => (need(2), foundry.agentContext(a[0]!, a[1]!)),
     registry: () => foundry.registry.providers.map((m) => ({ providerId: m.providerId, kind: m.kind, chains: m.chains, status: m.status })),
     drift: () => ({ drift: foundry.knowledge.drift(foundry.registry), quarantined: foundry.knowledge.quarantined }),
   };

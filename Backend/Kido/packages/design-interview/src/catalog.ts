@@ -45,7 +45,8 @@ const chains = (c: Ctx) => (c["chains"] as ChainId[] | undefined) ?? [];
 const kind = (c: Ctx) => c["objective.kind"] as ObjectiveKind | undefined;
 const privateValues = (c: Ctx) => ((c["privacy.values"] as unknown[] | undefined) ?? []).length > 0;
 const watches = (c: Ctx) => ["LENDING_PROTECTION", "REBALANCE", "MONITORING", "LIQUIDITY"].includes(kind(c) ?? "");
-const assetSymbol = (c: Ctx) => (c["assets.spend"] as string | undefined) ?? "tokens";
+const spendList = (c: Ctx): string[] => (Array.isArray(c["assets.spend"]) ? (c["assets.spend"] as string[]) : typeof c["assets.spend"] === "string" ? [c["assets.spend"] as string] : []);
+const assetSymbol = (c: Ctx) => (spendList(c).length > 1 ? `of each of ${spendList(c).join(" and ")}` : (spendList(c)[0] ?? "tokens"));
 
 const reg = () => interviewRegistry();
 /** Protocols (execution providers other than the authority layer) that serve this kind of objective. */
@@ -219,12 +220,16 @@ export const CATALOG: RequirementDef[] = [
     appliesWhen: financial,
     question: (c) => {
       const opts = spendable(c, (c["protocols"] as string[] | undefined) ?? payProviders(c));
-      return { text: "Which token may it spend?", choices: opts.map((o) => ({ value: o, label: o })) };
+      return { text: chains(c).length > 1 ? "Which tokens may it spend? (it can be one per chain)" : "Which token may it spend?", choices: opts.map((o) => ({ value: o, label: o })) };
     },
     infer: (c) => {
+      // Per chain: when the providers used there accept exactly one asset, that asset is the only choice.
       const protos = (c["protocols"] as string[] | undefined) ?? (acts(c).includes("PAY") ? payProviders(c) : []);
-      const opts = spendable(c, protos);
-      return opts.length === 1 ? { value: opts[0], rule: "the only spendable asset for the selected protocol on testnet", from: ["protocols"] } : undefined;
+      if (!chains(c).length || !protos.length) return undefined;
+      const perChain = chains(c).map((ch) => [...new Set(protos.flatMap((p) => reg().assetsFor(p, ch).map((a) => a.symbol)))]);
+      if (perChain.some((x) => x.length !== 1)) return undefined;
+      const set = [...new Set(perChain.flat())];
+      return { value: set.length === 1 ? set[0] : set, rule: "the only spendable asset for the selected protocols on each chain", from: ["protocols", "chains"] };
     },
   },
   {
@@ -257,8 +262,10 @@ export const CATALOG: RequirementDef[] = [
     appliesWhen: bounded,
     question: (c) => ({ text: `The largest single action will be half of the hourly limit. Is a smaller per-action cap needed for ${assetSymbol(c)}?` }),
     safeDefault: (c) => {
-      const w = c["limits.window"] as string | undefined;
-      return w ? (BigInt(w) / 2n > 0n ? (BigInt(w) / 2n).toString() : w) : undefined;
+      const w = c["limits.window"] as string | Record<string, string> | undefined;
+      const half = (x: string) => (BigInt(x) / 2n > 0n ? (BigInt(x) / 2n).toString() : x);
+      if (w === undefined) return undefined;
+      return typeof w === "string" ? half(w) : Object.fromEntries(Object.entries(w).map(([k, v]) => [k, half(v)]));
     },
   },
   {
@@ -270,7 +277,7 @@ export const CATALOG: RequirementDef[] = [
     answerType: "swap_floor",
     appliesWhen: (c) => bounded(c) && acts(c).includes("SWAP"),
     question: (c) => {
-      const spend = c["assets.spend"] as string | undefined;
+      const spend = spendList(c)[0];
       const other = spendable(c, (c["protocols"] as string[] | undefined) ?? []).find((s) => s !== spend);
       const eg = spend && other ? ` For example: at least 0.95 ${other} for each ${spend}.` : " For example: at least 0.95 of the token you receive for each token you sell.";
       return { text: `What is the worst exchange rate you would accept for a swap?${eg}` };

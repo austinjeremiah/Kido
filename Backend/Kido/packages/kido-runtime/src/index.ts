@@ -7,3 +7,5 @@ export * from "./executor.js";
 export * from './strategies/payments.js';
 export * from './policy-compiler.js';
 export * from './authority.js';
+export * from "./self-model.js";
+export * from "./context.js";

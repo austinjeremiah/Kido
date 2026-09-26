@@ -32,6 +32,7 @@ async function body<T>(req: IncomingMessage, schema: z.ZodType<T>): Promise<T> {
 
 const Text = z.object({ text: z.string().min(1).max(4000) });
 const Create = z.object({ objective: z.string().min(1).max(4000) });
+const Ask = z.object({ question: z.string().min(1).max(1000) });
 const Edit = z.object({ key: z.string().min(1).max(100), text: z.string().min(1).max(4000) });
 
 type Handler = (req: IncomingMessage, params: Record<string, string>) => Promise<unknown> | unknown;
@@ -59,6 +60,9 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
   route("POST", "/projects/:id/simulate", (_r, p) => foundry.simulate(p.id!));
   route("POST", "/projects/:id/build", (_r, p) => foundry.build(p.id!));
   route("GET", "/projects/:id/status", (_r, p) => foundry.status(p.id!));
+  route("POST", "/projects/:id/introspect", async (req, p) => foundry.introspect(p.id!, (await body(req, Ask)).question));
+  route("GET", "/projects/:id/self-model", (_r, p) => foundry.selfModel(p.id!));
+  route("GET", "/projects/:id/context/:role", (_r, p) => foundry.agentContext(p.id!, p.role!));
   route("GET", "/registry", () => ({ providers: foundry.registry.providers.map((m) => ({ providerId: m.providerId, kind: m.kind, chains: m.chains, status: m.status, statusNote: m.statusNote, capabilityStatus: m.capabilityStatus ?? {} })) }));
   route("GET", "/registry/:id", (_r, p) => {
     const m = foundry.registry.get(p.id!);

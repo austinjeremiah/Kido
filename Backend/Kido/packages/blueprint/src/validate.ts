@@ -75,11 +75,13 @@ export interface GateFacts {
   provider(providerId: string): { kind: string; chains: string[]; plaintextVisibleTo?: string[] | undefined } | undefined;
   /** The provider holding values whose boundary is KIDO_SECRET_STORE. */
   secretStoreId: string | undefined;
+  /** Asset symbols a provider's actions can spend on a chain. */
+  assetsFor(providerId: string, chain: string): string[] | undefined;
   /** true/false when the chain's address format is known, undefined when it is not. */
   isAddress(chain: string, address: string): boolean | undefined;
 }
 
-export const NO_FACTS: GateFacts = { provider: () => undefined, secretStoreId: undefined, isAddress: () => undefined };
+export const NO_FACTS: GateFacts = { provider: () => undefined, secretStoreId: undefined, assetsFor: () => undefined, isAddress: () => undefined };
 
 /** Plaintext may reach these audiences at this provider; a value hidden from any of them is not protected there. */
 function exposes(visibleTo: string[] | undefined, hiddenFrom: readonly string[]): boolean {
@@ -136,7 +138,17 @@ function structuralBlockers(bp: KidoAgentBlueprint, facts: GateFacts): Blocker[]
     if (m?.kind !== "privacy") push("KIDO_BLUEPRINT_PRIVACY_UNSATISFIED", `unknown privacy provider ${p.providerId}`);
     else if (p.chain !== null && !m.chains.includes(p.chain)) push("KIDO_BLUEPRINT_PRIVACY_UNSATISFIED", `${p.providerId} does not run on ${p.chain}`);
   }
-  for (const x of bp.actions) if (x.providerId === UNSERVED_PROVIDER) push("KIDO_BLUEPRINT_ACTION_UNSERVED", `${x.action}: no selected protocol can perform it on a selected chain`);
+  for (const x of bp.actions) {
+    if (x.providerId === UNSERVED_PROVIDER) {
+      push("KIDO_BLUEPRINT_ACTION_UNSERVED", `${x.action}: no selected protocol can perform it on a selected chain`);
+      continue;
+    }
+    // Every bounded action needs a budget in an asset its provider can actually spend on that chain.
+    if (a.mode === "BOUNDED_AUTONOMOUS_FINANCE") {
+      const usable = facts.assetsFor(x.providerId, x.chain);
+      if (!a.limits.some((l) => l.chain === x.chain && usable?.includes(l.asset))) push("KIDO_BLUEPRINT_ACTION_NO_BUDGET", `${x.action} via ${x.providerId} on ${x.chain} has no budget in an asset it accepts`);
+    }
+  }
   return out;
 }
 

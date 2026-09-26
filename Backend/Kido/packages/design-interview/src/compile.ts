@@ -11,6 +11,7 @@ import { ProviderRegistry } from "@kido/registry";
 import { UNSERVED_PROVIDER } from "@kido/blueprint";
 import { byKey, type Ctx, type ObjectiveKind } from "./catalog.js";
 import { KIDO_DEFAULTS } from "./defaults.js";
+import { amountFor, spendAssets, type AmountValue } from "./parse.js";
 
 const SPECIALIST_FOR: Partial<Record<Action, string>> = { REPAY: "RepayDebtAgent", SWAP: "SwapAgent", PAY: "PaymentAgent", BRIDGE: "BridgeAgent", SUPPLY: "LiquidityAgent" };
 
@@ -28,7 +29,7 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
   if (mode === "BOUNDED_AUTONOMOUS_FINANCE" && autonomy === "OWNER_APPROVAL") mode = "APPROVAL_REQUIRED";
   const financial = mode === "BOUNDED_AUTONOMOUS_FINANCE" || mode === "APPROVAL_REQUIRED";
   const allowed = financial || mode === "PROPOSE_ONLY" ? ((ctx["actions.allowed"] as Action[] | undefined) ?? []).filter((a) => a !== "BORROW" && a !== "WITHDRAW") : [];
-  const spend = ctx["assets.spend"] as string | undefined;
+  const spend = spendAssets(ctx);
 
   // Providers that execute each allowed action on each chain: the selected protocols, or the
   // registry's executors for actions no protocol is chosen for (payments). (BREAK F-0522)
@@ -39,18 +40,24 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
   };
   const bindings = allowed.flatMap((a) => chains.flatMap((c) => executorsFor(a, c).map((providerId) => ({ action: a, chain: c, providerId }))));
 
-  // Budgets exist only in the asset the user chose, on the chains where it exists. (BREAK F-0521)
+  // Budgets exist only in assets the user chose, on chains where the providers acting there accept
+  // them. (BREAK F-0521)
   const limits: LimitSpec[] = [];
   const assets: KidoAgentBlueprint["assets"] = [];
   const floor = ctx["limits.swap_floor"] as { minOutPerIn: string; assetIn: string; assetOut: string } | undefined;
   if (financial) {
-    const held = new Set([spend, ...(allowed.includes("SWAP") && floor ? [floor.assetIn, floor.assetOut] : [])].filter(Boolean) as string[]);
+    const held = new Set([...spend, ...(allowed.includes("SWAP") && floor ? [floor.assetIn, floor.assetOut] : [])]);
+    const w = ctx["limits.window"] as AmountValue | undefined, t = ctx["limits.total"] as AmountValue | undefined;
+    const pa = (ctx["limits.per_action"] as AmountValue | undefined) ?? w;
     for (const c of chains) {
       for (const entry of reg.assetsOn(c).filter((a) => held.has(a.symbol))) assets.push({ symbol: entry.symbol, chain: c, ref: entry.ref, decimals: entry.decimals, testnetOnly: entry.testnetOnly });
-      const w = ctx["limits.window"] as string | undefined, t = ctx["limits.total"] as string | undefined;
-      if (mode === "BOUNDED_AUTONOMOUS_FINANCE" && w && t && spend && reg.assetsOn(c).some((a) => a.symbol === spend)) {
-        const pa = (ctx["limits.per_action"] as string | undefined) ?? w;
-        limits.push({ chain: c, asset: spend, perAction: pa, perWindow: w, windowSeconds: KIDO_DEFAULTS.limitWindowSeconds, total: t });
+      if (mode !== "BOUNDED_AUTONOMOUS_FINANCE") continue;
+      const actingHere = [...new Set(bindings.filter((b) => b.chain === c).map((b) => b.providerId))];
+      for (const sym of spend) {
+        if (!reg.assetsOn(c).some((a) => a.symbol === sym)) continue;
+        if (actingHere.length && !actingHere.some((p) => reg.assetsFor(p, c).some((a) => a.symbol === sym))) continue;
+        const [a1, a2, a3] = [amountFor(pa, sym), amountFor(w, sym), amountFor(t, sym)];
+        if (a1 && a2 && a3) limits.push({ chain: c, asset: sym, perAction: a1, perWindow: a2, windowSeconds: KIDO_DEFAULTS.limitWindowSeconds, total: a3 });
       }
     }
   }
