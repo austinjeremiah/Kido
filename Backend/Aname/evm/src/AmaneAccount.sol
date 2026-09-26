@@ -392,21 +392,13 @@ contract AmaneAccount {
         AdapterRegistry.Entry memory entry = _checkAdapter(a, v);
 
         if (a.amountIn == 0) revert AmaneRejected(Codes.ACTION_ZERO_AMOUNT);
+        // Authorization checks run before budgets so a rejection names the real reason; the whole
+        // call reverts either way, so ordering never changes what is allowed.
+        uint256 minOut = _authorizeKind(a, v);
         _debitAll(a.leaseId, l, v, a.assetIn, a.amountIn);
 
         address tokenIn = _asAddress(a.assetIn);
-        if (a.actionKind == ActionKinds.SWAP) {
-            amountOut = _swap(a, v, entry.adapter, tokenIn);
-        } else if (a.actionKind == ActionKinds.PAY) {
-            if (a.assetOut != a.assetIn) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
-            if (!leaseRecipients[a.leaseId][a.recipient]) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
-            if (rootRecipientLabel[v][a.recipient] != keccak256(bytes(a.recipientLabel))) {
-                revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
-            }
-            amountOut = _deliver(a, entry.adapter, tokenIn);
-        } else {
-            revert AmaneRejected(Codes.ACTION_KIND_NOT_ALLOWED);
-        }
+        amountOut = a.actionKind == ActionKinds.SWAP ? _swap(a, entry.adapter, tokenIn, minOut) : _deliver(a, entry.adapter, tokenIn);
 
         emit ActionExecuted(a.leaseId, a.nonce, a.adapterId, a.actionKind, a.amountIn, amountOut, a.planHash, a.planStep);
     }
@@ -475,15 +467,28 @@ contract AmaneAccount {
         return refill >= room ? capacity : s.level + refill;
     }
 
-    function _swap(ActionIntent calldata a, uint64 v, address adapter, address tokenIn) private returns (uint256 out) {
-        if (a.assetOut == a.assetIn) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
-        if (!leaseAssets[a.leaseId][a.assetOut].allowed) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
-        if (a.recipient != bytes32(0)) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
-        Floor memory f = swapFloor[v][keccak256(abi.encode(a.assetIn, a.assetOut))];
-        if (f.den == 0) revert AmaneRejected(Codes.ACTION_NO_PRICE_FLOOR);
-        uint256 required = (a.amountIn * f.num + f.den - 1) / f.den;
-        uint256 minOut = a.minAmountOut > required ? a.minAmountOut : required;
+    function _authorizeKind(ActionIntent calldata a, uint64 v) private view returns (uint256 minOut) {
+        if (a.actionKind == ActionKinds.SWAP) {
+            if (a.assetOut == a.assetIn) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
+            if (!leaseAssets[a.leaseId][a.assetOut].allowed) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
+            if (a.recipient != bytes32(0)) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
+            Floor memory f = swapFloor[v][keccak256(abi.encode(a.assetIn, a.assetOut))];
+            if (f.den == 0) revert AmaneRejected(Codes.ACTION_NO_PRICE_FLOOR);
+            uint256 required = (a.amountIn * f.num + f.den - 1) / f.den;
+            return a.minAmountOut > required ? a.minAmountOut : required;
+        }
+        if (a.actionKind == ActionKinds.PAY) {
+            if (a.assetOut != a.assetIn) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
+            if (!leaseRecipients[a.leaseId][a.recipient]) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
+            if (rootRecipientLabel[v][a.recipient] != keccak256(bytes(a.recipientLabel))) {
+                revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
+            }
+            return a.amountIn;
+        }
+        revert AmaneRejected(Codes.ACTION_KIND_NOT_ALLOWED);
+    }
 
+    function _swap(ActionIntent calldata a, address adapter, address tokenIn, uint256 minOut) private returns (uint256 out) {
         address tokenOut = _asAddress(a.assetOut);
         uint256 inBefore = IERC20Minimal(tokenIn).balanceOf(address(this));
         uint256 outBefore = IERC20Minimal(tokenOut).balanceOf(address(this));

@@ -517,7 +517,7 @@ public fun activate_lease(self: &mut Account, l: AgentLease, sig: vector<u8>, cl
 public fun authorize<W: drop, In>(self: &mut Account, a: ActionIntent, sig: vector<u8>, clock: &Clock): ActionTicket<W, In> {
     let kind = eip712::ai_action_kind(&a);
     assert!(kind == KIND_SWAP, EActionKindNotAllowed);
-    let (action_hash, amount_in) = verify_and_debit<W, In>(self, &a, &sig, clock);
+    let (action_hash, amount_in) = verify<W, In>(self, &a, &sig, clock);
 
     let lease = self.leases[*eip712::ai_lease_id(&a)];
     let asset_out = *eip712::ai_asset_out(&a);
@@ -531,6 +531,7 @@ public fun authorize<W: drop, In>(self: &mut Account, a: ActionIntent, sig: vect
     let required = ((amount_in as u256) * f.num + f.den - 1) / f.den;
     let agent_min = eip712::ai_min_amount_out(&a);
     let min_out = to_u64(if (agent_min > required) agent_min else required);
+    debit_all(self, &a, clock);
 
     let input = take_from_vault<In>(self, amount_in);
     emit_authorized(self, &a, amount_in, min_out);
@@ -571,7 +572,7 @@ public fun settle<W: drop, In, Out>(self: &mut Account, ticket: ActionTicket<W, 
 /// transfers to it directly, so delivery is exact by construction.
 public fun pay<In>(self: &mut Account, a: ActionIntent, sig: vector<u8>, clock: &Clock, ctx: &mut TxContext) {
     assert!(eip712::ai_action_kind(&a) == KIND_PAY, EActionKindNotAllowed);
-    let (_, amount_in) = verify_and_debit<TransferPayV1, In>(self, &a, &sig, clock);
+    let (_, amount_in) = verify<TransferPayV1, In>(self, &a, &sig, clock);
     assert!(eip712::ai_asset_out(&a) == eip712::ai_asset_in(&a), EActionAssetNotAllowed);
     let recipient = *eip712::ai_recipient(&a);
     let lease = self.leases[*eip712::ai_lease_id(&a)];
@@ -579,6 +580,7 @@ public fun pay<In>(self: &mut Account, a: ActionIntent, sig: vector<u8>, clock: 
     let policy = self.policy.borrow();
     assert!(policy.recipients.contains(&recipient), EActionRecipientNotAllowed);
     assert!(policy.recipients.get(&recipient) == &keccak256(eip712::ai_recipient_label(&a)), EActionRecipientNotAllowed);
+    debit_all(self, &a, clock);
     let out = take_from_vault<In>(self, amount_in);
     emit_authorized(self, &a, amount_in, amount_in);
     transfer::public_transfer(coin::from_balance(out, ctx), address::from_bytes(recipient));
@@ -643,7 +645,7 @@ public fun adapter_id<W>(chain_ref: &vector<u8>, action_kind: u8, adapter_versio
 
 // ---------------------------------------------------------------- internals
 
-fun verify_and_debit<W, In>(self: &mut Account, a: &ActionIntent, sig: &vector<u8>, clock: &Clock): (vector<u8>, u64) {
+fun verify<W, In>(self: &mut Account, a: &ActionIntent, sig: &vector<u8>, clock: &Clock): (vector<u8>, u64) {
     assert!(!self.paused, EActionPaused);
     assert!(eip712::ai_account_id(a) == &self.account_id, EPolicyWrongAccount);
     assert!(eip712::ai_chain_ref(a) == &self.chain_ref && eip712::ai_account(a) == &self32(self), EActionWrongEndpoint);
@@ -681,8 +683,19 @@ fun verify_and_debit<W, In>(self: &mut Account, a: &ActionIntent, sig: &vector<u
     assert!(lease.assets.contains(&asset_in), EActionAssetNotAllowed);
     let amount = eip712::ai_amount_in(a);
     assert!(amount > 0, EActionZeroAmount);
-    let amount_in = to_u64(amount);
+    (action_hash, to_u64(amount))
+}
 
+/// Debits lease, root and issuer budgets. Called only after every authorization check has passed,
+/// so a rejection names the real reason; the transaction aborts either way.
+fun debit_all(self: &mut Account, a: &ActionIntent, clock: &Clock) {
+    let lease_id = *eip712::ai_lease_id(a);
+    let lease = self.leases[lease_id];
+    let policy = *self.policy.borrow();
+    let v = policy.version;
+    let now = now_seconds(clock);
+    let asset_in = *eip712::ai_asset_in(a);
+    let amount = eip712::ai_amount_in(a);
     let period = policy.epoch_seconds;
     debit(self, spend_key(b"L", lease_id, asset_in), *lease.assets.get(&asset_in), amount, now, period);
     debit(self, spend_key(b"R", bcs::to_bytes(&v), asset_in), *policy.assets.get(&asset_in), amount, now, period);
@@ -691,7 +704,6 @@ fun verify_and_debit<W, In>(self: &mut Account, a: &ActionIntent, sig: &vector<u
         k.append(lease.issuer);
         debit(self, spend_key(b"I", k, asset_in), issuer_limit(&policy, &lease.issuer, &asset_in), amount, now, period);
     };
-    (action_hash, amount_in)
 }
 
 fun debit(self: &mut Account, key: vector<u8>, lim: Limit, amount: u256, now: u64, period: u64) {

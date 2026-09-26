@@ -448,6 +448,14 @@ contract ActionTest is AmaneBase {
         _execReject(a, Codes.ACTION_RECIPIENT_NOT_ALLOWED);
     }
 
+    function test_theft_with_exhausted_budget_reports_the_recipient_not_the_budget() public {
+        _exec(_pay(1, 25_000000));
+        _exec(_pay(2, 25_000000));
+        ActionIntent memory a = _pay(3, 20_000000);
+        a.recipient = a32(attacker);
+        _execReject(a, Codes.ACTION_RECIPIENT_NOT_ALLOWED);
+    }
+
     function test_pay_label_must_match_root() public {
         ActionIntent memory a = _pay(1, 1_000000);
         a.recipientLabel = "Merchant";
