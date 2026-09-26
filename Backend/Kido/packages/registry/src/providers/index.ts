@@ -445,7 +445,7 @@ export const PROVIDERS: ProviderManifest[] = [
             notProven: ["Wormhole NTT", "automatic relaying (VAAs are redeemed by Kido's relayer)", "mainnet guardian set (testnet has one guardian)"],
             evidence: ["Amane packages/sdk/scripts/live-bridge-roundtrip.ts run 2026-09-26 (49/49 steps, 20 attacks)", ".gauntlet/evidence/bridge-roundtrip-*.json", "Kido packages/foundry/test/wormhole.test.ts (live VAA fixture)"],
           }
-        : { status: "BLOCKED_UPSTREAM", proven: [], notProven: ["any integration"], blocker: { type: "BLOCKED_UPSTREAM", actionRequired: "LayerZero Sui SDK support for the gRPC/@mysten/sui 2.x stack", evidence: "F-0407: Sui SDKs depend on @mysten/sui ^1.33 JSON-RPC, which is shut down" }, evidence: [] },
+        : { status: "BLOCKED_UPSTREAM", proven: [], notProven: ["any integration"], blocker: { type: "BLOCKED_UPSTREAM", actionRequired: "LayerZero Sui SDK support for the gRPC/@mysten/sui 2.x stack", evidence: "F-0407, re-checked 2026-09-26: @layerzerolabs/lz-sui-sdk-v2 and lz-sui-oft-sdk-v2 3.0.168 (latest) require @mysten/sui ^1.33 (JSON-RPC client); fullnode.testnet.sui.io answers JSON-RPC with -32601 \"JSON-RPC on public fullnodes has been deprecated\"" }, evidence: ["npm view @layerzerolabs/lz-sui-sdk-v2@3.0.168 dependencies", "sui_getChainIdentifier on fullnode.testnet.sui.io → -32601"] },
       knowledgePack: `transport/${id}`,
     }),
   ),

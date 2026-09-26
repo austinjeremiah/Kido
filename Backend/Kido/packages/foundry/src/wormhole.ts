@@ -14,6 +14,8 @@ export interface AmaneBridgeAuthority {
   src: ActionIntent;
   srcSig: Hex;
   dest: DestSpec;
+  /** Set for the return leg of a round trip: the source BRIDGE spends this reservation. */
+  reservedFor?: Hex;
 }
 
 /** Manifest-derived transport facts (Aname/deployments/testnet.json). */
@@ -65,12 +67,12 @@ export class WormholeAmaneTransport implements Transport {
     const a = i.authority as AmaneBridgeAuthority;
     if (family(i.source.chain) === "sui") {
       const ep = this.endpoints.sui ?? fail("no Sui endpoint");
-      const out = must(await ep.bridgeOutWormhole(this.facts.sui.route, a.src, a.srcSig));
+      const out = must(await ep.bridgeOutWormhole(this.facts.sui.route, a.src, a.srcSig, a.reservedFor ? { reservedFor: a.reservedFor } : {}));
       const seq = await ep.wormholeSequence(out, this.facts.sui.tokenBridgeEmitter);
       return { messageId: `${this.facts.sui.chainId}/${pad32(this.facts.sui.tokenBridgeEmitter)}/${seq}`, sourceTx: out };
     }
     const ep = this.endpoints.evm ?? fail("no EVM endpoint");
-    const out = must(await ep.executeAction(a.src, a.srcSig)) as Hex;
+    const out = must(a.reservedFor ? await ep.executeReserved(a.reservedFor, a.src, a.srcSig) : await ep.executeAction(a.src, a.srcSig)) as Hex;
     const receipt = await ep.publicClient.getTransactionReceipt({ hash: out });
     for (const log of receipt.logs) {
       if (log.address.toLowerCase() !== this.facts.evm.core.toLowerCase()) continue;
