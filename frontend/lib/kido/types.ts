@@ -170,7 +170,9 @@ export interface EvidenceFile { id: string; root: 'kido' | 'amane' | 'gauntlet';
 export interface EvidenceResolution { ref: string; files: EvidenceFile[]; note: string | null }
 export interface EvidenceContent { id: string; path: string; root: string; content: string; truncated: boolean; redactions: number; language: 'json' | 'md' | 'text' }
 
-export interface InterviewTemplateInfo { id: string; name: string; description: string; objective: string; highlights: string[]; questions: string[] }
+export interface TemplatePrefill { payees: { label: string; chain: string; address: string }[]; beneficiary: { chain: string; address: string }; limits: { perHour: string; total: string } }
+export interface InterviewTemplateInfo { id: string; name: string; description: string; objective: string; highlights: string[]; questions: string[]; asks: { key: string; text: string; amounts: string[] | null }[]; prefill: TemplatePrefill }
+export interface EnsLookup { name: string; network: string; registered: boolean; owner: string | null; expiresAt: number | null; address: string | null; records: Record<string, string> }
 export interface CostItem { label: string; usd: number; recurring: boolean; basis: string }
 export interface CostSource { label: string; url: string; asOf: string }
 export interface CostLine {

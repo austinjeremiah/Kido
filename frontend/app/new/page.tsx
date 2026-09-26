@@ -16,6 +16,7 @@ import { PromptComposer } from '@/components/create/PromptComposer';
 import { CreateSteps, type CreateStepId } from '@/components/create/CreateSteps';
 import { KidoRequirementBoxes } from '@/components/create/KidoPanes';
 import { ChecksPane, CostsPane, IdentityPane, ReviewPane, TemplatePicker, type CheckState } from '@/components/create/FlowPanes';
+import { EnsProfile, NameCheck, TemplateSetup, type SetupAnswers } from '@/components/create/EnsFlow';
 import { EmptyState } from '@/components/studio/primitives';
 import { COMPOSER_EXAMPLES } from '@/lib/studio/content/composer';
 import { PROJECT_TEMPLATES } from '@/lib/studio/content/templates';
@@ -45,6 +46,8 @@ function CreateFlow() {
   const [actions, setActions] = useState<Record<string, number>>({});
   const [included, setIncluded] = useState<Set<string>>(new Set());
   const [templates, setTemplates] = useState<InterviewTemplateInfo[]>([]);
+  const [setup, setSetup] = useState<InterviewTemplateInfo | null>(null);
+  const [setupAnswers, setSetupAnswers] = useState<SetupAnswers | null>(null);
   useEffect(() => {
     kido.templates().then(setTemplates).catch(() => setTemplates([]));
   }, []);
@@ -91,13 +94,13 @@ function CreateFlow() {
   );
 
   /* ── describe → questions ── */
-  const begin = async (r: { projectId: string; question: Question | null }) => {
+  const begin = async (r: { projectId: string; question: Question | null }, quiet = false) => {
     setProjectId(r.projectId);
     await refresh(r.projectId);
     setQuestion(r.question);
     goTo('QUESTIONS');
-    if (r.question) say({ from: 'kido', text: r.question.text });
-    else await toIdentity(r.projectId);
+    if (!r.question) await toIdentity(r.projectId);
+    else if (!quiet) say({ from: 'kido', text: r.question.text });
   };
   const start = (text: string) =>
     step(async () => {
@@ -107,8 +110,34 @@ function CreateFlow() {
     });
   const applyTemplate = (t: InterviewTemplateInfo) =>
     step(async () => {
-      say({ from: 'you', text: `Use the "${t.name}" template.` }, { from: 'kido', text: `Everything else is filled in from the template for you to review. ${t.questions.length} questions only you can answer:` });
-      await begin(await kido.create('', t.name, t.id));
+      say({ from: 'you', text: `Use the "${t.name}" template.` }, { from: 'kido', text: `The template fills in everything else. On the right are the ${t.questions.length} things only you know, already filled with suggestions: suppliers (ENS names work), the loan to protect and the spending limits. Change what you like, then continue.` });
+      setSetup(t);
+      await begin(await kido.create('', t.name, t.id), true);
+    });
+
+  /* ── template setup: submit the form as the template's answers, in the order the backend asks ── */
+  const submitSetup = () =>
+    step(async () => {
+      if (!projectId || !setupAnswers) return;
+      const byKey: Record<string, string> = { payees: setupAnswers.payees, beneficiary: setupAnswers.beneficiary, 'limits.window': setupAnswers.limits };
+      let q = question;
+      while (q) {
+        const text = byKey[q.key];
+        if (!text) break;
+        say({ from: 'you', text });
+        const r = await kido.answer(projectId, text);
+        if (!r.accepted) {
+          await refresh(projectId);
+          setQuestion(r.next);
+          say({ from: 'kido', text: `That was not accepted: ${r.note ?? 'unreadable'}. Fix it on the right and continue.` });
+          return;
+        }
+        q = r.next;
+      }
+      setQuestion(q);
+      await refresh(projectId);
+      if (q) say({ from: 'kido', text: q.text });
+      else await toIdentity(projectId);
     });
 
   /* ── questions: one backend question at a time ── */
@@ -119,9 +148,12 @@ function CreateFlow() {
       const r = await kido.answer(projectId, text);
       await refresh(projectId);
       setQuestion(r.next);
-      if (!r.accepted) say({ from: 'kido', text: r.next?.text ?? 'I could not use that answer.', note: r.note });
-      else if (r.next) say({ from: 'kido', text: r.next.text, note: r.note });
-      else await toIdentity(projectId);
+      // Nothing left to ask (answered, or re-asked as far as the interview goes): move on; the
+      // review shows anything still unresolved rather than leaving the chat stuck.
+      if (!r.next) {
+        if (!r.accepted) say({ from: 'kido', text: 'I could not use that answer; it is left open for you to review.', note: r.note });
+        await toIdentity(projectId);
+      } else say({ from: 'kido', text: r.next.text, note: r.note });
     });
 
   /* ── identity: the agent's name and a subname per specialist ── */
@@ -246,7 +278,11 @@ function CreateFlow() {
             ))}
           </div>
 
-          {stage === 'IDENTITY' ? (
+          {stage === 'QUESTIONS' && setup && question ? (
+            <Bar note={setupAnswers ? 'Every field checks out' : 'Fill in or fix the highlighted fields'}>
+              <button type="button" className="cl-btn cl-btn-primary" onClick={submitSetup} disabled={busy || !setupAnswers}>Use these answers</button>
+            </Bar>
+          ) : stage === 'IDENTITY' ? (
             <div className="kc-composer">
               <div className="kf-identity-form">
                 <label><span className="cl-meta">Agent name</span><input className="cl-input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="treasury" /></label>
@@ -294,9 +330,13 @@ function CreateFlow() {
             {stage === 'DESCRIBE' ? (
               templates.length ? <TemplatePicker templates={templates} onUse={applyTemplate} busy={busy} /> : <EmptyState title="Nothing built yet" body="Describe the agent on the left and it takes shape here." />
             ) : !s ? null : stage === 'QUESTIONS' ? (
-              <KidoRequirementBoxes requirements={s.interview.requirements} pendingKey={question?.key} />
+              setup && question ? <TemplateSetup template={setup} onReady={setSetupAnswers} /> : <KidoRequirementBoxes requirements={s.interview.requirements} pendingKey={question?.key} />
             ) : stage === 'IDENTITY' ? (
-              <IdentityPane s={s} />
+              <div className="kf-stack">
+                <NameCheck parent={org ? `${org.toLowerCase()}.eth` : null} full={label && org ? `${label.toLowerCase()}.${org.toLowerCase()}.eth` : null} />
+                <EnsProfile plan={s.identityPlan} />
+                <IdentityPane s={s} />
+              </div>
             ) : stage === 'REVIEW' ? (
               <ReviewPane s={s} />
             ) : stage === 'CHECKS' ? (

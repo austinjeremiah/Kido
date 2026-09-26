@@ -24,6 +24,16 @@ export interface InterviewTemplate {
   asks: TemplateAsk[];
   /** What the template brings, for the picker. */
   highlights: string[];
+  /**
+   * Suggested answers the setup form starts from, so the owner edits rather than types. Addresses
+   * are left empty here and filled by the backend from its environment (the owner's testnet wallet,
+   * a sample Sui payee); the owner replaces them with their own suppliers, loan wallet and limits.
+   */
+  prefill: {
+    payees: { label: string; chain: string; address: string }[];
+    beneficiary: { chain: string; address: string };
+    limits: { perHour: string; total: string };
+  };
 }
 
 export const INTERVIEW_TEMPLATES: InterviewTemplate[] = [
@@ -59,6 +69,14 @@ export const INTERVIEW_TEMPLATES: InterviewTemplate[] = [
       { key: "limits.window", text: "How much of each token may it spend per hour, and in total before you approve again? (for example: 100 per hour, 1000 total)", amounts: ["limits.window", "limits.total"] },
     ],
     highlights: ["5 agents", "Ethereum + Sui", "Aave · Uniswap · Cetus", "Wormhole bridge", "ENS + SuiNS names", "private repay threshold", "3 questions"],
+    prefill: {
+      payees: [
+        { label: "northwind", chain: "ethereum-sepolia", address: "" },
+        { label: "harbor", chain: "sui-testnet", address: "" },
+      ],
+      beneficiary: { chain: "ethereum-sepolia", address: "" },
+      limits: { perHour: "100", total: "1000" },
+    },
   },
 ];
 

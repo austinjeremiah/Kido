@@ -26,6 +26,7 @@
     "@kido/registry": "*",
     "viem": "2.56.9",
     "zod": "4.1.12",
-    "@mysten/sui": "2.33.1"
+    "@mysten/sui": "2.33.1",
+    "@kido/identity": "*"
   }
 }

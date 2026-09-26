@@ -9,7 +9,8 @@ import { createPublicClient, http, type Hex } from "viem";
 import { sepolia } from "viem/chains";
 import { SuiGrpcClient } from "@mysten/sui/grpc";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
-import { rpcUrl } from "@kido/registry";
+import { ProviderRegistry, rpcUrl } from "@kido/registry";
+import { EnsIdentityAdapter, type EnsDeployment } from "@kido/identity";
 
 export interface KidoConfig {
   dataDir: string;
@@ -77,4 +78,14 @@ export function createDeployments(foundry: Foundry, env: NodeJS.ProcessEnv = pro
 export function createEvidence(c: KidoConfig, env: NodeJS.ProcessEnv = process.env): EvidenceStore {
   const gauntlet = resolve(env.KIDO_GAUNTLET_DIR ?? "../../../.gauntlet");
   return new EvidenceStore({ kido: resolve(env.KIDO_REPO_ROOT ?? "."), amane: resolve(dirname(c.amaneManifestPath), ".."), gauntlet: existsSync(gauntlet) ? gauntlet : undefined });
+}
+
+/** Read-only ENS on the chain the registry names for it: availability, ownership, resolution. */
+export function createEns(env: NodeJS.ProcessEnv = process.env): EnsIdentityAdapter | undefined {
+  const reg = new ProviderRegistry();
+  const ens = reg.get("ens");
+  const chain = ens?.chains[0];
+  const d = chain ? (ens!.deployments[chain] as unknown as EnsDeployment | undefined) : undefined;
+  if (!d) return undefined;
+  return new EnsIdentityAdapter(createPublicClient({ chain: sepolia, transport: http(rpcUrl(chain!, env)) }) as never, null, d);
 }

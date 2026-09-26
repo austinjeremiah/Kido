@@ -109,13 +109,28 @@ export class EnsIdentityAdapter implements AgentIdentityProvider {
     return { providerId: this.providerId, name, found, address, records, kidoAgentId: records["kido-agent-id"] ?? null, resolvedAt: Date.now() };
   }
 
+  /** The owner of a second-level .eth name in the ENSv2 registry (null when unregistered or expired). */
+  async owner(name: string): Promise<Address | null> {
+    const labels = name.split(".");
+    if (labels.length !== 2 || labels[1] !== "eth") return null;
+    try {
+      const tokenId = (await this.publicClient.readContract({ address: this.d.ethRegistry, abi: ETHRegistry.abi, functionName: "getTokenId", args: [BigInt(labelhash(labels[0]!))] })) as bigint;
+      const o = (await this.publicClient.readContract({ address: this.d.ethRegistry, abi: ETHRegistry.abi, functionName: "ownerOf", args: [tokenId] })) as Address;
+      return o === zeroAddress ? null : o;
+    } catch {
+      return null;
+    }
+  }
+
   async inspect(name: string): Promise<IdentityStatus> {
     const r = await this.resolve(name);
     let expiresAt: number | null = null;
     const labels = name.split(".");
     if (labels.length === 2) {
       try {
-        expiresAt = Number(await this.publicClient.readContract({ address: this.d.ethRegistry, abi: ETHRegistry.abi, functionName: "getExpiry", args: [BigInt(labelhash(labels[0]!))] })) * 1000;
+        const expiry = Number(await this.publicClient.readContract({ address: this.d.ethRegistry, abi: ETHRegistry.abi, functionName: "getExpiry", args: [BigInt(labelhash(labels[0]!))] })) * 1000;
+        // Expiry 0 means the name was never registered; a past expiry means it lapsed.
+        expiresAt = expiry > Date.now() ? expiry : null;
       } catch {
         /* unregistered */
       }

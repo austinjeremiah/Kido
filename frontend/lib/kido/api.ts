@@ -2,7 +2,7 @@
  * HTTP client for the Kido API. Requests go to /api/* on this origin; next.config.mjs proxies them
  * to the Kido backend, so the browser needs no CORS. Nothing here holds state or keys.
  */
-import type { CostAssumptions, CostEstimate, InterviewTemplateInfo, EvidenceContent, EvidenceResolution, Portfolio, ChatAnswer, InjectionResult, LabVerdict, Reality, WhatIf, ControlMessage, DeploymentStatus, DeploymentWire, ProjectEvent, Runtime, TxRequest, TypedDataWire, Health, Introspection, ProjectRow, ProjectSummary, ProviderRow, Question, SelfModel, SecurityReport, SimulationReport, BuildArtifact, Blueprint, Blocker } from './types';
+import type { EnsLookup, CostAssumptions, CostEstimate, InterviewTemplateInfo, EvidenceContent, EvidenceResolution, Portfolio, ChatAnswer, InjectionResult, LabVerdict, Reality, WhatIf, ControlMessage, DeploymentStatus, DeploymentWire, ProjectEvent, Runtime, TxRequest, TypedDataWire, Health, Introspection, ProjectRow, ProjectSummary, ProviderRow, Question, SelfModel, SecurityReport, SimulationReport, BuildArtifact, Blueprint, Blocker } from './types';
 
 export class KidoApiError extends Error {
   constructor(message: string, readonly status: number, readonly code: string | null) {
@@ -31,6 +31,7 @@ export const kido = {
   projects: () => call<{ projects: ProjectRow[] }>('GET', '/projects').then((r) => r.projects),
   project: (id: string) => call<ProjectSummary>('GET', `/projects/${id}`),
   create: (objective: string, name?: string, template?: string) => call<{ projectId: string; question: Question | null }>('POST', '/projects', { ...(objective ? { objective } : {}), ...(name ? { name } : {}), ...(template ? { template } : {}) }),
+  ens: (name: string) => call<EnsLookup>('POST', '/identity/ens', { name }),
   templates: () => call<{ templates: InterviewTemplateInfo[] }>('GET', '/templates').then((r) => r.templates),
   costs: (id: string, overrides: Partial<CostAssumptions> = {}) => call<CostEstimate>('POST', `/projects/${id}/costs`, overrides),
   rename: (id: string, name: string) => call<{ projectId: string; name: string }>('PATCH', `/projects/${id}`, { name }),

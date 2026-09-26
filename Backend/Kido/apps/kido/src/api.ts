@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { z } from "zod";
 import { INTERVIEW_TEMPLATES } from "@kido/design-interview";
+import type { EnsIdentityAdapter } from "@kido/identity";
 import { LifecycleError, type EvidenceStore, type Foundry, type WalletDeployments } from "@kido/foundry";
 import type { KidoConfig } from "./config.js";
 
@@ -45,6 +46,7 @@ const Signature = z.object({ signature: Sig });
 const WhatIfBody = z.object({ chain: z.string().max(40), action: z.string().max(20), asset: z.string().max(20), assetOut: z.string().max(20).nullable().optional(), amount: z.string().regex(/^\d{1,40}$/), recipient: z.string().max(100).nullable(), atSecondsFromNow: z.number().int().min(0).max(31_536_000).optional() });
 const Injection = z.object({ instruction: z.string().min(1).max(2000), target: z.string().min(1).max(100), amount: z.string().regex(/^\d{1,40}$/), chain: z.string().max(40).optional() });
 const CostOverrides = z.object({ actionsPerMonth: z.record(z.string().max(20), z.number().int().min(0).max(100_000)), leaseRenewalsPerMonth: z.number().int().min(0).max(100_000), modelCallsPerMonth: z.number().int().min(0).max(10_000_000), outputTokensPerCall: z.number().int().min(0).max(100_000), indexerQueriesPerMonth: z.number().int().min(0).max(1_000_000_000), rpcComputeUnitsPerMonth: z.number().int().min(0).max(1e12) }).partial();
+const EnsName = z.object({ name: z.string().min(3).max(255).regex(/^[a-z0-9-]+(\.[a-z0-9-]+)*\.eth$/i, "an ENS name ending in .eth").transform((x) => x.toLowerCase()) });
 const EvidenceRef = z.object({ ref: z.string().min(1).max(500) });
 const WalletTx = z.object({ chain: z.string().max(40), label: z.string().max(120), tx: Hex32 });
 const Signed = z.object({ signed: z.array(z.object({ chain: z.string().max(40), message: z.record(z.string(), z.unknown()), signature: Sig })).min(1).max(4) });
@@ -55,13 +57,34 @@ type Handler = (req: IncomingMessage, params: Record<string, string>) => Promise
  * Kido HTTP API: a thin transport over the Foundry state machine. Every lifecycle transition is a
  * foundry gate; this layer only parses input and maps errors.
  */
-export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulationSigners" | "model">, deployments?: WalletDeployments, evidence?: EvidenceStore): Server {
+export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulationSigners" | "model">, deployments?: WalletDeployments, evidence?: EvidenceStore, ens?: EnsIdentityAdapter): Server {
   const routes: [string, RegExp, Handler][] = [];
   const route = (method: string, path: string, h: Handler) => routes.push([method, new RegExp(`^${path.replace(/:(\w+)/g, "(?<$1>[\\w-]+)")}$`), h]);
 
   route("GET", "/health", () => ({ ok: true, interviewModel: config.model, simulationSigners: config.simulationSigners, chatModel: Boolean(process.env.OPENAI_API_KEY && (process.env.KIDO_MODEL ?? process.env.OPENAI_MODEL)) }));
   route("GET", "/projects", () => ({ projects: foundry.projects() }));
-  route("GET", "/templates", () => ({ templates: INTERVIEW_TEMPLATES.map((t) => ({ id: t.id, name: t.name, description: t.description, objective: t.objective, highlights: t.highlights, questions: t.asks.map((a) => a.text) })) }));
+  // Template addresses come from this backend's environment: the owner's testnet wallet and a sample Sui payee.
+  const sample = (chain: string) => (chain.startsWith("sui") ? process.env.KIDO_TEMPLATE_SUI_PAYEE : process.env.KIDO_TEMPLATE_OWNER ?? process.env.FUNDER_ADDRESS) ?? "";
+  route("GET", "/templates", () => ({
+    templates: INTERVIEW_TEMPLATES.map((t) => ({
+      id: t.id, name: t.name, description: t.description, objective: t.objective, highlights: t.highlights,
+      questions: t.asks.map((a) => a.text),
+      asks: t.asks.map((a) => ({ key: a.key, text: a.text, amounts: a.amounts ?? null })),
+      prefill: {
+        payees: t.prefill.payees.map((p) => ({ ...p, address: p.address || sample(p.chain) })),
+        beneficiary: { ...t.prefill.beneficiary, address: t.prefill.beneficiary.address || sample(t.prefill.beneficiary.chain) },
+        limits: t.prefill.limits,
+      },
+    })),
+  }));
+  // ENS, read live: is a name taken, who owns it, what it resolves to and which records it carries.
+  route("POST", "/identity/ens", async (req) => {
+    if (!ens) throw new HttpError(503, "BLOCKED_ENV", "ENS reads are not configured on this backend");
+    const { name } = await body(req, EnsName);
+    const [status, owner] = await Promise.all([ens.inspect(name), ens.owner(name)]);
+    const res = await ens.resolve(name);
+    return { name, network: "ethereum-sepolia (ENSv2)", registered: status.registered, owner, expiresAt: status.expiresAt, address: res.address, records: res.records };
+  });
   route("POST", "/projects", async (req) => {
     const b = await body(req, Create);
     return foundry.create(b.objective ?? "", b.name, b.template);
