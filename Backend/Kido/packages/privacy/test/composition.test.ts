@@ -39,6 +39,6 @@ describe("privacy composition follows requirements, not the chain", () => {
   it("nothing is reported live that is not: Nautilus leaves the plan planning-only with its blocker", () => {
     const p = plan("sui-testnet", [v("private-risk-threshold", "PRIVATE_POLICY")]);
     expect(p.values[0]!.status).toBe("SATISFIED_PLANNING_ONLY");
-    expect(p.liveBlockers.join(" ")).toMatch(/nautilus NOT_IMPLEMENTED.*BLOCKED_ENV/);
+    expect(p.liveBlockers.join(" ")).toMatch(/nautilus IMPLEMENTED_LOCAL.*BLOCKED_ENV/);
   });
 });

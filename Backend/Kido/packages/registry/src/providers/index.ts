@@ -186,7 +186,17 @@ export const PROVIDERS: ProviderManifest[] = [
     sources: [{ url: "https://docs.sui.io/concepts/cryptography/nautilus", retrieved: R }, { url: "https://github.com/MystenLabs/nautilus", retrieved: R }],
     status: "BLOCKED_ENV",
     statusNote: "BE-NAUT-1: no AWS Nitro host; local Move fixtures and on-chain attestation rejection verified",
-    implementation: { status: "NOT_IMPLEMENTED", proven: [], notProven: ["enclave application", "attestation verification on Sui", "any confidential computation"], blocker: { type: "BLOCKED_ENV", actionRequired: "an attested TEE host (AWS Nitro Enclave or a supported marketplace) for the live tier", evidence: "BE-NAUT-1: no Nitro host available" }, evidence: [] },
+    implementation: {
+      status: "IMPLEMENTED_LOCAL",
+      proven: [
+        "decision message format (BCS IntentMessage{intent, timestamp_ms, DecisionPayload}) identical in TypeScript and Move",
+        "kido_nautilus::decision::accept verifies Ed25519 decisions from Kido's signer and rejects replay, older, stale, future-dated, flipped, rebound, wrong-key and superseded-configuration decisions (Move tests on TS-generated vectors)",
+        "adapter labels local decisions LOCAL_UNATTESTED_ENCLAVE, never confidential",
+      ],
+      notProven: ["attested enclave (PCRs from a Nitro attestation registered on Sui)", "confidential computation over private inputs", "kido_nautilus published on testnet"],
+      blocker: { type: "BLOCKED_ENV", actionRequired: "an attested TEE host (AWS Nitro Enclave or a supported marketplace) for the live tier", evidence: "BE-NAUT-1: no Nitro host available" },
+      evidence: ["Kido move/kido_nautilus/tests (10 tests)", "Kido packages/privacy/test/nautilus.test.ts"],
+    },
     knowledgePack: "privacy/nautilus",
     plaintextVisibleTo: [],
   },

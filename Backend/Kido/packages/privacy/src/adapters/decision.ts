@@ -1,9 +1,15 @@
 import { createPublicClient, http, parseAbi, type Hex } from "viem";
 import { sepolia } from "viem/chains";
 import { rpcUrl, type ImplementationStatus, type ProviderRegistry } from "@kido/registry";
+import type { LocalEnclaveSigner, SignedDecision } from "../nautilus.js";
 
 /** How far a decision can be trusted. SIMULATED is never presented as confidential or verified. */
-export type DecisionTrust = "SIMULATED" | "DON_SIMULATED_FORWARDER" | "CONFIDENTIAL_VERIFIED_COMPUTE";
+/**
+ * How far a decision can be trusted. SIMULATED is never presented as confidential or verified;
+ * LOCAL_UNATTESTED_ENCLAVE is the enclave's signing code run locally: the on-chain check verifies
+ * it, but no TEE protected the inputs.
+ */
+export type DecisionTrust = "SIMULATED" | "LOCAL_UNATTESTED_ENCLAVE" | "DON_SIMULATED_FORWARDER" | "CONFIDENTIAL_VERIFIED_COMPUTE";
 
 export interface DecisionRequest {
   key: Hex;
@@ -16,6 +22,8 @@ export interface DecisionResult {
   evaluatedAt: number;
   trust: DecisionTrust;
   evidence: string;
+  /** Signed envelope a Sui verifier (kido_nautilus::decision::accept) can check. */
+  signed?: SignedDecision;
 }
 
 export class BlockedEnvError extends Error {
@@ -91,15 +99,28 @@ export class ChainlinkCreDecisionAdapter implements ConfidentialDecisionAdapter 
   }
 }
 
-/** Nautilus needs an attested enclave host; until one exists every decision request is BLOCKED_ENV. */
+/**
+ * Nautilus. Without an attested enclave host every decision request is BLOCKED_ENV. With a local
+ * signer (LOCAL tier) the enclave's decision code and signing run in-process and the result is
+ * labelled LOCAL_UNATTESTED_ENCLAVE: verifiable on-chain, never presented as confidential.
+ */
 export class NautilusDecisionAdapter implements ConfidentialDecisionAdapter {
   readonly providerId = "nautilus";
-  constructor(private readonly reg: ProviderRegistry) {}
+  constructor(
+    private readonly reg: ProviderRegistry,
+    private readonly local?: { signer: LocalEnclaveSigner; evaluate: (req: DecisionRequest) => boolean | Promise<boolean>; now?: () => bigint },
+  ) {}
   readiness(): Readiness {
     return readiness(this.reg, this.providerId);
   }
-  async decide(): Promise<DecisionResult> {
-    const r = this.readiness();
-    throw new BlockedEnvError(this.providerId, r.blockers.length ? r.blockers : ["no attested enclave host configured"]);
+  async decide(req: DecisionRequest): Promise<DecisionResult> {
+    if (!this.local) {
+      const r = this.readiness();
+      throw new BlockedEnvError(this.providerId, r.blockers.length ? r.blockers : ["no attested enclave host configured"]);
+    }
+    const timestampMs = this.local.now ? this.local.now() : BigInt(Date.now());
+    const act = await this.local.evaluate(req);
+    const signed = await this.local.signer.sign({ decisionKey: req.key, act, blueprintHash: req.blueprintHash, timestampMs });
+    return { providerId: this.providerId, act, evaluatedAt: Number(timestampMs / 1000n), trust: "LOCAL_UNATTESTED_ENCLAVE", evidence: `local enclave signer ${signed.publicKey} (no attestation)`, signed };
   }
 }

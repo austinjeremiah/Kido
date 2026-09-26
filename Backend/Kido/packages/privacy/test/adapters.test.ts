@@ -8,9 +8,9 @@ const req = { key: `0x${"11".repeat(32)}` as const, blueprintHash: `0x${"22".rep
 describe("privacy adapters", () => {
   it("Nautilus reports BLOCKED_ENV and refuses to produce a decision", async () => {
     const n = new NautilusDecisionAdapter(reg);
-    expect(n.readiness()).toMatchObject({ status: "NOT_IMPLEMENTED", live: false });
+    expect(n.readiness()).toMatchObject({ status: "IMPLEMENTED_LOCAL", live: false });
     expect(n.readiness().blockers[0]).toMatch(/^BLOCKED_ENV/);
-    await expect(n.decide()).rejects.toBeInstanceOf(BlockedEnvError);
+    await expect(n.decide({ key: `0x${"11".repeat(32)}`, blueprintHash: `0x${"22".repeat(32)}` })).rejects.toBeInstanceOf(BlockedEnvError);
   });
 
   it("CRE readiness follows the registry, not configuration", () => {
