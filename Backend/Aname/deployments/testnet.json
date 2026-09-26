@@ -36,6 +36,11 @@
           "chain": "sui-testnet",
           "coinType": "0xfbd965e0d52d45341d8bdd525d0fae835a5f9cad11c8194e08f1bd6f3405bee6::amusd::AMUSD"
         }
+      },
+      "aaveUSDC": {
+        "address": "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",
+        "decimals": 6,
+        "note": "Aave v3 Sepolia listed test USDC (faucet); read from the pool reserves"
       }
     },
     "adapters": [
@@ -114,6 +119,17 @@
         "token1": "0xa0b048f06e8c6bbede36011517e9ebb8e142eb09",
         "liquidityTx": "0x294e39b74d988c103934d7bb586ce88f7fdbd74f33438291e554040543ec19b7",
         "note": "project pool, 1:1 nominal, full range; demo liquidity only"
+      },
+      "uniswapV3WamusdUsdc": {
+        "pool": "0x51AfE27E484eDFcc8A8c80C7C4CE075185e2e521",
+        "fee": 3000,
+        "token0": "0x943DD202b17d10013F3D9221925c9F85Ff752544",
+        "token1": "0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8",
+        "createTx": "0x7017db6c3ea94a00547c87118ab48096e6b428701c97a4f7c31f0ab6e8a9adcc",
+        "liquidityTx": "0x4bc2b40eb785eea34ccef566badaa2de74755cd5a1923c058f3b617056d7ed00",
+        "tickLower": -120,
+        "tickUpper": 0,
+        "note": "demo pool: one-sided Aave faucet USDC just below 1:1; wAMUSD → USDC only"
       }
     },
     "accountCoreVersion": 3,
@@ -233,6 +249,23 @@
             "wormholeChainId": 10002,
             "adapter": "0x88b1953f16c06976fcb6575aacb317a5917db7a6"
           }
+        }
+      },
+      {
+        "name": "Cetus CLMM Pinned Swap",
+        "version": 1,
+        "actionKind": "SWAP",
+        "core": "v5",
+        "witnessType": "0x4b2dcb1486e72e3d2dbef6da86f4a2b80f3251bf36f8cf7028056a5830334c7f::pinned_swap::CetusPinnedSwapV1",
+        "package": "0x4b2dcb1486e72e3d2dbef6da86f4a2b80f3251bf36f8cf7028056a5830334c7f",
+        "module": "pinned_swap",
+        "publishDigest": "4fXXwwFhrcSL7Jvkq59xCEfsDHE5M1NhH4P5ZzyZZDnK",
+        "freezeDigest": "ChJWC8asGkUmyrmrfbEMUjU8JM9ggrxXCNGpKF4NkjCZ",
+        "upgradeAuthority": "FROZEN",
+        "upstream": {
+          "protocol": "cetusClmm",
+          "pool": "0x3f0397909cce1ded2d1502dbc2ae9e2b37170026083f42bd5a85bccf55947eac",
+          "poolPinnedOnChain": true
         }
       }
     ],
