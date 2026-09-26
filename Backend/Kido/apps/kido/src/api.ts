@@ -31,7 +31,8 @@ async function body<T>(req: IncomingMessage, schema: z.ZodType<T>): Promise<T> {
 }
 
 const Text = z.object({ text: z.string().min(1).max(4000) });
-const Create = z.object({ objective: z.string().min(1).max(4000) });
+const Create = z.object({ objective: z.string().min(1).max(4000), name: z.string().max(120).optional() });
+const Rename = z.object({ name: z.string().min(1).max(120) });
 const Ask = z.object({ question: z.string().min(1).max(1000) });
 const Edit = z.object({ key: z.string().min(1).max(100), text: z.string().min(1).max(4000) });
 
@@ -46,7 +47,13 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
   const route = (method: string, path: string, h: Handler) => routes.push([method, new RegExp(`^${path.replace(/:(\w+)/g, "(?<$1>[\\w-]+)")}$`), h]);
 
   route("GET", "/health", () => ({ ok: true, interviewModel: config.model, simulationSigners: config.simulationSigners }));
-  route("POST", "/projects", async (req) => foundry.create((await body(req, Create)).objective));
+  route("GET", "/projects", () => ({ projects: foundry.projects() }));
+  route("POST", "/projects", async (req) => {
+    const b = await body(req, Create);
+    return foundry.create(b.objective, b.name);
+  });
+  route("GET", "/projects/:id", (_r, p) => foundry.summary(p.id!));
+  route("PATCH", "/projects/:id", async (req, p) => foundry.rename(p.id!, (await body(req, Rename)).name));
   route("GET", "/projects/:id/next", (_r, p) => ({ question: foundry.next(p.id!) }));
   route("POST", "/projects/:id/answer", async (req, p) => foundry.answer(p.id!, (await body(req, Text)).text));
   route("POST", "/projects/:id/edit", async (req, p) => {
@@ -78,6 +85,8 @@ export function createApi(foundry: Foundry, config: Pick<KidoConfig, "simulation
     };
     try {
       const url = new URL(req.url ?? "/", "http://kido.local");
+      // The web app proxies /api/* here; routes are the same with or without the prefix.
+      if (url.pathname === "/api" || url.pathname.startsWith("/api/")) url.pathname = url.pathname.slice(4) || "/";
       for (const [method, re, h] of routes) {
         const m = re.exec(url.pathname);
         if (m && req.method === method) return send(200, await h(req, m.groups ?? {}));
