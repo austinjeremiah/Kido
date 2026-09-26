@@ -385,7 +385,7 @@ All testnet addresses, package ids, adapter ids, upstream protocol objects and d
 |---|---|---|
 | Core | `AmaneAccount` v3 (per account) + shared `AmaneAccountExt` | `amane` core v5 (frozen) |
 | Adapter registry / dispatch | append-only `AdapterRegistry` | witness-bound tickets |
-| Adapters | Transfer Pay, Uniswap v3 Swap, Aave v3 Repay, Wormhole Bridge | Transfer Pay (native), Cetus CLMM Swap (v4), Cetus Pinned Swap (v4), Wormhole Bridge (v5) |
+| Adapters | Transfer Pay, Uniswap v3 Swap, Aave v3 Repay, Wormhole Bridge | Transfer Pay (native), Cetus CLMM Swap (v4), Cetus Pinned Swap (v4 and v5), Wormhole Bridge (v5) |
 | Upgrade authority | none | packages frozen (`UpgradeCap` made immutable) |
 
 ## Live testnet proof
@@ -437,7 +437,7 @@ DEPLOYER_PRIVATE_KEY=... forge script evm/script/DeployInfra.s.sol --rpc-url $SE
 SUI=/path/to/sui scripts/deploy-sui.sh
 ```
 
-Adapters are deployed and registered (EVM) or published and frozen (Sui) separately; record everything in `deployments/testnet.json`. The Wormhole adapters are deployed as a pair: the Sui bridge object pins the EVM adapter address once (via a one-time `SetupCap`), and the EVM adapter pins the Sui adapter's `EmitterCap` id.
+Adapters are deployed and registered (EVM) or published and frozen (Sui) separately; record everything in `deployments/testnet.json`. To publish a Sui adapter against an already-published core, give `sui/amane` a temporary `Published.toml` naming that core, publish, then remove it: while it exists, `sui move test` in the core compiles at the published address and the `0x0`-based fixtures no longer match. The Wormhole adapters are deployed as a pair: the Sui bridge object pins the EVM adapter address once (via a one-time `SetupCap`), and the EVM adapter pins the Sui adapter's `EmitterCap` id.
 
 ## Known limitations
 
@@ -445,7 +445,7 @@ Adapters are deployed and registered (EVM) or published and frozen (Sui) separat
 - **Cross-chain revocation is not atomic.** Until a revoke lands on every endpoint, an agent key can spend the remaining per-endpoint budget. Keep leases short and budgets small.
 - **Sui `chainRef` is asserted by the creator** (Move cannot read the chain id); clients verify the live chain identifier before signing. Every struct also binds the account object id.
 - **Sui adapter ids derive from the witness type name**, which an upgrade would not change; adapter packages must be published immutable (checked off-chain).
-- **Sui adapters are bound to a core version's `Account` type**: v4 swap adapters do not operate v5 accounts; a v5 build of an adapter is a new adapter id.
+- **Sui adapters are bound to a core version's `Account` type**: v4 adapters do not operate v5 accounts, so each is rebuilt against v5 as a new adapter id (the pinned Cetus swap has a v5 build).
 - **Sui core v5 executes reserved `PAY` and `BRIDGE`**; a reservation committed to a Sui `SWAP` can only expire into quarantine.
 - **Upstream protocols are mutable.** Adapters pin their bindings and fail closed on drift, leaving funds in the account.
 - **Wormhole testnet** runs a single guardian; Sepolia-originated transfers are signed only after Ethereum finality (~15 minutes).
