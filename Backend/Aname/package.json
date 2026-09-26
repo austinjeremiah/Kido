@@ -10,7 +10,7 @@
   "scripts": {
     "test": "npm run test --workspaces && npm run test:evm && npm run test:sui",
     "test:evm": "cd evm && forge test",
-    "test:sui": "cd sui/amane && sui move test",
+    "test:sui": "cd sui/amane && ${SUI:-sui} move test",
     "vectors": "npm run vectors -w @amane/core"
   }
 }

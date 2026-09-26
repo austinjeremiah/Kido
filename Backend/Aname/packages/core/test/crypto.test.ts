@@ -10,6 +10,8 @@ import {
   fixtureLease,
   fixturePolicy,
   highSTwin,
+  normalizeSuiChainIdentifier,
+  suiChainRef,
   recoverAmaneSigner,
   testAccounts,
   typedData,
@@ -121,6 +123,11 @@ describe('signatures', () => {
     expect(() => assertCanonicalSignature(sig.slice(0, -2) as Hex)).toThrow('AMANE_CONTROLLER_BAD_SIGNATURE_LENGTH');
     for (const v of ['00', '01', '1d', 'ff']) expect(() => assertCanonicalSignature(`${sig.slice(0, -2)}${v}` as Hex)).toThrow('AMANE_CONTROLLER_BAD_V');
     expect(() => assertCanonicalSignature(`0x${'00'.repeat(32)}${sig.slice(66)}` as Hex)).toThrow('AMANE_CONTROLLER_ZERO_RS');
+  });
+
+  it('F-0100 base58 genesis digest normalizes to the hex chain identifier', () => {
+    expect(normalizeSuiChainIdentifier('69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD')).toBe('4c78adac');
+    expect(suiChainRef('69WiPg3DAQiwdxfncX6wYQ2siKwAe6L9BZthQea3JNMD')).toBe(suiChainRef('4c78adac'));
   });
 
   it('non-ASCII labels hash as UTF-8', () => {

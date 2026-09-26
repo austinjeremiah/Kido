@@ -23,8 +23,8 @@ fun golden_root_policy() {
     assert!(eip712::hash_root_policy(&m) == x"7d9fcd31e2f9676c73f1aedd36657cf4829a29e2aff759a7fba7a9293bbe4c80", 0);
     let d = eip712::digest(eip712::hash_root_policy(&m));
     assert!(d == x"5589f6abc8326683b34dcd8e7619778c43c819ef9d238996c7c4a832093cda3b", 0);
-    assert!(crypto::recover_eth_address(&d, &x"1672544b903bf2ff4e83a85677af5d5ccac46b5c2e4f16e9f74a8358f505284e346ba203587c812047cb8d0ee038f2b1fb8b9c62e38a7f1d623b58d1bf11a48e1b") == x"842bf7dc352c505f288cb16454d43e6ffee1fcb5", 1);
-    assert!(crypto::recover_eth_address(&d, &x"4d501db37340c0406f5adf6a0aa1c410233791da4fd074550c055754f7eab074281de8f738e140cffb4a88c3eb4fef7d9c7d5fdb955299094c5f040cec17d8a81c") == x"d7003a68054b36803a2671c64a6b591345d1f8da", 1);
+    assert!(eip712::recover_signer(eip712::hash_root_policy(&m), &x"1672544b903bf2ff4e83a85677af5d5ccac46b5c2e4f16e9f74a8358f505284e346ba203587c812047cb8d0ee038f2b1fb8b9c62e38a7f1d623b58d1bf11a48e1b") == x"842bf7dc352c505f288cb16454d43e6ffee1fcb5", 1);
+    assert!(eip712::recover_signer(eip712::hash_root_policy(&m), &x"4d501db37340c0406f5adf6a0aa1c410233791da4fd074550c055754f7eab074281de8f738e140cffb4a88c3eb4fef7d9c7d5fdb955299094c5f040cec17d8a81c") == x"d7003a68054b36803a2671c64a6b591345d1f8da", 1);
 }
 
 #[test]
@@ -33,7 +33,7 @@ fun golden_lease_by_controller() {
     assert!(eip712::hash_agent_lease(&m) == x"135ff90b1c98ffb88c86cc010a91b902deabad374ed37111a5075b8aad0cc785", 0);
     let d = eip712::digest(eip712::hash_agent_lease(&m));
     assert!(d == x"1db015ab343c6cf35ae504d6903bbd34e985c8e02af91a3d8b1d7fcca9786869", 0);
-    assert!(crypto::recover_eth_address(&d, &x"ef4475a2b59216530a07378180f0c3d392c9f17cbb335ac912a2414d52e7a8a65f134bebac56af161abf4c39090035f0b83f76fc7751c5f1c7081762b9358c941c") == x"d7003a68054b36803a2671c64a6b591345d1f8da", 1);
+    assert!(eip712::recover_signer(eip712::hash_agent_lease(&m), &x"ef4475a2b59216530a07378180f0c3d392c9f17cbb335ac912a2414d52e7a8a65f134bebac56af161abf4c39090035f0b83f76fc7751c5f1c7081762b9358c941c") == x"d7003a68054b36803a2671c64a6b591345d1f8da", 1);
 }
 
 #[test]
@@ -42,7 +42,7 @@ fun golden_lease_by_issuer() {
     assert!(eip712::hash_agent_lease(&m) == x"d91498cf42c1a3f8d828a12f1d989b42d6fe5500ec4a274381fe95fa5150bf7a", 0);
     let d = eip712::digest(eip712::hash_agent_lease(&m));
     assert!(d == x"3ab958a4d2e0092dee38c7b17ac21c7deca8d546c93936c8a901c16a62c4a065", 0);
-    assert!(crypto::recover_eth_address(&d, &x"60dbd9cb6cbf1f73316526941098826dc1dab194023367edcfa51f9a4941bd34467f76c657de604508cb7ba5fd3df7015c96a5a2c8dc0cf5ea552a51145510ff1c") == x"db7df4547998e5aa5a341cd02474df8913c1c4c7", 1);
+    assert!(eip712::recover_signer(eip712::hash_agent_lease(&m), &x"60dbd9cb6cbf1f73316526941098826dc1dab194023367edcfa51f9a4941bd34467f76c657de604508cb7ba5fd3df7015c96a5a2c8dc0cf5ea552a51145510ff1c") == x"db7df4547998e5aa5a341cd02474df8913c1c4c7", 1);
 }
 
 #[test]
@@ -51,7 +51,7 @@ fun golden_action_pay_sui() {
     assert!(eip712::hash_action_intent(&m) == x"07d711c79709fdcb28b9ccd0e5aaee4faf80712dd98468428590ad43b7c6db16", 0);
     let d = eip712::digest(eip712::hash_action_intent(&m));
     assert!(d == x"ce48d02d85350406b7b2e489a536f689f4f10ae3cf434ae448d7f35a9397e585", 0);
-    assert!(crypto::recover_eth_address(&d, &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d121c") == x"752f2f9d06a136d7ff9fec975baa6e25f57a585c", 1);
+    assert!(eip712::recover_signer(eip712::hash_action_intent(&m), &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d121c") == x"752f2f9d06a136d7ff9fec975baa6e25f57a585c", 1);
 }
 
 #[test]
@@ -60,7 +60,7 @@ fun golden_action_swap_sepolia() {
     assert!(eip712::hash_action_intent(&m) == x"41c44fe822150c5d9ef43ce5c622ef43fdc92bc9d8ebf9d000ec937c9e6eb4f4", 0);
     let d = eip712::digest(eip712::hash_action_intent(&m));
     assert!(d == x"bae54a9cd910ef95a473d5b3f690ffec4c8c0b290ec88ab8d974f70f18b2212b", 0);
-    assert!(crypto::recover_eth_address(&d, &x"de32bb63273ffc4d083167aeb31b166408003ee8c753efc4cbc764b7595e9f4727c4d6deb8feab08c29d4155703725f5cc754e646d000d84c391c52b040a717d1b") == x"752f2f9d06a136d7ff9fec975baa6e25f57a585c", 1);
+    assert!(eip712::recover_signer(eip712::hash_action_intent(&m), &x"de32bb63273ffc4d083167aeb31b166408003ee8c753efc4cbc764b7595e9f4727c4d6deb8feab08c29d4155703725f5cc754e646d000d84c391c52b040a717d1b") == x"752f2f9d06a136d7ff9fec975baa6e25f57a585c", 1);
 }
 
 #[test]
@@ -69,7 +69,7 @@ fun golden_pause() {
     assert!(eip712::hash_pause_account(&m) == x"453c4cf300092bc9a414c47d328b74f86c94315180d2df756467249e2837b8da", 0);
     let d = eip712::digest(eip712::hash_pause_account(&m));
     assert!(d == x"77a16c5df4d26e44292827fd3c2abf614a32de33c7695b8a9d7a4377378902a2", 0);
-    assert!(crypto::recover_eth_address(&d, &x"3dadefce36ed9bb52c1bdb1c471b1067dbf110dcbe38817126c1063ee706d39368bd17b0b2bb9ce3112fb0a66f68adc55d700dda1371ee818badbf4adcc99fe91b") == x"842bf7dc352c505f288cb16454d43e6ffee1fcb5", 1);
+    assert!(eip712::recover_signer(eip712::hash_pause_account(&m), &x"3dadefce36ed9bb52c1bdb1c471b1067dbf110dcbe38817126c1063ee706d39368bd17b0b2bb9ce3112fb0a66f68adc55d700dda1371ee818badbf4adcc99fe91b") == x"842bf7dc352c505f288cb16454d43e6ffee1fcb5", 1);
 }
 
 #[test]
@@ -78,8 +78,8 @@ fun golden_unpause() {
     assert!(eip712::hash_unpause_account(&m) == x"697dea6de50eff40806d06c067b0a255c20a924f8cce094aef3435d29349512d", 0);
     let d = eip712::digest(eip712::hash_unpause_account(&m));
     assert!(d == x"3d269eafd34c51f4efd73d40dc12d85268ff6f365954353c29fa22ade8701b4f", 0);
-    assert!(crypto::recover_eth_address(&d, &x"f0dec269b02126a1888c72815a47c76cfc7845c60803c8b66609fb3b93215ebb7d00a0949c62d69f0f90718c73c0c9c89c9f9f7df17da05fadf6fe30a06dc9731c") == x"842bf7dc352c505f288cb16454d43e6ffee1fcb5", 1);
-    assert!(crypto::recover_eth_address(&d, &x"6c89adb9a166483cb78ff9f1276b7c87413f58f0f4a4997f3125733bf19ffb2a15f36db8d39d092ab279fa76e11a3eb963462ee512e4b8f33293c6af5cdbdd191c") == x"d7003a68054b36803a2671c64a6b591345d1f8da", 1);
+    assert!(eip712::recover_signer(eip712::hash_unpause_account(&m), &x"f0dec269b02126a1888c72815a47c76cfc7845c60803c8b66609fb3b93215ebb7d00a0949c62d69f0f90718c73c0c9c89c9f9f7df17da05fadf6fe30a06dc9731c") == x"842bf7dc352c505f288cb16454d43e6ffee1fcb5", 1);
+    assert!(eip712::recover_signer(eip712::hash_unpause_account(&m), &x"6c89adb9a166483cb78ff9f1276b7c87413f58f0f4a4997f3125733bf19ffb2a15f36db8d39d092ab279fa76e11a3eb963462ee512e4b8f33293c6af5cdbdd191c") == x"d7003a68054b36803a2671c64a6b591345d1f8da", 1);
 }
 
 #[test]
@@ -88,7 +88,7 @@ fun golden_revoke() {
     assert!(eip712::hash_revoke_lease(&m) == x"c4acbde119cae07ea17c35e93e621e5527fec2aa88b0a1f279ac24793d93cf06", 0);
     let d = eip712::digest(eip712::hash_revoke_lease(&m));
     assert!(d == x"20895f80fd4f6cc1c06f361facd56965a420043acfdfdd5d5eb3d886c22d3a41", 0);
-    assert!(crypto::recover_eth_address(&d, &x"21288855636ad013b137f4bc8afa252205e5b4dce2bf7b95c666fdcaef519c2c636adb6fbc10bd4d44898846a1d3df248e205ca4d8ea86894f4a89326dc74cba1c") == x"d7003a68054b36803a2671c64a6b591345d1f8da", 1);
+    assert!(eip712::recover_signer(eip712::hash_revoke_lease(&m), &x"21288855636ad013b137f4bc8afa252205e5b4dce2bf7b95c666fdcaef519c2c636adb6fbc10bd4d44898846a1d3df248e205ca4d8ea86894f4a89326dc74cba1c") == x"d7003a68054b36803a2671c64a6b591345d1f8da", 1);
 }
 
 #[test]
@@ -97,41 +97,41 @@ fun golden_withdraw() {
     assert!(eip712::hash_withdraw(&m) == x"a81524e2fc7d9b18a06ad48a682317a9faa7663542469f4f838a6443ef55ed01", 0);
     let d = eip712::digest(eip712::hash_withdraw(&m));
     assert!(d == x"0e9587b0a96fe484f6a4ad26d0ee49312a9bcfa2269ad6a6875a704512cad01e", 0);
-    assert!(crypto::recover_eth_address(&d, &x"828185b4f57d67a4d35f93069fa71094cd010d3178ae8ed67b29070bdeed39fd5b1c4970e23bcb298fd8ebd2a1837f9859f174d985e955223278d55f0a53cb3e1b") == x"842bf7dc352c505f288cb16454d43e6ffee1fcb5", 1);
-    assert!(crypto::recover_eth_address(&d, &x"e0e668488fa6db0d85e2bccb2a9275ba60ef915ad037bb8b4caaae577d7da3ce60e40a207840e0feaedab26028796e303d67ebd69a9dd0fac5b89d9ee3b4b1f41b") == x"d7003a68054b36803a2671c64a6b591345d1f8da", 1);
+    assert!(eip712::recover_signer(eip712::hash_withdraw(&m), &x"828185b4f57d67a4d35f93069fa71094cd010d3178ae8ed67b29070bdeed39fd5b1c4970e23bcb298fd8ebd2a1837f9859f174d985e955223278d55f0a53cb3e1b") == x"842bf7dc352c505f288cb16454d43e6ffee1fcb5", 1);
+    assert!(eip712::recover_signer(eip712::hash_withdraw(&m), &x"e0e668488fa6db0d85e2bccb2a9275ba60ef915ad037bb8b4caaae577d7da3ce60e40a207840e0feaedab26028796e303d67ebd69a9dd0fac5b89d9ee3b4b1f41b") == x"d7003a68054b36803a2671c64a6b591345d1f8da", 1);
 }
 
 #[test, expected_failure(abort_code = crypto::EHighS)]
 fun golden_negative_high_s_twin() {
-    crypto::recover_eth_address(&x"ce48d02d85350406b7b2e489a536f689f4f10ae3cf434ae448d7f35a9397e585", &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cdbeeb8f3b3871d351464f39e43505bc43ed1fe485fc2ecedb3ca5bf84fb30e42f1b");
+    eip712::recover_signer(x"07d711c79709fdcb28b9ccd0e5aaee4faf80712dd98468428590ad43b7c6db16", &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cdbeeb8f3b3871d351464f39e43505bc43ed1fe485fc2ecedb3ca5bf84fb30e42f1b");
 }
 
 #[test, expected_failure(abort_code = crypto::EBadV)]
 fun golden_negative_v_zero() {
-    crypto::recover_eth_address(&x"ce48d02d85350406b7b2e489a536f689f4f10ae3cf434ae448d7f35a9397e585", &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d1200");
+    eip712::recover_signer(x"07d711c79709fdcb28b9ccd0e5aaee4faf80712dd98468428590ad43b7c6db16", &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d1200");
 }
 
 #[test, expected_failure(abort_code = crypto::EBadV)]
 fun golden_negative_v_one() {
-    crypto::recover_eth_address(&x"ce48d02d85350406b7b2e489a536f689f4f10ae3cf434ae448d7f35a9397e585", &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d1201");
+    eip712::recover_signer(x"07d711c79709fdcb28b9ccd0e5aaee4faf80712dd98468428590ad43b7c6db16", &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d1201");
 }
 
 #[test, expected_failure(abort_code = crypto::EBadV)]
 fun golden_negative_v_29() {
-    crypto::recover_eth_address(&x"ce48d02d85350406b7b2e489a536f689f4f10ae3cf434ae448d7f35a9397e585", &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d121d");
+    eip712::recover_signer(x"07d711c79709fdcb28b9ccd0e5aaee4faf80712dd98468428590ad43b7c6db16", &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d121d");
 }
 
 #[test, expected_failure(abort_code = crypto::EBadLength)]
 fun golden_negative_short() {
-    crypto::recover_eth_address(&x"ce48d02d85350406b7b2e489a536f689f4f10ae3cf434ae448d7f35a9397e585", &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d12");
+    eip712::recover_signer(x"07d711c79709fdcb28b9ccd0e5aaee4faf80712dd98468428590ad43b7c6db16", &x"525ad68390ef2d8290f3ab2e82802e32414083b7173e0898818262969f5ff8cd411470c4c78e2caeb9b0c61bcafa43bacd8ef860b319d160832c9f07d5055d12");
 }
 
 #[test]
 fun golden_negative_wrong_domain_chain() {
-    assert!(crypto::recover_eth_address(&x"ce48d02d85350406b7b2e489a536f689f4f10ae3cf434ae448d7f35a9397e585", &x"2d8398970816339a7c79cf24e9e2fabd5e2237aee9a744138205780d6cb6f85a0f85fefd1cb5dec868678d5452aeef519f89bf99c90a1eab41add817121a0e931c") != x"752f2f9d06a136d7ff9fec975baa6e25f57a585c", 0);
+    assert!(eip712::recover_signer(x"07d711c79709fdcb28b9ccd0e5aaee4faf80712dd98468428590ad43b7c6db16", &x"2d8398970816339a7c79cf24e9e2fabd5e2237aee9a744138205780d6cb6f85a0f85fefd1cb5dec868678d5452aeef519f89bf99c90a1eab41add817121a0e931c") != x"752f2f9d06a136d7ff9fec975baa6e25f57a585c", 0);
 }
 
 #[test]
 fun golden_negative_attacker() {
-    assert!(crypto::recover_eth_address(&x"ce48d02d85350406b7b2e489a536f689f4f10ae3cf434ae448d7f35a9397e585", &x"43c03da8cce6fc59b3d145c3c34a69d13b2e472b584f992008b786273fe7bed47f7c9ea44accd51ba3e31c35a685486e3d44c27deb73422539e0b4bb4c832b1c1c") != x"752f2f9d06a136d7ff9fec975baa6e25f57a585c", 0);
+    assert!(eip712::recover_signer(x"07d711c79709fdcb28b9ccd0e5aaee4faf80712dd98468428590ad43b7c6db16", &x"43c03da8cce6fc59b3d145c3c34a69d13b2e472b584f992008b786273fe7bed47f7c9ea44accd51ba3e31c35a685486e3d44c27deb73422539e0b4bb4c832b1c1c") != x"752f2f9d06a136d7ff9fec975baa6e25f57a585c", 0);
 }

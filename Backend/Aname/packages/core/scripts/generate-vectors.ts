@@ -233,7 +233,7 @@ function moveExpr(type: string, value: unknown): string {
 const moveCases = vectors
   .map((v) => {
     const sigChecks = v.signatures
-      .map((s) => `        assert!(crypto::recover_eth_address(&d, &${hexBytes(s.signature)}) == ${hexBytes(s.signer)}, 1);`)
+      .map((s) => `        assert!(eip712::recover_signer(eip712::hash_${snake(v.primaryType)}(&m), &${hexBytes(s.signature)}) == ${hexBytes(s.signer)}, 1);`)
       .join('\n');
     return `    #[test]
     fun golden_${v.name}() {
@@ -246,14 +246,14 @@ ${sigChecks}
   })
   .join('\n\n');
 
-const payDigest = vectors.find((v) => v.name === 'action_pay_sui')!.digest;
+const payStruct = vectors.find((v) => v.name === 'action_pay_sui')!.structHash;
 const moveNeg = negatives
   .map((n) => {
     const fn = `golden_negative_${n.name}`;
     if (n.expect === 'WRONG_SIGNER')
-      return `    #[test]\n    fun ${fn}() {\n        assert!(crypto::recover_eth_address(&${hexBytes(payDigest)}, &${hexBytes(n.signature)}) != ${hexBytes(testAccounts.agent.address)}, 0);\n    }`;
+      return `    #[test]\n    fun ${fn}() {\n        assert!(eip712::recover_signer(${hexBytes(payStruct)}, &${hexBytes(n.signature)}) != ${hexBytes(testAccounts.agent.address)}, 0);\n    }`;
     const code = n.expect === 'REJECT_HIGH_S' ? 'EHighS' : n.expect === 'REJECT_BAD_V' ? 'EBadV' : 'EBadLength';
-    return `    #[test, expected_failure(abort_code = crypto::${code})]\n    fun ${fn}() {\n        crypto::recover_eth_address(&${hexBytes(payDigest)}, &${hexBytes(n.signature)});\n    }`;
+    return `    #[test, expected_failure(abort_code = crypto::${code})]\n    fun ${fn}() {\n        eip712::recover_signer(${hexBytes(payStruct)}, &${hexBytes(n.signature)});\n    }`;
   })
   .join('\n\n');
 

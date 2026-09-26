@@ -1,0 +1,9 @@
+[package]
+name = "amane"
+edition = "2024.beta"
+license = "MIT"
+
+[dependencies]
+
+[addresses]
+amane = "0x0"

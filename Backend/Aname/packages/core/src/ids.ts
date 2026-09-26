@@ -8,9 +8,32 @@ export function evmChainRef(chainId: number | bigint): Bytes32 {
   return keccak256(toHex(`eip155:${chainId}`));
 }
 
+const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function base58Decode(s: string): Uint8Array {
+  let n = 0n;
+  for (const c of s) {
+    const i = BASE58.indexOf(c);
+    if (i < 0) throw new Error(`invalid base58: ${s}`);
+    n = n * 58n + BigInt(i);
+  }
+  const hex = n.toString(16);
+  const body = Buffer.from(hex.length % 2 ? `0${hex}` : hex, 'hex');
+  const zeros = s.length - s.replace(/^1+/, '').length;
+  return new Uint8Array([...new Uint8Array(zeros), ...body]);
+}
+
+// Sui reports the chain identifier either as the 8-hex-digit prefix (CLI, JSON-RPC) or as the
+// base58 genesis checkpoint digest (gRPC/GraphQL SDKs). Both normalize to the 4-byte prefix.
+export function normalizeSuiChainIdentifier(chainIdentifier: string): string {
+  if (/^[0-9a-f]{8}$/.test(chainIdentifier)) return chainIdentifier;
+  const bytes = base58Decode(chainIdentifier);
+  if (bytes.length !== 32) throw new Error(`invalid Sui chain identifier: ${chainIdentifier}`);
+  return Buffer.from(bytes.slice(0, 4)).toString('hex');
+}
+
 export function suiChainRef(chainIdentifier: string): Bytes32 {
-  if (!/^[0-9a-f]{8}$/.test(chainIdentifier)) throw new Error(`invalid Sui chain identifier: ${chainIdentifier}`);
-  return keccak256(toHex(`sui:${chainIdentifier}`));
+  return keccak256(toHex(`sui:${normalizeSuiChainIdentifier(chainIdentifier)}`));
 }
 
 export function addressToBytes32(address: Address): Bytes32 {
