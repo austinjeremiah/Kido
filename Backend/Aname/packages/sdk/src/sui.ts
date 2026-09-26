@@ -237,7 +237,7 @@ export class AmaneSuiEndpoint {
         const code = this.abortCode(sim.FailedTransaction!.status);
         if (!code) return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: JSON.stringify(sim.FailedTransaction!.status) };
         if (!opts.submitRejected) return { kind: 'REJECTED_BY_AMANE', chain: this.chain, code };
-        tx.setGasBudget(50_000_000);
+        await this.pinGas(tx);
       }
       const res = await this.client.signAndExecuteTransaction({ transaction: tx, signer: this.relayer, include: { effects: true, events: true } });
       const done = res.Transaction ?? res.FailedTransaction!;
@@ -247,8 +247,28 @@ export class AmaneSuiEndpoint {
       if (code) return { kind: 'REJECTED_BY_AMANE', chain: this.chain, code, tx: done.digest };
       return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: JSON.stringify(done.status), tx: done.digest };
     } catch (err) {
-      return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message: (err as Error).message.split('\n')[0]! };
+      const message = (err as Error).message.split('\n')[0]!;
+      const code = this.abortCodeFromMessage(message);
+      if (code) return { kind: 'REJECTED_BY_AMANE', chain: this.chain, code };
+      return { kind: 'OPERATIONAL_FAILURE', chain: this.chain, message };
     }
+  }
+
+  /// A fully specified gas configuration lets a transaction that is known to abort be submitted
+  /// without the SDK's resolution dry-run refusing to build it.
+  private async pinGas(tx: Transaction) {
+    const owner = this.relayer.toSuiAddress();
+    const [{ referenceGasPrice }, coins] = await Promise.all([this.client.getReferenceGasPrice(), this.client.listCoins({ owner, limit: 1 })]);
+    const coin = coins.objects[0] ?? (() => { throw new Error('relayer has no SUI gas coin'); })();
+    tx.setGasPrice(BigInt(referenceGasPrice));
+    tx.setGasBudget(50_000_000);
+    tx.setGasPayment([{ objectId: coin.objectId, version: coin.version, digest: coin.digest }]);
+  }
+
+  private abortCodeFromMessage(message: string): string | undefined {
+    const m = /abort code: (\d+), in '(0x[0-9a-fA-F]+)::/.exec(message);
+    if (!m || suiObjectToBytes32(m[2]!) !== suiObjectToBytes32(this.packageId)) return undefined;
+    return suiAbortName(m[1]!);
   }
 
   private abortCode(status: { success: boolean; error?: unknown }): string | undefined {
