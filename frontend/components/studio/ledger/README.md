@@ -137,7 +137,7 @@ useEffect(() => {
   step={device.step}
   onConnect={device.requestPermission}   // must be called from a real click
   onDismiss={() => setOpen(false)}
-  agentName="guardian.treasury.ctxlock.eth"
+  agentName="guardian.treasury.kido.eth"
   transaction={{ action, amount, to, network, withinPolicy }}
   signer={{ device, address, txHash }}
 />

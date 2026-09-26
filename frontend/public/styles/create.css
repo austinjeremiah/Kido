@@ -1,0 +1,121 @@
+/* ============================================================================
+   Agent creation
+   ----------------------------------------------------------------------------
+   The same frame as the entry screen: the project's blue as the ground with a
+   flat cream canvas inset and rounded inside it. Everything inside the canvas
+   is the workbench's own (studio.css, scoped under .cl-studio) — this sheet
+   adds the frame, the split, and the handful of positions the split needs.
+   ========================================================================== */
+.kc {
+  position: relative;
+  min-height: 100svh;
+  background-color: var(--color, #0042af);
+}
+
+.kc-canvas {
+  position: absolute;
+  inset: clamp(2rem, 6vh, 6rem) clamp(2rem, 4.6vw, 7rem);
+  border-radius: clamp(26px, 2.9vw, 56px);
+  background-color: var(--soft, #fef1d0);
+  overflow: hidden;
+
+  /* grid-template-rows is stated explicitly rather than left implicit: an
+     implicit row is auto-sized, and children with little content give it
+     nothing to size against, so the row can collapse and take the divider
+     with it. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: 100%;
+}
+
+.kc-half {
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The divide is a border on the left half's right edge rather than a third
+   element between them, so neither half gives up any width to it. */
+.kc-half--left {
+  border-right: 1px solid var(--cl-line);
+}
+
+.kc-half--right {
+  align-items: center;
+  justify-content: center;
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+/* --- the conversation column --------------------------------------------- */
+.kc-chat__head {
+  flex: 0 0 auto;
+  padding: clamp(1.6rem, 3.4vh, 2.6rem) clamp(1.6rem, 2.6vw, 2.4rem) 1.2rem;
+  border-bottom: 1px solid var(--cl-line);
+}
+
+.kc-chat__title {
+  margin: 0.5rem 0 0.6rem;
+  font-family: var(--serif), Georgia, serif;
+  font-size: clamp(1.5rem, 2.1vw, 2.1rem);
+  line-height: 1.2;
+  color: var(--cl-ink-heading);
+}
+
+.kc-chat__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.2rem clamp(1.6rem, 2.6vw, 2.4rem);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kc-bubble {
+  align-self: flex-end;
+  max-width: 90%;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px 12px 3px 12px;
+  background: var(--cl-panel-2);
+  border: 1px solid var(--cl-line);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--cl-ink);
+  white-space: pre-wrap;
+}
+
+/* --- the composer --------------------------------------------------------- */
+.kc-composer {
+  flex: 0 0 auto;
+  padding: 0.9rem clamp(1.6rem, 2.6vw, 2.4rem) 1.2rem;
+  border-top: 1px solid var(--cl-line);
+}
+
+.kc-composer__input {
+  width: 100%;
+  resize: none;
+  line-height: 1.55;
+}
+
+.kc-composer__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  margin-top: 0.6rem;
+}
+
+.kc-composer__row .cl-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+/* Below this the canvas cannot hold two columns. */
+@media (max-width: 900px) {
+  .kc-canvas { grid-template-columns: minmax(0, 1fr); }
+  .kc-half--left { border-right: 0; }
+  .kc-half--right { display: none; }
+}

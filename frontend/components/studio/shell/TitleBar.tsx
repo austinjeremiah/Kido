@@ -46,7 +46,7 @@ export function TitleBar({
         title="All projects"
         aria-label="All projects"
       >
-        ContextLock
+        Kido
       </button>
 
       {/* project switcher (spec §4.1) */}

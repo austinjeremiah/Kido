@@ -54,7 +54,7 @@ export function BottomPanel({ projectId, events }: { projectId: string; events: 
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `contextlock-${bottomTab}-sanitized.log`;
+    a.download = `kido-${bottomTab}-sanitized.log`;
     a.click();
     URL.revokeObjectURL(url);
     pushToast('Sanitized log downloaded');
@@ -270,14 +270,14 @@ export function BottomPanel({ projectId, events }: { projectId: string; events: 
             </div>
             <div style={{ whiteSpace: 'pre-wrap' }}>
               <div>
-                <span className="cl-terminal-prompt">contextlock@sandbox</span>
+                <span className="cl-terminal-prompt">kido@sandbox</span>
                 <span>:</span>
                 <span className="cl-terminal-path">~/project</span>
                 <span>$ ls</span>
               </div>
-              <div>agent/&nbsp; contextlock/&nbsp; adapters/&nbsp; tests/&nbsp; cre/&nbsp; deployment/&nbsp; config/</div>
+              <div>agent/&nbsp; kido/&nbsp; adapters/&nbsp; tests/&nbsp; cre/&nbsp; deployment/&nbsp; config/</div>
               <div>
-                <span className="cl-terminal-prompt">contextlock@sandbox</span>
+                <span className="cl-terminal-prompt">kido@sandbox</span>
                 <span>:</span>
                 <span className="cl-terminal-path">~/project</span>
                 <span>$ </span>

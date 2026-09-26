@@ -338,7 +338,7 @@ export function toRuntimeState(overview: OverviewData | null, position: ForkPosi
     { id: 'process', name: 'Process', status: runtimeUp ? (position?.runtime.paused ? 'PAUSED' : 'HEALTHY') : 'STOPPED', detail: runtimeUp ? `${position?.runtime.ticks ?? 0} observations` : 'no runtime in the Studio server process', freshness: heartbeat },
     { id: 'fork', name: 'Fork RPC', status: forkUp ? 'HEALTHY' : 'UNAVAILABLE', detail: forkUp ? `anvil at block ${latest?.blockNumber ?? '—'}` : 'the fork process is gone', freshness: heartbeat },
     { id: 'model-gateway', name: 'Model gateway', status: 'READY', detail: 'not used — decisions come from the deterministic policy engine, not a model', freshness: { source: 'design', observedAt: new Date().toISOString(), ttlSeconds: 86_400, state: 'FRESH', lastSuccessfulAt: new Date().toISOString() } },
-    { id: 'broker', name: 'ContextLock broker', status: forkUp ? 'HEALTHY' : 'UNAVAILABLE', detail: 'issuer, authorizer and relayer roles held in memory for this fork', freshness: heartbeat },
+    { id: 'broker', name: 'Kido broker', status: forkUp ? 'HEALTHY' : 'UNAVAILABLE', detail: 'issuer, authorizer and relayer roles held in memory for this fork', freshness: heartbeat },
     { id: 'policy-read', name: 'Policy read', status: overview?.panels.policy?.isCurrent ? 'HEALTHY' : overview?.panels.policy ? 'STALE' : 'UNKNOWN', detail: overview?.panels.policy?.value ? `isPolicyEnabled = ${overview.panels.policy.value.enabled}` : 'not read', freshness: freshnessOf(overview?.panels.policy, 'fork policy registry') },
     ...(overview?.panels.adapters ?? []).map((a) => ({ id: `adapter-${a.adapterId}`, name: `Adapter · ${a.adapterId}`, status: (a.state === 'HEALTHY' ? 'HEALTHY' : a.state === 'DEGRADED' ? 'DEGRADED' : 'UNKNOWN') as Status, detail: a.reason ?? 'observed on the fork', freshness: heartbeat })),
   ];
@@ -405,7 +405,7 @@ export function toCreModeOptions(cre: CreView | null, connect: CreConnectView | 
   return [
     {
       mode: 'CONTEXTLOCK_SIMULATOR',
-      title: 'ContextLock Simulator',
+      title: 'Kido Simulator',
       description: 'The official CRE CLI simulator run by the Studio server, using its own CRE session.',
       bullets: ['Official CLI simulator', 'Internal-only account', 'No DON', 'No hardware TEE'],
       available: false,

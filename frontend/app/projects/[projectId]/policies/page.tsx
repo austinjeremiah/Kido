@@ -3,7 +3,7 @@
 /**
  * Policies (spec §23).
  *
- * View and safely revise the current ContextLock financial authority state.
+ * View and safely revise the current Kido financial authority state.
  *
  * Rules encoded here:
  *  - The header reports the *observed* chain state with its freshness. A
@@ -98,7 +98,7 @@ export default function PoliciesPage() {
 
   if (!ctx.deploymentId) {
     return (
-      <StudioPage segment="policies" title="ContextLock Policy" subtitle="The deterministic financial authority boundary for this agent.">
+      <StudioPage segment="policies" title="Kido Policy" subtitle="The deterministic financial authority boundary for this agent.">
         <EmptyState
           title={ctx.loading ? 'Loading…' : 'No policy is registered on chain yet'}
           body={ctx.loading ? '' : 'The policy is registered — DISABLED — when the agent is deployed. Until then the authority model lives in the Blueprint and is reviewed on the Permissions page.'}
@@ -112,7 +112,7 @@ export default function PoliciesPage() {
     <StudioPage
       segment="policies"
       live
-      title="ContextLock Policy"
+      title="Kido Policy"
       subtitle="The deterministic financial authority boundary for this agent."
       badges={
         <>

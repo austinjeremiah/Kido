@@ -414,14 +414,14 @@ export const REASON_CODES: Record<string, ReasonCodeDetail> = {
   RECIPIENT_NOT_ALLOWED: {
     explanation:
       'The transaction recipient is not present in the policy recipient allowlist, so no capability was issued and nothing was submitted.',
-    deterministicSource: 'ContextLock Policy · recipient allowlist check',
+    deterministicSource: 'Kido Policy · recipient allowlist check',
     policyRef: 'CL-17',
     relatedTests: ['sim_recipient_mutation', 'sim_baseline_repay'],
     field: { name: 'recipient', value: '0xAttacker…' },
   },
   AMOUNT_ABOVE_CEILING: {
     explanation: 'The requested amount exceeds the hard deny ceiling defined in the Blueprint autonomous policy.',
-    deterministicSource: 'ContextLock Policy · amount ceiling check',
+    deterministicSource: 'Kido Policy · amount ceiling check',
     policyRef: 'CL-04',
     relatedTests: ['sim_amount_above_ceiling'],
     field: { name: 'amount', value: '$7,500' },
@@ -429,7 +429,7 @@ export const REASON_CODES: Record<string, ReasonCodeDetail> = {
   ESCALATION_REQUIRED: {
     explanation:
       'The amount falls inside the escalation band, so autonomous execution is refused and a human approval is required.',
-    deterministicSource: 'ContextLock Policy · escalation band check',
+    deterministicSource: 'Kido Policy · escalation band check',
     policyRef: 'CL-05',
     relatedTests: ['sim_escalation_band'],
   },
@@ -467,13 +467,13 @@ export const REASON_CODES: Record<string, ReasonCodeDetail> = {
   },
   TARGET_NOT_ALLOWED: {
     explanation: 'The contract target is not in the policy target allowlist.',
-    deterministicSource: 'ContextLock Policy · target allowlist check',
+    deterministicSource: 'Kido Policy · target allowlist check',
     policyRef: 'CL-18',
     relatedTests: ['sim_target_mutation'],
   },
   ACTION_NOT_PERMITTED: {
     explanation: 'The requested action is not among the actions this agent may perform under any amount.',
-    deterministicSource: 'ContextLock Policy · action allowlist check',
+    deterministicSource: 'Kido Policy · action allowlist check',
     policyRef: 'CL-02',
     relatedTests: ['sim_borrow_denied'],
   },
@@ -505,7 +505,7 @@ export const REASON_CODES: Record<string, ReasonCodeDetail> = {
   INSTRUCTION_NOT_AUTHORITY: {
     explanation:
       'Injected instructions were treated as untrusted content. Authority is derived from the Blueprint and policy, never from model input.',
-    deterministicSource: 'ContextLock Policy · authority source check',
+    deterministicSource: 'Kido Policy · authority source check',
     policyRef: 'CL-11',
     relatedTests: ['sim_prompt_injection'],
   },

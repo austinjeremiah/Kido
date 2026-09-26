@@ -1,5 +1,5 @@
 /**
- * ContextLock Studio — domain types.
+ * Kido Studio — domain types.
  *
  * These mirror the artifact vocabulary in the product spec so that swapping the
  * mock data layer for a real backend is a data-source change, not a rewrite.

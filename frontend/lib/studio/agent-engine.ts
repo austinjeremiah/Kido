@@ -89,7 +89,7 @@ const PAGE_DEFAULT: Record<PageKind, (ctx: AgentPageContext) => AgentResponseCar
 
   architecture: () => [
     explanation(
-      'Money can only move along one path: Trigger → Strategy → CRE evaluation → ContextLock Policy → Capability issuance → Executor → Aave. If the policy layer denies, no capability is issued and the executor has nothing to submit.',
+      'Money can only move along one path: Trigger → Strategy → CRE evaluation → Kido Policy → Capability issuance → Executor → Aave. If the policy layer denies, no capability is issued and the executor has nothing to submit.',
     ),
     { kind: 'navigation', title: 'See the deny rules in full', href: 'security', label: 'Open Permissions & Security' },
   ],
@@ -194,7 +194,7 @@ const PAGE_DEFAULT: Record<PageKind, (ctx: AgentPageContext) => AgentResponseCar
 
   identity: () => [
     explanation(
-      'ENS identifies and revokes agents. ContextLock policy defines their financial permissions. Revoking the identity prevents previously issued capabilities from being honoured; it does not itself change the policy’s enabled state.',
+      'ENS identifies and revokes agents. Kido policy defines their financial permissions. Revoking the identity prevents previously issued capabilities from being honoured; it does not itself change the policy’s enabled state.',
     ),
   ],
 
@@ -218,7 +218,7 @@ function keywordCards(prompt: string, ctx: AgentPageContext): AgentResponseCard[
   if (/\b(emergency|kill switch|lock everything|shut (it )?down)\b/.test(p)) {
     return [
       explanation(
-        'Emergency Lock attempts, in order: disable the ContextLock policy, block new capability issuance, pause or stop the CRE path, stop the agent runtime, and optionally revoke the ENS identity. The financial policy is attempted first.',
+        'Emergency Lock attempts, in order: disable the Kido policy, block new capability issuance, pause or stop the CRE path, stop the agent runtime, and optionally revoke the ENS identity. The financial policy is attempted first.',
       ),
       {
         kind: 'control-suggestion',

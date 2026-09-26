@@ -94,7 +94,7 @@ export default function LedgerDemoPage() {
         step={device.step}
         onConnect={device.requestPermission}
         onDismiss={() => setOpen(false)}
-        agentName="guardian.treasury.ctxlock.eth"
+        agentName="guardian.treasury.kido.eth"
         transaction={{
           action: 'Repay USDC debt',
           amount: '0.00074 ETH',

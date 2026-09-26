@@ -23,6 +23,18 @@ const nextConfig = {
    * the app is same-origin with its backend: no CORS, and the build's SSE stream is a plain
    * same-origin EventSource. Point STUDIO_API_URL elsewhere to run against a remote API.
    */
+  /*
+   * Stylesheets in /public are served with max-age=0, which lets the browser
+   * revalidate rather than refetch - and on a soft reload Chrome will often
+   * serve the memory copy without revalidating at all. The result is edits that
+   * are live on the server and invisible in the tab, which reads as a change
+   * that did not apply. Development only; production wants the caching.
+   */
+  async headers() {
+    if (process.env.NODE_ENV !== 'development') return [];
+    return [{ source: '/styles/:path*', headers: [{ key: 'Cache-Control', value: 'no-store, must-revalidate' }] }];
+  },
+
   async rewrites() {
     const api = (process.env.STUDIO_API_URL ?? 'http://127.0.0.1:4310').replace(/\/$/, '');
     return [{ source: '/api/:path*', destination: `${api}/api/:path*` }];

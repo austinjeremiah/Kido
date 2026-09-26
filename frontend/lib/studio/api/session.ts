@@ -11,7 +11,7 @@
  */
 
 export const ANONYMOUS_USER = 'local-user';
-const STORAGE_KEY = 'ctxlock.session.address';
+const STORAGE_KEY = 'kido.session.address';
 
 type Listener = (address: string | null) => void;
 

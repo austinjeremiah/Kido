@@ -32,7 +32,7 @@ export interface StudioEvent {
 }
 
 export function subscribeBuild(buildId: string, onEvent: (e: StudioEvent) => void): () => void {
-  const key = `ctxlock.studio.seq.${buildId}`;
+  const key = `kido.studio.seq.${buildId}`;
   let after = 0;
   try {
     after = Number(sessionStorage.getItem(key) ?? 0);

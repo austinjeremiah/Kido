@@ -330,7 +330,7 @@ export default function RealityLabPage() {
               <Card>
                 <p className="cl-meta" style={{ whiteSpace: 'normal' }}>
                   {localFork ? `The fork ${localFork.id} is ${localFork.state}${deployment?.record.stoppedReason ? ` — ${deployment.record.stoppedReason}` : ''}.` : 'No fork exists.'}{' '}
-                  A fork is created by deploying the agent: it forks mainnet at an exact block, deploys the ContextLock core and opens the positions the agent guards.
+                  A fork is created by deploying the agent: it forks mainnet at an exact block, deploys the Kido core and opens the positions the agent guards.
                 </p>
                 <button type="button" className="cl-btn cl-btn-primary" style={{ marginTop: 12 }} onClick={() => router.push(`/projects/${ctx.routeProjectId}/deploy`)}>
                   <Plus size={12} aria-hidden />

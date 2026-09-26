@@ -12,7 +12,7 @@ import Editor, { DiffEditor, type Monaco } from '@monaco-editor/react';
 import { useWorkbench } from '@/lib/studio/workbench';
 
 /** Editor theme built from the workbench's own dark tokens. */
-const THEME_NAME = 'contextlock-dark';
+const THEME_NAME = 'kido-dark';
 
 function defineTheme(monaco: Monaco) {
   monaco.editor.defineTheme(THEME_NAME, {

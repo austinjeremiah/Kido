@@ -188,7 +188,7 @@ export function blueprintSections(bp: BlueprintDocument): BlueprintSection[] {
     { id: 'ens', index: 13, title: 'ENS', summary: 'Identity and revocation. Never financial permission.', fields: [
       F('ens.identityReadAt', 'Identity read', bp.ens.identityReadAt),
       F('ens.revocationInvalidatesOutstanding', 'Revocation', 'invalidates outstanding capabilities'),
-      F('ens.financialPermissionsInEns', 'Financial roles in ENS', 'none — ContextLock policy defines permissions'),
+      F('ens.financialPermissionsInEns', 'Financial roles in ENS', 'none — Kido policy defines permissions'),
     ] },
     { id: 'cre', index: 14, title: 'CRE', summary: 'Where confidential evaluation runs, and in which mode.', fields: [
       F('cre.required', 'Required', bp.cre.required ? 'yes' : 'no'),
@@ -213,7 +213,7 @@ export function blueprintSections(bp: BlueprintDocument): BlueprintSection[] {
       // One adapter can be bound more than once (a state adapter feeding two requirements), so the
       // key is the binding, not the adapter.
       ...bp.adapters.map((a, i) => F(`adapters.${i}.${a.adapterId}.${a.role}`, `${a.adapterId}@${a.adapterVersion}`, `${a.role} · ${a.configRef}${a.rationale ? ` — ${a.rationale}` : ''}`)),
-      ...bp.generatedModules.map((m) => F(`generatedModules.${m.moduleId}`, m.path, `${m.kind} · ${m.templateRef}${m.reusesContextLockCore ? ' · reuses ContextLock core' : ''}`, { mono: true })),
+      ...bp.generatedModules.map((m) => F(`generatedModules.${m.moduleId}`, m.path, `${m.kind} · ${m.templateRef}${m.reusesContextLockCore ? ' · reuses Kido core' : ''}`, { mono: true })),
     ] },
     { id: 'security-assertions', index: 19, title: 'Security assertions', summary: 'What the build must prove, and which tests prove it.', fields: bp.securityAssertions.map((a) => F(`securityAssertions.${a.id}`, a.id, `${a.statement} — proven by ${list(a.provenBy)}`)) },
   ];

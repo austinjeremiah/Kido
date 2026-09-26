@@ -58,7 +58,7 @@ export const PANEL_LIMITS = {
   bottom: { min: 120, default: 220 },
 };
 
-const STORAGE_KEY = 'ctxlock.workbench.v1';
+const STORAGE_KEY = 'kido.workbench.v1';
 
 interface PersistedState {
   sizes: PanelSizes;

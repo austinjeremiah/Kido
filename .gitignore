@@ -3,10 +3,14 @@ node_modules/
 .pnp
 .pnp.js
 
-# next
-.next/
-out/
-build/
+# next — anchored to the repo root, because "build/" and "out/" unanchored
+# match any directory of that name at any depth, and app/projects/[projectId]/
+# build is a route
+/.next/
+/out/
+/build/
+frontend/.next/
+frontend/out/
 next-env.d.ts
 
 # env — .env.example is committed, the real ones are not

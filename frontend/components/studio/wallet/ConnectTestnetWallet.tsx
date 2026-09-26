@@ -159,7 +159,7 @@ export function ConnectTestnetWallet({
                     ))}
                   </div>
                   <p className="cl-meta" style={{ marginTop: 8, whiteSpace: 'normal' }}>
-                    These are third-party faucets. ContextLock does not distribute test ether and cannot promise that a
+                    These are third-party faucets. Kido does not distribute test ether and cannot promise that a
                     faucet will fund this address.
                   </p>
                 </div>

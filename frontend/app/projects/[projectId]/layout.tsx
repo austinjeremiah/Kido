@@ -4,7 +4,7 @@ import { StudioShell } from '@/components/studio/StudioShell';
 import { StudioProjectProvider } from '@/lib/studio/api/project-context';
 
 export const metadata = {
-  title: 'ContextLock Studio',
+  title: 'Kido Studio',
   description: 'Agentic IDE for designing, proving, deploying and operating financial agents.',
 };
 
@@ -35,7 +35,7 @@ function ShellFallback() {
       style={{ position: 'fixed', inset: 0, display: 'grid', placeItems: 'center', background: 'var(--cl-canvas)' }}
     >
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontFamily: 'var(--serif)', fontSize: 24, letterSpacing: '-0.4px' }}>ContextLock Studio</div>
+        <div style={{ fontFamily: 'var(--serif)', fontSize: 24, letterSpacing: '-0.4px' }}>Kido Studio</div>
         <div className="cl-meta" style={{ marginTop: 8 }}>
           Loading workspace…
         </div>

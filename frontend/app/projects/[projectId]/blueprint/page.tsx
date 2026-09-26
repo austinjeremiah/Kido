@@ -154,7 +154,7 @@ export default function BlueprintPage() {
       <StudioPage segment="blueprint">
         <EmptyState
           title={ctx.loading ? 'Loading the Blueprint…' : 'No Blueprint yet'}
-          body={ctx.loading ? '' : 'Describe your agent first. ContextLock will generate a typed Blueprint that defines identity, data sources, actions and authority boundaries.'}
+          body={ctx.loading ? '' : 'Describe your agent first. Kido will generate a typed Blueprint that defines identity, data sources, actions and authority boundaries.'}
           action={ctx.loading ? undefined : <button type="button" className="cl-btn cl-btn-primary" onClick={() => router.push(`/projects/${ctx.routeProjectId}/build`)}>Build Agent</button>}
         />
       </StudioPage>

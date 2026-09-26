@@ -5,7 +5,7 @@
  *
  * Turns a verified build into a Testnet Lab deployment while making costs, artifacts, networks and
  * blockers explicit. The operable target today is the local mainnet fork: the backend forks mainnet
- * at an exact block, deploys the ContextLock core, registers the policy DISABLED, opens the agent's
+ * at an exact block, deploys the Kido core, registers the policy DISABLED, opens the agent's
  * positions and starts the runtime. Sepolia is shown as the target it is — BLOCKED, with the reason.
  *
  * Rules encoded here:
@@ -94,7 +94,7 @@ export default function DeployPage() {
       name: 'Approver wallet',
       status: walletAddress ? 'PASS' : 'WARN',
       detail: walletAddress
-        ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)} (${approverKind}) will be the approval registry's approver: escalations need its EIP-712 signature${ledgerApprover ? ', reviewed and signed on the device' : ''}. The ContextLock Key Ring is not attached (BLK-002).`
+        ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)} (${approverKind}) will be the approval registry's approver: escalations need its EIP-712 signature${ledgerApprover ? ', reviewed and signed on the device' : ''}. The Kido Key Ring is not attached (BLK-002).`
         : 'No wallet connected. A stand-in key generated for the fork will sign escalations, and every surface will say so. Connect a wallet to sign them yourself.',
     });
     rows.push({
@@ -259,7 +259,7 @@ export default function DeployPage() {
       <Section label="Execution target">
         <div className="cl-grid cl-grid-2">
           {([
-            { id: 'LOCAL_MAINNET_FORK' as Target, title: 'Local mainnet fork', availability: 'AVAILABLE', body: 'Forks Ethereum mainnet at the head block into a local Anvil chain, deploys the ContextLock core there and lets the agent act on real protocol state. Nothing reaches a public chain.' },
+            { id: 'LOCAL_MAINNET_FORK' as Target, title: 'Local mainnet fork', availability: 'AVAILABLE', body: 'Forks Ethereum mainnet at the head block into a local Anvil chain, deploys the Kido core there and lets the agent act on real protocol state. Nothing reaches a public chain.' },
             { id: 'ETHEREUM_SEPOLIA' as Target, title: 'Ethereum Sepolia', availability: 'BLOCKED', body: 'A wallet-signed Sepolia deployment is not offered by the Studio API yet. The testnet orchestrator runs from the operator’s machine (npm run studio:deploy:testnet) with a disposable deployer key; its console is the same one this workbench reads.' },
           ]).map((opt) => {
             const selectable = opt.availability === 'AVAILABLE';
@@ -318,7 +318,7 @@ export default function DeployPage() {
               { label: 'Build revision', value: `r${view.build.buildRevision}` },
               { label: 'Protocols', value: summary.data?.summary.protocols.join(' · ') ?? '—' },
               { label: 'Autonomous / approval / deny', value: summary.data ? `${summary.data.summary.autonomous} · ${summary.data.summary.humanApproval} · ${summary.data.summary.hardDeny}` : '—' },
-              { label: 'Contracts', value: 'ContextLock core deployed fresh on the fork from contracts/out (executor, policy registry, authorization registry, approval registry, identity verifier, CRE consumer)' },
+              { label: 'Contracts', value: 'Kido core deployed fresh on the fork from contracts/out (executor, policy registry, authorization registry, approval registry, identity verifier, CRE consumer)' },
               { label: 'Runtime', value: 'in-process fork runtime started by the Studio server · no container image' },
               { label: 'CRE mode', value: 'Official CLI simulator · no DON, no TEE evidence' },
               { label: 'Escalation approver', value: walletAddress ? <span>{approverKind} <span className="cl-mono">{walletAddress}</span> — Key Ring not attached (BLK-002)</span> : 'stand-in key generated for the fork — not a Ledger device (BLK-002)' },
@@ -439,7 +439,7 @@ export default function DeployPage() {
           </tbody>
         </table>
         <p className="cl-meta" style={{ marginTop: 12 }}>
-          On a fork nothing is reused: the whole ContextLock core is deployed from the compiled artifacts in contracts/out so the fork is self-contained. A Sepolia deployment reuses the verified core instead.
+          On a fork nothing is reused: the whole Kido core is deployed from the compiled artifacts in contracts/out so the fork is self-contained. A Sepolia deployment reuses the verified core instead.
         </p>
       </Modal>
 

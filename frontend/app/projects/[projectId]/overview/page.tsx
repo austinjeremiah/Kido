@@ -26,7 +26,7 @@ import { fork as forkApi } from '@/lib/studio/api/endpoints';
 import { ApiError } from '@/lib/studio/api/client';
 import type { Freshness, Status } from '@/lib/studio/types';
 
-const EMERGENCY_STEPS = ['Disable ContextLock policy', 'Block new capabilities', 'Pause / stop CRE path', 'Stop agent runtime', 'Optionally revoke agent identity'];
+const EMERGENCY_STEPS = ['Disable Kido policy', 'Block new capabilities', 'Pause / stop CRE path', 'Stop agent runtime', 'Optionally revoke agent identity'];
 
 export default function OverviewPage() {
   const router = useRouter();
@@ -109,7 +109,7 @@ export default function OverviewPage() {
       <StudioPage segment="overview" title={agent.name.toUpperCase()} subtitle={agent.objective}>
         <EmptyState
           title={ctx.loading ? 'Loading…' : 'This agent has not been deployed to the Testnet Lab'}
-          body={ctx.loading ? '' : state ? `${state.label.headline} — ${state.label.detail}` : 'Deploy it to the local mainnet fork to watch it act on real protocol state under the full ContextLock path.'}
+          body={ctx.loading ? '' : state ? `${state.label.headline} — ${state.label.detail}` : 'Deploy it to the local mainnet fork to watch it act on real protocol state under the full Kido path.'}
           action={ctx.loading ? undefined : <button type="button" className="cl-btn cl-btn-primary" onClick={() => go('deploy')}>Run Deployment Preflight</button>}
         />
       </StudioPage>

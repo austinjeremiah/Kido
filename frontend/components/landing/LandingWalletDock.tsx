@@ -23,7 +23,7 @@ export function LandingWalletDock() {
   const onConnected = useCallback(() => {
     // Full navigation, not a router push: the Studio needs its own provider
     // tree and wagmi's storage carries the connection across the load.
-    window.location.assign('/projects');
+    window.location.assign('/new');
   }, []);
 
   if (!activated) return null;

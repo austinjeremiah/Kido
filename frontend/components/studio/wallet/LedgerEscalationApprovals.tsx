@@ -177,7 +177,7 @@ export function LedgerEscalationApprovals({
                   <XCircle size={13} aria-hidden />
                   Decline
                 </button>
-                <Badge tone="neutral" title="The approval is signed on the hardware device over WebHID. The ContextLock Key Ring (server-side Ledger) is not attached: BLK-002.">Hardware-signed · Key Ring not attached (BLK-002)</Badge>
+                <Badge tone="neutral" title="The approval is signed on the hardware device over WebHID. The Kido Key Ring (server-side Ledger) is not attached: BLK-002.">Hardware-signed · Key Ring not attached (BLK-002)</Badge>
               </div>
             )}
           </div>

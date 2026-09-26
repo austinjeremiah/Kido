@@ -7,7 +7,7 @@
  * financial permissions.
  *
  * The page states the distinction explicitly: ENS identifies and revokes
- * agents, ContextLock policy defines what they may spend. Financial limits are
+ * agents, Kido policy defines what they may spend. Financial limits are
  * never presented as ENS roles.
  */
 import { useMemo, useState } from 'react';
@@ -97,7 +97,7 @@ export default function IdentityPage() {
         </>
       }
       banners={
-        <BlockerBanner tone="neutral" title="ENS identifies and revokes agents. ContextLock policy defines their financial permissions.">
+        <BlockerBanner tone="neutral" title="ENS identifies and revokes agents. Kido policy defines their financial permissions.">
           These are separate systems on purpose. Revoking this identity stops previously issued capabilities being
           honoured; it does not change what the policy permits, and the policy is currently {POLICY.observed}. No
           financial limit is stored as an ENS record.
@@ -133,7 +133,7 @@ export default function IdentityPage() {
         <Section label="Organization namespace">
           <Card>
             <div className="cl-strong" style={{ fontSize: 13.5, marginBottom: 10 }}>
-              treasury.ctxlock.eth
+              treasury.kido.eth
             </div>
             <ul className="cl-col" style={{ gap: 8 }}>
               {project.agents.map((sibling) => (

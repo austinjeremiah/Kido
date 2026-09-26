@@ -3,7 +3,7 @@ import type { CodeFile } from '../types';
 
 export const CODE_GROUPS: { id: CodeFile['group']; label: string }[] = [
   { id: 'generated-agent', label: 'Generated agent' },
-  { id: 'contextlock-modules', label: 'ContextLock modules' },
+  { id: 'contextlock-modules', label: 'Kido modules' },
   { id: 'adapter-modules', label: 'Adapter modules' },
   { id: 'tests', label: 'Tests' },
   { id: 'cre-workflow', label: 'CRE workflow' },

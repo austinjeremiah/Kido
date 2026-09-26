@@ -123,7 +123,7 @@ export default function ProjectsHome() {
 
       <header className="cl-row cl-chrome-bar" style={{ height: 56, padding: '0 22px', borderBottom: '1px solid var(--cl-line-chrome)', gap: 14 }}>
         <a href="/" className="cl-studio-mark" style={{ fontFamily: 'var(--serif)', fontSize: 18, letterSpacing: '-0.3px' }} title="Back to the landing page">
-          ContextLock Studio
+          Kido Studio
         </a>
         <span className="cl-env-badge" title="Production-chain execution is disabled across all projects.">
           <span>TESTNET LAB</span>
@@ -198,7 +198,7 @@ export default function ProjectsHome() {
             <div className="cl-card-body">
               <div className="cl-strong">No projects yet</div>
               <p className="cl-meta" style={{ whiteSpace: 'normal', marginTop: 6 }}>
-                Describe an agent to create the first one. ContextLock designs its authority, reviews it and stops for your approval before generating any code.
+                Describe an agent to create the first one. Kido designs its authority, reviews it and stops for your approval before generating any code.
               </p>
               <button type="button" className="cl-btn cl-btn-primary" style={{ marginTop: 12 }} onClick={() => { setTemplateId(undefined); setNewOpen(true); }}>
                 <Plus size={13} aria-hidden />
@@ -312,7 +312,7 @@ export default function ProjectsHome() {
         open={importOpen}
         onClose={() => setImportOpen(false)}
         title="Import project"
-        subtitle="Accepts a validated ContextLock project bundle."
+        subtitle="Accepts a validated Kido project bundle."
         footer={
           <>
             <button type="button" className="cl-btn" onClick={() => setImportOpen(false)}>Cancel</button>
@@ -322,7 +322,7 @@ export default function ProjectsHome() {
       >
         <div className="cl-field">
           <label className="cl-field-label" htmlFor="import-file">Project bundle</label>
-          <input id="import-file" type="file" className="cl-input" style={{ paddingTop: 4 }} accept=".json,.ctxlock" disabled />
+          <input id="import-file" type="file" className="cl-input" style={{ paddingTop: 4 }} accept=".json,.kido" disabled />
           <span className="cl-field-hint">
             Import is not offered by the Studio API yet. When it is, the bundle will be validated before anything is created, and an imported project will never carry active on-chain authority.
           </span>

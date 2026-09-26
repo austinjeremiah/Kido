@@ -10,7 +10,7 @@
  *    official simulation, real DON, DON consensus, hardware TEE.
  *  - A simulator never renders a DON badge.
  *  - The connect flow never asks for a password or an OTP: authentication
- *    happens in the official CRE login, and ContextLock receives only a
+ *    happens in the official CRE login, and Kido receives only a
  *    sanitized connection status.
  *  - Promotion moves the exact approved artifact. It never silently rebuilds.
  */
@@ -156,7 +156,7 @@ export default function CrePage() {
         <Card>
           <KeyValue
             rows={[
-              { label: 'Mode', value: 'ContextLock Simulator · official CLI' },
+              { label: 'Mode', value: 'Kido Simulator · official CLI' },
               { label: 'CRE CLI version', value: CRE.cliVersion, mono: true },
               { label: 'Account mode', value: CRE.accountMode },
               { label: 'Organization', value: CRE.organization ?? 'not connected' },
@@ -285,7 +285,7 @@ export default function CrePage() {
         open={connectOpen}
         onClose={() => setConnectOpen(false)}
         title="Connect Chainlink CRE"
-        subtitle="ContextLock never sees your Chainlink password or one-time code."
+        subtitle="Kido never sees your Chainlink password or one-time code."
         wide
         footer={
           <>
@@ -311,10 +311,10 @@ export default function CrePage() {
       >
         <ol className="cl-steps">
           {[
-            'Launch ContextLock Bridge on this machine.',
+            'Launch Kido Bridge on this machine.',
             'The Bridge runs the official CRE login locally if you are not already authenticated.',
             'Chainlink browser authentication opens. You authenticate with Chainlink directly.',
-            'ContextLock receives only a sanitized connection status — never a credential.',
+            'Kido receives only a sanitized connection status — never a credential.',
           ].map((step, i) => (
             <li className="cl-step" key={step} style={{ cursor: 'default' }}>
               <span className="cl-step-index">{i + 1}</span>
@@ -323,7 +323,7 @@ export default function CrePage() {
           ))}
         </ol>
         <BlockerBanner tone="neutral" title="No password or one-time code is ever requested">
-          If any screen in this flow asks ContextLock for your Chainlink password or OTP, it is not this flow.
+          If any screen in this flow asks Kido for your Chainlink password or OTP, it is not this flow.
         </BlockerBanner>
       </Modal>
 

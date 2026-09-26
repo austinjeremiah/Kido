@@ -145,7 +145,7 @@ export default function PageBody() {
             </div>
             <div className="note__texts">
               <div className="note__title">
-                <div className="description note__descr" aria-label="Why we built ContextLock">
+                <div className="description note__descr" aria-label="Why we built Kido">
                   <div className="js-words" aria-hidden="true" style={{ "position": "relative", "display": "inline-block" } as React.CSSProperties}>
                     <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
                       W
@@ -251,7 +251,7 @@ export default function PageBody() {
                     <br />
                     ‍
                     <br />
-                    — The ContextLock team
+                    — The Kido team
                   </span>
                 </p>
               </div>
@@ -518,14 +518,27 @@ export default function PageBody() {
                 <div className="hero__subt__dot" />
               </div>
             </div>
+            {/*
+              One word, so one heading. The engine walks every .hero__title__h1
+              and staggers the mask reveal by index, which is the only reason
+              the old wordmark was split across two of them.
+            */}
             <div className="hero__title">
               <h1 className="hero__title__h1" style={{ "--mask": "linear-gradient(-15deg, transparent 0%, black 0%)" } as React.CSSProperties}>
-                CTX
-              </h1>
-              <h1 className="hero__title__h1" style={{ "--mask": "linear-gradient(-15deg, transparent 0%, black 0%)" } as React.CSSProperties}>
-                LOCK
+                KIDO
               </h1>
             </div>
+            {/*
+              What it is, in one breath. The eyebrow above makes a claim and the
+              wordmark names the thing, but neither says what a visitor would be
+              getting. Held back with the CTA for the same reason: the engine
+              staggers its hero items from a fixed list neither of these is on.
+            */}
+            <p className="cl-hero-lede">
+              You describe it in a sentence. It moves real money.
+              It cannot break the limits you set.
+            </p>
+
             {/*
               The way into the product. The page had no route to /projects at
               all — every link went to the original author's site — so a visitor
@@ -1342,25 +1355,22 @@ export default function PageBody() {
           <div className="stats__lines-decor" />
           <div data-anima="texts" className="stats__text">
             <div className="stats__text__serif">
-              <div className="title_serif" aria-label="Verifying">
+              <div className="title_serif" aria-label="Settling">
                 <div className="js-words" aria-hidden="true" style={{ "position": "relative", "display": "inline-block" } as React.CSSProperties}>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    V
+                    S
                   </div>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
                     e
                   </div>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    r
+                    t
                   </div>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    i
+                    t
                   </div>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    f
-                  </div>
-                  <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    y
+                    l
                   </div>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
                     i
@@ -1375,36 +1385,24 @@ export default function PageBody() {
               </div>
             </div>
             <div className="stats__text__sans">
-              <div className="title_sans" aria-label="The inputs.">
+              <div className="title_sans" aria-label="On Sui.">
                 <div className="js-words" aria-hidden="true" style={{ "position": "relative", "display": "inline-block" } as React.CSSProperties}>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    T
-                  </div>
-                  <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    h
-                  </div>
-                  <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    e
-                  </div>
-                </div>
-                <div className="js-words" aria-hidden="true" style={{ "position": "relative", "display": "inline-block" } as React.CSSProperties}>
-                  <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    i
+                    O
                   </div>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
                     n
                   </div>
+                </div>
+                <div className="js-words" aria-hidden="true" style={{ "position": "relative", "display": "inline-block" } as React.CSSProperties}>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    p
+                    S
                   </div>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
                     u
                   </div>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    t
-                  </div>
-                  <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
-                    s
+                    i
                   </div>
                   <div aria-hidden="true" style={{ "position": "relative", "display": "inline-block", "opacity": "1" } as React.CSSProperties}>
                     .
@@ -1414,7 +1412,7 @@ export default function PageBody() {
             </div>
             <div data-anima="parag" className="stats__text__parag">
               <p className="small-parag" style={{ "opacity": "1" } as React.CSSProperties}>
-                Verified Chainlink rounds in. Chainlink CRE around the run. Inputs you can re-check, not just trust.
+                Sub-second finality on Sui. Payments that move at machine speed, and limits enforced where the money actually lives.
               </p>
             </div>
           </div>
@@ -1473,28 +1471,16 @@ export default function PageBody() {
             </ul>
             <div className="stats__stats__minimum">
               {/*
-                Inlined rather than <img src="/media/Chainlink.svg">: the source
-                file is filled #0847F7, which on this blue ground would be very
-                nearly invisible. Inline, the path takes --soft and reads the
-                way the ring's own type does.
+                The real asset rather than an inlined path: the Sui mark is a
+                droplet inside a roundel and an approximation of it would read
+                as a different logo. It carries its own colour, so unlike the
+                mark it replaces it needs no fill of ours.
               */}
-              <svg
+              <img
                 className="cl-stats-mark"
-                /* Tightened to the path's own bounds. The source file is
-                   385x317 but the hexagon only spans x 147-237, y 107-210 —
-                   roughly a quarter of the canvas — so the rest was empty
-                   padding making the mark render far smaller than its box. */
-                viewBox="147 107 91 104"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                role="img"
-                aria-label="Chainlink"
-              >
-                <path
-                  d="M192.335 107.486L147.668 133.154V184.492L192.335 210.161L237.001 184.492V133.154L192.335 107.486ZM218.078 173.613L192.343 188.402L166.607 173.613V144.034L192.343 129.245L218.078 144.034V173.613Z"
-                  fill="var(--soft)"
-                />
-              </svg>
+                src="/media/sui.png"
+                alt="Sui"
+              />
             </div>
           </div>
           <div data-anima="parag" className="stats__subt">

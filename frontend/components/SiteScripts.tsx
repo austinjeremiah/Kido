@@ -152,7 +152,7 @@ export default function SiteScripts() {
       // ES module: its relative imports/model URLs resolve from /assets & /models
       await loadScript('/assets/app.module.js', 'module');
       await loadScript('/vendor/inline.js');
-    })().catch((e) => console.error('[contextlock] script boot failed', e));
+    })().catch((e) => console.error('[kido] script boot failed', e));
   }, []);
 
   return null;

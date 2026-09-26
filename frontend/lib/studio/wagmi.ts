@@ -36,9 +36,9 @@ const wallets = [
 ];
 
 export const wagmiConfig = getDefaultConfig({
-  appName: 'ContextLock Studio',
+  appName: 'Kido Studio',
   // RainbowKit requires a non-empty id; the guard above is what the UI reports on.
-  projectId: WALLETCONNECT_PROJECT_ID || 'contextlock-studio-local',
+  projectId: WALLETCONNECT_PROJECT_ID || 'kido-studio-local',
   wallets,
   chains: [sepolia, baseSepolia, mainnet],
   transports: {

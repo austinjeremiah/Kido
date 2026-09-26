@@ -119,7 +119,7 @@ export function EscalationApprovals({
                   Decline
                 </button>
                 {walletMode ? (
-                  <Badge tone="neutral" title="The signature is made in your wallet — a Ledger through Ledger Live or MetaMask included. The ContextLock Key Ring (server-side Ledger) is not attached: BLK-002.">Signed in your wallet · Key Ring not attached (BLK-002)</Badge>
+                  <Badge tone="neutral" title="The signature is made in your wallet — a Ledger through Ledger Live or MetaMask included. The Kido Key Ring (server-side Ledger) is not attached: BLK-002.">Signed in your wallet · Key Ring not attached (BLK-002)</Badge>
                 ) : (
                   <Badge tone="blocked">Not a Ledger device · BLK-002</Badge>
                 )}

@@ -39,7 +39,7 @@ import { EmptyState } from '@/components/studio/primitives';
 import type { Alert, EmergencyLockResult, Status } from '@/lib/studio/types';
 import type { EmergencyLockResultPayload } from '@/lib/studio/api/types';
 
-const EMERGENCY_STEPS = ['Disable ContextLock policy', 'Block new capabilities', 'Pause / stop CRE path', 'Stop agent runtime', 'Optionally revoke agent identity'];
+const EMERGENCY_STEPS = ['Disable Kido policy', 'Block new capabilities', 'Pause / stop CRE path', 'Stop agent runtime', 'Optionally revoke agent identity'];
 
 export default function ControlPlanePage() {
   const router = useRouter();

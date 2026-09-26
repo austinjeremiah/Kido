@@ -3,7 +3,7 @@
 /**
  * Simulation Center (spec §15).
  *
- * Deterministic ContextLock simulations plus official CRE workflow simulations,
+ * Deterministic Kido simulations plus official CRE workflow simulations,
  * reported with their exact reason codes.
  *
  * Two rules the page will not bend:

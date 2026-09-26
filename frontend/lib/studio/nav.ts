@@ -274,7 +274,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'simulation',
     title: 'Simulation Center',
     tabTitle: 'Simulation',
-    purpose: 'Run deterministic ContextLock simulations and official CRE workflow simulations with exact reason codes.',
+    purpose: 'Run deterministic Kido simulations and official CRE workflow simulations with exact reason codes.',
     pageKind: 'simulation',
     quickPrompts: [
       'Explain why this scenario denied.',
@@ -392,7 +392,7 @@ export const PAGE_META: Record<string, PageMeta> = {
     segment: 'policies',
     title: 'Policies',
     tabTitle: 'Policies',
-    purpose: 'View and safely revise the current ContextLock financial authority state.',
+    purpose: 'View and safely revise the current Kido financial authority state.',
     pageKind: 'policies',
     quickPrompts: [
       'Explain this policy.',
