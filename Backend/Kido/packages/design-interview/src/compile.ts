@@ -139,6 +139,11 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
       beneficiaries,
       bridgeAllowed,
       leaseLifetimeSeconds: Number(ctx["authority.lease_lifetime"] ?? 3600),
+      swapFloors: (() => {
+        const f = ctx["limits.swap_floor"] as { minOutPerIn: string; assetIn: string; assetOut: string } | undefined;
+        if (!f || !allowed.includes("SWAP")) return [];
+        return chains.filter((c) => reg.assetsOn(c).some((a) => a.symbol === f.assetIn) && reg.assetsOn(c).some((a) => a.symbol === f.assetOut)).map((c) => ({ chain: c, ...f }));
+      })(),
     },
     monitors,
     triggers: monitors.map((m) => ({ id: `${m.id}-trigger`, kind: "MONITOR", monitor: m.id })),

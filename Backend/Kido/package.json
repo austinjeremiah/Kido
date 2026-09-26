@@ -15,6 +15,7 @@
     "packages/knowledge",
     "packages/identity",
     "packages/privacy",
+    "packages/foundry",
     "packages/amane-bridge",
     "packages/kido-runtime",
     "packages/kido-agents",

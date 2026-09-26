@@ -35,6 +35,7 @@ export function buildBlockers(bp: KidoAgentBlueprint): Blocker[] {
       if (BigInt(l.total) === 0n) out.push({ code: "KIDO_BLUEPRINT_ZERO_LIMIT", detail: `${l.chain}:${l.asset}` });
     }
     if (a.allowedActions.includes("PAY") && a.payees.length === 0) out.push({ code: "KIDO_BLUEPRINT_NO_PAYEES", detail: "PAY needs pinned payees" });
+    if (a.allowedActions.includes("SWAP") && a.swapFloors.length === 0) out.push({ code: "KIDO_BLUEPRINT_NO_SWAP_FLOOR", detail: "SWAP needs an owner price floor" });
     if (a.allowedActions.includes("REPAY") && a.beneficiaries.length === 0) out.push({ code: "KIDO_BLUEPRINT_NO_BENEFICIARY", detail: "REPAY needs a pinned beneficiary" });
     if (bp.chains.length > 1 && a.bridgeAllowed === null) out.push({ code: "KIDO_BLUEPRINT_BRIDGE_UNDECIDED", detail: "authority.bridgeAllowed" });
     if (bp.recovery.onPartialExecution === null) out.push({ code: "KIDO_BLUEPRINT_RECOVERY_UNDECIDED", detail: "recovery.onPartialExecution" });

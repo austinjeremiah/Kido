@@ -124,6 +124,8 @@ export const AuthoritySpecSchema = z.object({
   beneficiaries: z.array(PayeeSpecSchema),
   bridgeAllowed: z.boolean().nullable(),
   leaseLifetimeSeconds: z.number().int().positive().max(86_400),
+  /** Owner price floors for SWAP (TESTNET_FIXED): minimum output per unit of input, as a decimal string. */
+  swapFloors: z.array(z.object({ chain: ChainIdSchema, assetIn: z.string(), assetOut: z.string(), minOutPerIn: z.string().regex(/^[0-9]+(\.[0-9]+)?$/) })),
 });
 export type AuthoritySpec = z.infer<typeof AuthoritySpecSchema>;
 

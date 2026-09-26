@@ -6,3 +6,4 @@ export * from "./compile.js";
 export * from "./executor.js";
 export * from './strategies/payments.js';
 export * from './policy-compiler.js';
+export * from './authority.js';

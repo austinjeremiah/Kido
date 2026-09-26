@@ -28,6 +28,7 @@ export function emptyBlueprint(projectId: string, salt: string, objective: strin
       beneficiaries: [],
       bridgeAllowed: null,
       leaseLifetimeSeconds: 3600,
+      swapFloors: [],
     },
     monitors: [],
     triggers: [],

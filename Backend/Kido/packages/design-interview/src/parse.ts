@@ -152,9 +152,18 @@ export function parseObjectiveKind(s: string): ObjectiveKind {
   return "OTHER";
 }
 
+/** "at least 0.95 AMSUI for each AMUSD" → { minOutPerIn: "0.95", assetOut: "AMSUI", assetIn: "AMUSD" }. */
+export function parseSwapFloor(s: string): Parsed {
+  const m = /(\d+(?:\.\d+)?)\s*([A-Za-z]{2,10})\s*(?:for|per)\s*(?:each|every|one|1|a)?\s*([A-Za-z]{2,10})/i.exec(s);
+  if (!m) return bad("expected a rate like '0.95 AMSUI per AMUSD'");
+  if (Number(m[1]) <= 0) return bad("rate must be positive");
+  return ok({ minOutPerIn: m[1], assetOut: m[2]!.toUpperCase(), assetIn: m[3]!.toUpperCase() });
+}
+
 export function parseByType(type: AnswerType, text: string, ctx: Ctx, choices?: { value: string; label: string }[]): Parsed {
   switch (type) {
     case "yesno": return parseYesNo(text);
+    case "swap_floor": return parseSwapFloor(text);
     case "chains": return parseChains(text);
     case "amount": return parseAmount(text, ctx);
     case "actions": return parseActions(text);

@@ -3,7 +3,7 @@ import type { Action, ChainId, RequirementClass, Topic } from "@kido/blueprint";
 export type AnswerType =
   | "authority_mode" | "yesno" | "chains" | "protocols" | "actions" | "autonomy" | "asset" | "amount"
   | "payees" | "threshold" | "identity_name" | "privacy_values" | "hidden_from" | "plaintext" | "disclosure"
-  | "recovery" | "objective_kind";
+  | "recovery" | "objective_kind" | "swap_floor";
 
 export type ObjectiveKind = "LENDING_PROTECTION" | "REBALANCE" | "PAYMENTS" | "LIQUIDITY" | "TREASURY" | "MONITORING" | "RESEARCH" | "OTHER";
 
@@ -273,6 +273,16 @@ export const CATALOG: RequirementDef[] = [
       const w = c["limits.window"] as string | undefined;
       return w ? (BigInt(w) / 2n > 0n ? (BigInt(w) / 2n).toString() : w) : undefined;
     },
+  },
+  {
+    key: "limits.swap_floor",
+    topic: "LIMITS",
+    class: "USER_REQUIRED",
+    critical: true,
+    bucket: 4,
+    answerType: "swap_floor",
+    appliesWhen: (c) => bounded(c) && acts(c).includes("SWAP"),
+    question: () => ({ text: "What is the worst exchange rate you would accept for a swap? For example: at least 0.95 AMSUI for each AMUSD." }),
   },
   {
     key: "authority.lease_lifetime",
