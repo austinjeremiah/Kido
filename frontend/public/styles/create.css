@@ -21,22 +21,6 @@
   border-radius: clamp(26px, 2.9vw, 56px);
   overflow: hidden;
 
-  /* The canvas is also the .cl-studio scope, so flipping the workbench's own
-     tokens here turns every primitive inside it dark in one place — the input,
-     the buttons, the badges, the borders and all four inks — without a single
-     component rule being restated. Same element, later sheet, so these win. */
-  --cl-canvas: #0a0a0d;
-  --cl-panel: #101015;
-  --cl-panel-2: #16161c;
-  --cl-raised: #1d1d24;
-  --cl-line: rgba(254, 241, 208, 0.14);
-  --cl-line-strong: rgba(254, 241, 208, 0.3);
-  --cl-ink-heading: #fef1d0;
-  --cl-ink: #ece3cd;
-  --cl-ink-2: #c6bfad;
-  --cl-ink-3: #948e7f;
-  --cl-ink-inv: #0a0a0d;
-
   background-color: var(--cl-canvas);
 
   /* grid-template-rows is stated explicitly rather than left implicit: an
@@ -146,7 +130,7 @@
 .kc-rail__step[data-state="current"] .kc-rail__dot {
   background: var(--cl-ink);
   border-color: var(--cl-ink);
-  color: var(--cl-ink-inv);
+  color: var(--cl-canvas);
 }
 
 .kc-rail__step[data-state="todo"] { opacity: 0.55; }
@@ -314,14 +298,14 @@
   align-self: flex-end;
   border-radius: 14px 14px 4px 14px;
   background: var(--cl-ink);
-  color: var(--cl-ink-inv);
+  color: var(--cl-canvas);
 }
 
 .kc-turn--kido {
   align-self: flex-start;
   border-radius: 14px 14px 14px 4px;
   background: var(--cl-ink-heading);
-  color: var(--cl-ink-inv);
+  color: var(--cl-canvas);
 }
 
 /* --- the refusal ----------------------------------------------------------
@@ -457,7 +441,7 @@
 }
 
 .kc-box__note {
-  color: var(--cl-ink-inv);
+  color: var(--cl-canvas);
 }
 .kc-box[data-state="asking"] .kc-box__state,
 .kc-box[data-state="asking"] /* The qualifier under a drafted value — "Proposed", "registered at build". */
@@ -650,29 +634,13 @@
 .kc-rail__go:hover { opacity: 0.65; }
 .kc-rail__go:focus-visible { outline: 2px solid var(--cl-ink); outline-offset: 3px; }
 
-/* --- what the flip leaves behind ------------------------------------------
-   The verdict palette in studio.css is mixed for ink on cream: the pass green
-   and the warn amber both sit around 4.5:1 there and drop under 3:1 on black.
-   Lifted, and their backgrounds cut, so a badge is legible without becoming a
-   block of colour on a dark sheet. */
-.kc-canvas {
-  --cl-pass: #4ade80;
-  --cl-pass-bg: rgba(74, 222, 128, 0.12);
-  --cl-warn: #fbbf24;
-  --cl-warn-bg: rgba(251, 191, 36, 0.12);
-  --cl-deny: #f87171;
-  --cl-deny-bg: rgba(248, 113, 113, 0.12);
-  --cl-sim: #a78bfa;
-  --cl-sim-bg: rgba(167, 139, 250, 0.12);
-  --cl-accent: #7aa7ff;
-}
 
 /* The two conversation bubbles were filled with the page's darkest ink so they
    would read on cream. On black that is a bubble you cannot see, so they swap:
    yours takes the cream, Kido's takes a raised panel. */
 .kc-turn--you {
   background: var(--cl-ink-heading);
-  color: var(--cl-ink-inv);
+  color: var(--cl-canvas);
 }
 
 .kc-turn--kido {
@@ -696,12 +664,13 @@
 .kc-box[data-state="asking"] .kc-box__wants,
 .kc-box[data-state="asking"] .kc-box__state,
 .kc-box[data-state="asking"] .kc-box__note {
-  color: var(--cl-ink-inv);
+  color: var(--cl-canvas);
 }
 
-/* The primary button follows the same inversion as the bubble. */
-.kc-canvas .cl-btn-primary {
+
+
+.kc-canvas .cl-btn-invert:hover:not(:disabled) {
   background: var(--cl-ink-heading);
   border-color: var(--cl-ink-heading);
-  color: var(--cl-ink-inv);
+  color: var(--cl-canvas);
 }

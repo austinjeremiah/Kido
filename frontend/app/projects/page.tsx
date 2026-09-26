@@ -13,7 +13,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Archive, Copy, Download, FolderOpen, Plus, RefreshCw, Search, Wallet } from 'lucide-react';
 import { Badge, BlockerBanner, CRE_MODE_LABEL, StatusBadge, TimeAgo } from '@/components/studio/primitives';
 import { Modal } from '@/components/studio/dialogs';
-import { NewProjectModal } from '@/components/studio/NewProjectModal';
 import { WalletChip } from '@/components/studio/wallet/WalletChip';
 import { useWalletSession } from '@/lib/studio/wallet-session';
 import { PROJECT_TEMPLATES } from '@/lib/studio/content/templates';
@@ -65,8 +64,6 @@ export default function ProjectsHome() {
   const invalidate = useInvalidateAll();
   const { requestConnect } = useWalletSession();
   const [query, setQuery] = useState('');
-  const [newOpen, setNewOpen] = useState(false);
-  const [templateId, setTemplateId] = useState<string | undefined>(undefined);
   const [importOpen, setImportOpen] = useState(false);
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -116,7 +113,7 @@ export default function ProjectsHome() {
   const anonymous = user === ANONYMOUS_USER;
 
   return (
-    <div className="cl-studio" style={{ minHeight: '100vh', background: 'var(--cl-canvas)' }}>
+    <div className="cl-studio cl-dark" style={{ minHeight: '100vh', background: 'var(--cl-canvas)' }}>
       <Suspense fallback={null}>
         <ConnectOnEntry />
       </Suspense>
@@ -140,7 +137,7 @@ export default function ProjectsHome() {
             style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: 13 }}
           />
         </div>
-        <button type="button" className="cl-btn cl-btn-invert" onClick={() => { setTemplateId(undefined); setNewOpen(true); }}>
+        <button type="button" className="cl-btn cl-btn-invert" onClick={() => router.push('/new')}>
           <Plus size={13} aria-hidden />
           New Agent
         </button>
@@ -200,7 +197,7 @@ export default function ProjectsHome() {
               <p className="cl-meta" style={{ whiteSpace: 'normal', marginTop: 6 }}>
                 Describe an agent to create the first one. Kido designs its authority, reviews it and stops for your approval before generating any code.
               </p>
-              <button type="button" className="cl-btn cl-btn-primary" style={{ marginTop: 12 }} onClick={() => { setTemplateId(undefined); setNewOpen(true); }}>
+              <button type="button" className="cl-btn cl-btn-primary" style={{ marginTop: 12 }} onClick={() => router.push('/new')}>
                 <Plus size={13} aria-hidden />
                 New Agent
               </button>
@@ -291,7 +288,7 @@ export default function ProjectsHome() {
                 type="button"
                 className="cl-card"
                 style={{ textAlign: 'left', cursor: 'pointer', padding: 0 }}
-                onClick={() => { setTemplateId(t.id); setNewOpen(true); }}
+                onClick={() => router.push(`/new?template=${encodeURIComponent(t.id)}`)}
               >
                 <div className="cl-card-body">
                   <div className="cl-strong" style={{ fontSize: 13 }}>{t.name}</div>
@@ -306,7 +303,6 @@ export default function ProjectsHome() {
         </section>
       </main>
 
-      <NewProjectModal open={newOpen} onClose={() => setNewOpen(false)} templateId={templateId} />
 
       <Modal
         open={importOpen}

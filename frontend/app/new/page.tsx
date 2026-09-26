@@ -21,7 +21,8 @@
  * questions, their rules and the review's checks are real, so when the backend
  * is ready this wires to it rather than being rewritten.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { PromptComposer } from '@/components/create/PromptComposer';
 import { CreateSteps, type CreateStepId } from '@/components/create/CreateSteps';
@@ -29,7 +30,8 @@ import { RequirementBoxes } from '@/components/create/RequirementBoxes';
 import { BlueprintBoxes } from '@/components/create/BlueprintBoxes';
 import { FindingList, ApprovalList, BuildProgress, TestResults, type Suite } from '@/components/create/StagePanes';
 import { EmptyState } from '@/components/studio/primitives';
-import { CLARIFYING_QUESTIONS } from '@/lib/studio/content/composer';
+import { CLARIFYING_QUESTIONS, COMPOSER_EXAMPLES } from '@/lib/studio/content/composer';
+import { PROJECT_TEMPLATES } from '@/lib/studio/content/templates';
 import { reviewOf, type Finding } from '@/lib/create/review';
 
 type Stage = 'DESCRIBE' | 'REQUIREMENTS' | 'BLUEPRINT' | 'SECURITY' | 'APPROVE' | 'BUILD' | 'TEST' | 'DONE';
@@ -74,12 +76,24 @@ const SUITES: Suite[] = [
   { name: 'Refusal on stale data', passed: 3, failed: 0 },
 ];
 
-export default function CreatePage() {
+function CreateFlow() {
   const [stage, setStage] = useState<Stage>('DESCRIBE');
   /* How far the run has got, which is as far back as the rail can jump from.
      Going back never rewinds it — the work already done still exists. */
   const [furthest, setFurthest] = useState<Stage>('DESCRIBE');
   const [prompt, setPrompt] = useState('');
+
+  /* A template chosen on the dashboard arrives as a query parameter and opens
+     the box already filled, rather than as a second creation route with its own
+     form. There is one way to make an agent, and this is a head start on it. */
+  const params = useSearchParams();
+  const seeded = (() => {
+    const id = params.get('template');
+    if (!id) return '';
+    const t = PROJECT_TEMPLATES.find((x) => x.id === id);
+    if (t?.prompt) return t.prompt;
+    return COMPOSER_EXAMPLES.find((x) => x.id === id)?.body ?? '';
+  })();
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [turns, setTurns] = useState<Turn[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -271,7 +285,7 @@ export default function CreatePage() {
 
   return (
     <div className="kc">
-      <div className="kc-canvas cl-studio">
+      <div className="kc-canvas cl-studio cl-dark">
         <section className="kc-half kc-half--left">
           <header className="kc-chat__head">
             <p className="cl-meta">New agent</p>
@@ -340,7 +354,7 @@ export default function CreatePage() {
               refuses={current?.userMustDecide}
               starters={stage === 'DESCRIBE'}
               allowEmpty={stage === 'BLUEPRINT'}
-              initialValue={stage === 'DESCRIBE' ? prompt : ''}
+              initialValue={stage === 'DESCRIBE' ? prompt || seeded : ''}
             />
           )}
         </section>
@@ -392,5 +406,15 @@ export default function CreatePage() {
         </section>
       </div>
     </div>
+  );
+}
+
+/* useSearchParams needs a suspense boundary to keep the route from opting the
+   whole page into client-side rendering. */
+export default function CreatePage() {
+  return (
+    <Suspense fallback={null}>
+      <CreateFlow />
+    </Suspense>
   );
 }

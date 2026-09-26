@@ -1588,3 +1588,138 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
 .cl-titlebar .cl-card-title,
 .cl-statusbar .cl-card-title,
 .cl-chrome-bar .cl-card-title { color: inherit; }
+
+/* ============================================================================
+   Dark theme
+   ----------------------------------------------------------------------------
+   One modifier on the .cl-studio scope. Every surface, ink and line in this
+   sheet reads from a token, so redefining the tokens turns the whole workbench
+   dark without a single component rule being restated.
+
+   Near-black carrying a warm cast rather than true neutral: the product's ink
+   is cream, and a pure-grey ground under cream type reads as two palettes
+   sharing a screen rather than one turned down.
+   ========================================================================== */
+.cl-studio.cl-dark,
+.cl-dark .cl-studio,
+.cl-studio.cl-theme-dark,
+.cl-theme-dark .cl-studio {
+  --cl-canvas: #0a0a0d;
+  --cl-panel: #101015;
+  --cl-panel-2: #16161c;
+  --cl-raised: #1d1d24;
+  --cl-chrome: #08080b;
+  --cl-chrome-2: #101015;
+
+  --cl-ink-heading: #fef1d0;
+  --cl-ink: #ece3cd;
+  --cl-ink-2: #c6bfad;
+  --cl-ink-3: #948e7f;
+  /* Ink on the chrome bar, which is the job this token actually has. It stays
+     light because the chrome stays dark — setting it near-black to serve
+     "text on a cream button" put invisible text across the whole top bar.
+     Anything sitting on a cream fill uses --cl-canvas instead. */
+  --cl-ink-inv: #fef1d0;
+
+  --cl-line: rgba(254, 241, 208, 0.14);
+  --cl-line-strong: rgba(254, 241, 208, 0.3);
+  --cl-line-chrome: rgba(254, 241, 208, 0.16);
+  --cl-canvas-dot: rgba(254, 241, 208, 0.22);
+
+  /* The verdict palette is mixed for ink on cream: pass and warn both sit
+     around 4.5:1 there and fall under 3:1 on black. Lifted, with their
+     backgrounds cut, so a badge stays legible without becoming a slab. */
+  --cl-pass: #4ade80;
+  --cl-pass-bg: rgba(74, 222, 128, 0.12);
+  --cl-warn: #fbbf24;
+  --cl-warn-bg: rgba(251, 191, 36, 0.12);
+  --cl-deny: #f87171;
+  --cl-deny-bg: rgba(248, 113, 113, 0.12);
+  --cl-sim: #a78bfa;
+  --cl-sim-bg: rgba(167, 139, 250, 0.12);
+  --cl-data: #67c9e0;
+  --cl-accent: #7aa7ff;
+}
+
+/* The two places in this sheet that hardcode a white instead of reading a
+   token, and so cannot follow the flip. The first matters most: it turned a
+   focused text field white under cream type, which is the one state an input
+   must never be in. */
+.cl-dark .cl-input:focus,
+.cl-dark .cl-select:focus,
+.cl-dark .cl-textarea:focus,
+.cl-theme-dark .cl-input:focus,
+.cl-theme-dark .cl-select:focus,
+.cl-theme-dark .cl-textarea:focus {
+  background: var(--cl-raised);
+  border-color: var(--cl-ink-heading);
+}
+
+.cl-dark .cl-btn-invert:hover:not(:disabled),
+.cl-theme-dark .cl-btn-invert:hover:not(:disabled) {
+  background: var(--cl-ink-heading);
+  border-color: var(--cl-ink-heading);
+  color: var(--cl-ink-inv);
+}
+
+/* --- chrome-relative components -------------------------------------------
+   A handful of pieces are not coloured absolutely but *against the chrome bar*:
+   they take --cl-canvas as their fill and --cl-chrome as their ink, which in
+   the cream theme means a cream chip with dark text on a dark blue bar.
+
+   Inverted, canvas and chrome are both near-black, so each of them became a
+   black shape carrying black text on a black bar. They are pinned to the
+   cream/ground pair instead, which is what "inverted against the chrome"
+   actually means once the chrome is the dark one. */
+.cl-dark .cl-btn-invert,
+.cl-dark .cl-env-badge,
+.cl-theme-dark .cl-btn-invert,
+.cl-theme-dark .cl-env-badge {
+  background: var(--cl-ink-heading);
+  border-color: var(--cl-ink-heading);
+  color: var(--cl-canvas);
+}
+
+.cl-dark .cl-env-badge span,
+.cl-theme-dark .cl-env-badge span {
+  color: var(--cl-canvas);
+}
+
+/* The bar needs to separate from the page it sits above. In the cream theme
+   the two are a dark blue and a cream and separate on their own; here they are
+   both near-black, so the chrome is lifted a few points to read as a bar. */
+.cl-studio.cl-dark,
+.cl-dark .cl-studio,
+.cl-studio.cl-theme-dark,
+.cl-theme-dark .cl-studio {
+  --cl-chrome: #131318;
+  --cl-chrome-2: #1b1b21;
+}
+
+/* --- the primary button ----------------------------------------------------
+   The only component in the sheet that uses an ink token as a *fill*:
+
+     .cl-btn-primary { background: var(--cl-ink); color: var(--cl-ink-inv); }
+
+   On cream that is the blue with cream text. Inverted, both tokens are light,
+   so it became cream on cream. It takes the heading cream and the ground, the
+   same pairing every other filled thing on the dark theme uses.
+
+   The remaining --cl-ink uses in the sheet are all border-colour on focus or
+   hover, which stay correct: a cream edge on a dark field is exactly the
+   emphasis a blue edge gave on a cream one. */
+.cl-dark .cl-btn-primary,
+.cl-theme-dark .cl-btn-primary {
+  background: var(--cl-ink-heading);
+  border-color: var(--cl-ink-heading);
+  color: var(--cl-canvas);
+}
+
+/* Hover dims rather than inverting: going cream to dark reads as the button
+   switching off at the moment it is about to be pressed. */
+.cl-dark .cl-btn-primary:hover:not(:disabled),
+.cl-theme-dark .cl-btn-primary:hover:not(:disabled) {
+  background: var(--cl-ink-2);
+  border-color: var(--cl-ink-2);
+  color: var(--cl-canvas);
+}

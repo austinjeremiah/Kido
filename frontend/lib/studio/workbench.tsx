@@ -39,7 +39,11 @@ export interface Appearance {
   editorFontSize: number;
 }
 
-export const DEFAULT_APPEARANCE: Appearance = { theme: 'auto', density: 'comfortable', editorFontSize: 13 };
+/* The product is dark. 'auto' used to mean "light everywhere except the code
+   page", which was right when the rest of the workbench was cream and is a
+   half-converted app now that it is not. The setting still exists — a reader
+   can still choose light — this only changes what they get before they do. */
+export const DEFAULT_APPEARANCE: Appearance = { theme: 'dark', density: 'comfortable', editorFontSize: 13 };
 
 export interface PanelSizes {
   explorer: number;
@@ -200,7 +204,15 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
         setActiveTabId(saved.tabs[saved.tabs.length - 1]?.id ?? null);
       }
       if (typeof saved.developerMode === 'boolean') setDeveloperMode(saved.developerMode);
-      if (saved.appearance) setAppearanceState({ ...DEFAULT_APPEARANCE, ...saved.appearance });
+      if (saved.appearance) {
+        /* 'auto' used to mean "light, except the code page", which was right
+           while the rest of the workbench was cream. It is a half-converted app
+           now, and a reader who never opened Settings has that value saved from
+           before. It migrates to dark rather than being honoured; anyone who
+           deliberately chose light or dark keeps what they chose. */
+        const restored = { ...DEFAULT_APPEARANCE, ...saved.appearance };
+        setAppearanceState(restored.theme === 'auto' ? { ...restored, theme: 'dark' } : restored);
+      }
     }
     setHydrated(true);
   }, []);
