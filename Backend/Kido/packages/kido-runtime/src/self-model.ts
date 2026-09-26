@@ -54,7 +54,7 @@ export interface AgentSelfModel {
   authority: {
     mode: string | null;
     amaneActive: boolean;
-    limits: { chain: ChainId; asset: string; perAction: string; perWindow: string; windowSeconds: number; total: string }[];
+    limits: { chain: ChainId; asset: string; perAction: string; perWindow: string; windowSeconds: number; total: string; readable?: string }[];
     payees: { label: string; chain: ChainId; address: string }[];
     beneficiaries: { label: string; chain: ChainId; address: string }[];
     lease: { leaseId: string; expiresAt: number; revoked: boolean; remaining: { chain: ChainId; asset: string; perWindow: string; total: string }[] } | "unknown";
@@ -100,7 +100,11 @@ export function buildSelfModel(bp: KidoAgentBlueprint, rt: RuntimeSnapshot = {},
     authority: {
       mode: a.mode,
       amaneActive: a.provider === "AMANE" && Boolean(rt.lease && !rt.lease.revoked && rt.lease.expiresAt * 1000 > (rt.observedAt ?? Date.now())),
-      limits: a.limits,
+      limits: a.limits.map((l) => {
+        const dec = bp.assets.find((x) => x.chain === l.chain && x.symbol === l.asset)?.decimals;
+        const h = (v: string) => (dec === undefined ? `${v} base units` : `${Number(BigInt(v)) / 10 ** dec} ${l.asset}`);
+        return { ...l, readable: `${h(l.perAction)} per action, ${h(l.perWindow)} per ${l.windowSeconds / 3600 >= 1 ? `${l.windowSeconds / 3600} h` : `${l.windowSeconds} s`}, ${h(l.total)} in total` };
+      }),
       // Pinned recipients are policy, not secrets: the owner signed them into the Root Policy.
       payees: a.payees.map((p) => ({ label: p.label, chain: p.chain, address: p.address })),
       beneficiaries: a.beneficiaries.map((b) => ({ label: b.label, chain: b.chain, address: b.address })),
