@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildBlockers, emptyBlueprint, nextRevision, type KidoAgentBlueprint, type PrivateValueSpec } from "@kido/blueprint";
 import { ProviderRegistry } from "@kido/registry";
 import { PrivacyGuard, PrivacyLeakError, applyPrivacyPlan, compilePrivacy } from "../src/index.js";
+const FACTS = new ProviderRegistry().gateFacts();
 
 const reg = new ProviderRegistry();
 const v = (o: Partial<PrivateValueSpec>): PrivateValueSpec => ({ id: "x", description: "x", kind: "PRIVATE_API_CREDENTIAL", hiddenFrom: ["AI_AGENT"], plaintextBoundary: "KIDO_SECRET_STORE", allowedDisclosure: "FULL_RESULT", failurePolicy: "FAIL_CLOSED", ...o });
@@ -60,9 +61,9 @@ describe("privacy requirements compiler", () => {
 
   it("the compiled plan makes the blueprint buildable; an unsatisfiable value keeps it blocked", () => {
     const ok = bp(["ethereum-sepolia"], [v({ id: "api-key" })]);
-    expect(buildBlockers(applyPrivacyPlan(ok, compilePrivacy(ok, reg)))).toEqual([]);
+    expect(buildBlockers(applyPrivacyPlan(ok, compilePrivacy(ok, reg)), FACTS)).toEqual([]);
     const bad = bp(["ethereum-sepolia"], [v({ id: "api-key", hiddenFrom: ["NORMAL_KIDO_BACKEND"] })]);
-    expect(buildBlockers(applyPrivacyPlan(bad, compilePrivacy(bad, reg))).map((b) => b.code)).toContain("KIDO_BLUEPRINT_UNSATISFIABLE");
+    expect(buildBlockers(applyPrivacyPlan(bad, compilePrivacy(bad, reg)), FACTS).map((b) => b.code)).toContain("KIDO_BLUEPRINT_UNSATISFIABLE");
   });
 });
 

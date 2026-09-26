@@ -26,11 +26,22 @@ export function applyResolutions(bp: KidoAgentBlueprint, updates: ResolutionUpda
     }
     byKey.set(resolution.key, resolution);
   }
-  return nextRevision(bp, { requirements: [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key)) });
+  const edited = updates.filter((u) => u.explicitUserEdit).map((u) => u.resolution.key);
+  return nextRevision(bp, { requirements: [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key)) }, { allowConfirmedChange: edited });
 }
 
 /** Every change is a new, immutable revision that commits to its parent. */
-export function nextRevision(bp: KidoAgentBlueprint, patch: Partial<KidoAgentBlueprint>): KidoAgentBlueprint {
+export function nextRevision(bp: KidoAgentBlueprint, patch: Partial<KidoAgentBlueprint>, opts: { allowConfirmedChange?: string[] } = {}): KidoAgentBlueprint {
+  if (patch.requirements) {
+    // Confirmed requirements survive every revision unless the user explicitly edited them (BREAK F-0524).
+    const allow = new Set(opts.allowConfirmedChange ?? []);
+    const after = new Map(patch.requirements.map((r) => [r.key, r]));
+    for (const r of bp.requirements) {
+      if (!r.confirmed || allow.has(r.key)) continue;
+      const n = after.get(r.key);
+      if (!n || JSON.stringify(n.value) !== JSON.stringify(r.value) || n.status !== r.status) throw new ConfirmedRequirementError(r.key);
+    }
+  }
   const next = { ...bp, ...patch, revision: bp.revision + 1, parentRevisionHash: blueprintHash(bp) };
   return BlueprintSchema.parse(next);
 }

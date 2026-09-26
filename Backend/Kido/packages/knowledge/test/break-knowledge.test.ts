@@ -21,10 +21,12 @@ function fixture(packs: { pack: string; providerId: string | null; version: stri
 
 describe("BREAK: knowledge drift", () => {
   it("break_F0530_amane_pack_version_drift_not_detected", () => {
-    // platform/amane says version "1"; the registry pins "testnet release v1 (EVM account + Sui v4 package)".
+    // A platform/amane pack at version "1" while the registry pins the current Amane release.
     const amane = reg.get("amane")!;
-    expect(kb.get(amane.knowledgePack)!.manifest.version).not.toBe(amane.version);
-    expect(kb.drift(reg).map((i) => i.pack)).toContain("platform/amane");
+    const stale = KnowledgeBase.load(fixture([{ pack: amane.knowledgePack, providerId: null, version: "1", facts: "" }]));
+    expect(stale.drift(reg).filter((i) => i.source === "registry").map((i) => i.pack)).toContain("platform/amane");
+    // the shipped pack matches the registry
+    expect(kb.drift(reg).filter((i) => i.pack === "platform/amane")).toEqual([]);
   });
 
   it("break_F0530_adapter_drift_ignored_when_pack_lacks_provider_id", () => {

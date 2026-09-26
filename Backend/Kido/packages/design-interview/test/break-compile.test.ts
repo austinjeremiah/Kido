@@ -3,6 +3,7 @@ import { blueprintHash, buildBlockers } from "@kido/blueprint";
 import { ProviderRegistry } from "@kido/registry";
 import { DesignInterview, compileBlueprint } from "../src/index.js";
 import { drive, model } from "./break-helpers.js";
+const FACTS = new ProviderRegistry().gateFacts();
 
 describe("BREAK: requirements compiler", () => {
   it("break_F0521_limit_invented_in_asset_user_never_chose", async () => {
@@ -45,7 +46,7 @@ describe("BREAK: requirements compiler", () => {
       const m = reg.get(a.providerId);
       return !m || !m.chains.includes(a.chain) || !m.capabilities.includes(need[a.action] ?? a.action);
     });
-    expect(unserved.length === 0 || buildBlockers(bp).length > 0).toBe(true);
+    expect(unserved.length === 0 || buildBlockers(bp, FACTS).length > 0).toBe(true);
   });
 });
 

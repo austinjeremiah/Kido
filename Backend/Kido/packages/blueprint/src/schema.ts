@@ -191,7 +191,8 @@ export const RecoveryPolicySchema = z.object({
 
 export const CrossChainPolicySchema = z.object({
   allowed: z.boolean(),
-  transports: z.array(z.enum(["wormhole", "layerzero", "mock"])),
+  /** Transport provider ids from the registry; the gate checks each one exists and spans the chains. */
+  transports: z.array(z.string().min(1)),
   maxAmountPerIntent: z.array(z.object({ asset: z.string(), amount: baseUnits })),
   recoveryDeadlineSeconds: z.number().int().positive(),
 });

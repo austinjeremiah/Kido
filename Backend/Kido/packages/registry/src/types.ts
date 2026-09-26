@@ -12,7 +12,8 @@ export const CAPABILITIES = {
   authority: ["BOUNDED_EXECUTION", "LEASES", "PAUSE", "REVOKE", "RECOVERY_WITHDRAWAL"],
 } as const satisfies Record<ProviderKind, readonly string[]>;
 
-export type ProviderStatus = "VERIFIED_LIVE" | "VERIFIED_DOCS" | "UNVERIFIED" | "MOCK_ONLY" | "BLOCKED_ENV";
+/** NOT_SHIPPED: documented and planned, but the execution adapter it needs does not exist yet. */
+export type ProviderStatus = "VERIFIED_LIVE" | "VERIFIED_DOCS" | "UNVERIFIED" | "MOCK_ONLY" | "BLOCKED_ENV" | "NOT_SHIPPED";
 
 export interface TrustProfile {
   providerId: string;
@@ -28,6 +29,8 @@ export interface ProviderManifest {
   schemaVersion: "kido.provider/v1";
   providerId: string;
   displayName: string;
+  /** Words a user may use to name this provider ("Aave", "Uniswap"). */
+  aliases: string[];
   kind: ProviderKind;
   category: string;
   chains: ChainId[];
@@ -45,8 +48,12 @@ export interface ProviderManifest {
   /** Capabilities whose live status differs from the provider's (e.g. resolve live, register blocked). */
   capabilityStatus?: Record<string, { status: ProviderStatus; note: string }>;
   knowledgePack: string;
+  /** Authority providers: repository path of the deployment manifest the runtime reads addresses from. */
+  deploymentManifestRef?: string;
+  /** Privacy providers: audiences that can see a protected value in plaintext at this provider. */
+  plaintextVisibleTo?: string[];
   /** Maps semantic actions to the adapter that executes them when Amane authority is selected. */
-  execution?: { action: string; adapter: string; amaneAdapter: string | null; shipped: boolean }[];
+  execution?: { action: string; capability: string; adapter: string; amaneAdapter: string | null; shipped: boolean }[];
 }
 
 export interface AssetEntry {
@@ -57,4 +64,6 @@ export interface AssetEntry {
   testnetOnly: boolean;
   economicClass: string;
   note: string;
+  /** Providers whose actions can spend this asset on this chain. */
+  usableWith: string[];
 }

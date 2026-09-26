@@ -5,6 +5,7 @@ import type { DriftIssue } from "@kido/knowledge";
 import type { PrivacyPlan } from "@kido/privacy";
 import type { ProviderRegistry } from "@kido/registry";
 import type { AuthorityResult } from "@kido/runtime";
+import { KIDO_DEFAULTS } from "@kido/design-interview";
 
 export type Severity = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO";
 
@@ -41,7 +42,7 @@ export function securityReview(bp: KidoAgentBlueprint, i: ReviewInputs): Securit
   const out: SecurityFinding[] = [];
   const a = bp.authority;
 
-  for (const b of buildBlockers(bp)) out.push(f(`blocker.${b.code}.${b.detail}`, "unknown-or-invalid-requirement", "CRITICAL", `${b.code}: ${b.detail}`));
+  for (const b of buildBlockers(bp, i.registry.gateFacts())) out.push(f(`blocker.${b.code}.${b.detail}`, "unknown-or-invalid-requirement", "CRITICAL", `${b.code}: ${b.detail}`));
 
   for (const p of a.payees) if (/^0x0+$/.test(p.address) || p.address === "*") out.push(f(`recipient.${p.label}`, "arbitrary-recipient", "CRITICAL", `payee ${p.label} is not a concrete address`));
   const huge = 1n << 128n;
@@ -72,7 +73,7 @@ export function securityReview(bp: KidoAgentBlueprint, i: ReviewInputs): Securit
     if (m.thresholdPrivateRef && m.threshold !== null) out.push(f(`privacy.threshold.${m.id}`, "privacy-leakage", "CRITICAL", `private threshold ${m.thresholdPrivateRef} also stored in plaintext`));
     if (m.thresholdPrivateRef && !priv) out.push(f(`privacy.ref.${m.id}`, "privacy-leakage", "CRITICAL", `monitor references unknown private value ${m.thresholdPrivateRef}`));
     const src = bp.dataSources.find((d) => d.id === m.dataSource);
-    if (m.response === "DETERMINISTIC_ACTION" && src && src.maxAgeMs > 300_000) out.push(f(`data.stale.${m.id}`, "stale-data", "MEDIUM", `${src.id} may be ${src.maxAgeMs} ms old when acting`, false));
+    if (m.response === "DETERMINISTIC_ACTION" && src && src.maxAgeMs > KIDO_DEFAULTS.reviewMaxDataAgeMs) out.push(f(`data.stale.${m.id}`, "stale-data", "MEDIUM", `${src.id} may be ${src.maxAgeMs} ms old when acting`, false));
     if (m.response === "DETERMINISTIC_ACTION" && src && src.onUnavailable !== "FAIL_CLOSED") out.push(f(`data.fallback.${m.id}`, "stale-data", "HIGH", `${src.id} does not fail closed`));
   }
   for (const v of i.privacyPlan.values) {

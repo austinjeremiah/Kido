@@ -8,24 +8,11 @@ import {
   type PrivateValueSpec,
 } from "@kido/blueprint";
 import { ProviderRegistry } from "@kido/registry";
-import { PROTOCOL_ASSETS, type Ctx, type ObjectiveKind } from "./catalog.js";
-import { DECIMALS } from "./parse.js";
+import { UNSERVED_PROVIDER } from "@kido/blueprint";
+import { byKey, type Ctx, type ObjectiveKind } from "./catalog.js";
+import { KIDO_DEFAULTS } from "./defaults.js";
 
 const SPECIALIST_FOR: Partial<Record<Action, string>> = { REPAY: "RepayDebtAgent", SWAP: "SwapAgent", PAY: "PaymentAgent", BRIDGE: "BridgeAgent", SUPPLY: "LiquidityAgent" };
-
-function assetOn(chain: ChainId, preferred: string | undefined, protocols: string[], reg: ProviderRegistry): string | undefined {
-  const onChain = reg.assetsOn(chain).map((a) => a.symbol);
-  if (preferred && onChain.includes(preferred)) return preferred;
-  const fromProto = protocols.filter((p) => reg.chainsFor(p).includes(chain)).flatMap((p) => PROTOCOL_ASSETS[p] ?? []);
-  return fromProto.find((s) => onChain.includes(s)) ?? (onChain.includes("AMUSD") ? "AMUSD" : undefined);
-}
-
-/** Re-express an amount given in the chosen asset's base units in another asset's base units (same nominal value). */
-function rescale(units: string, from: string, to: string): string {
-  const d = (DECIMALS[to] ?? 6) - (DECIMALS[from] ?? 6);
-  const v = BigInt(units);
-  return (d >= 0 ? v * 10n ** BigInt(d) : v / 10n ** BigInt(-d)).toString();
-}
 
 /**
  * Requirements compiler: resolved interview answers → canonical blueprint fields. It never adds a
@@ -43,24 +30,33 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
   const allowed = financial || mode === "PROPOSE_ONLY" ? ((ctx["actions.allowed"] as Action[] | undefined) ?? []).filter((a) => a !== "BORROW" && a !== "WITHDRAW") : [];
   const spend = ctx["assets.spend"] as string | undefined;
 
+  // Providers that execute each allowed action on each chain: the selected protocols, or the
+  // registry's executors for actions no protocol is chosen for (payments). (BREAK F-0522)
+  const executorsFor = (a: Action, c: ChainId) => {
+    const all = reg.executors(a, c).map((p) => p.providerId);
+    const chosen = all.filter((id) => protocols.includes(id));
+    return chosen.length ? chosen : all.filter((id) => reg.get(id)?.kind !== "protocol");
+  };
+  const bindings = allowed.flatMap((a) => chains.flatMap((c) => executorsFor(a, c).map((providerId) => ({ action: a, chain: c, providerId }))));
+
+  // Budgets exist only in the asset the user chose, on the chains where it exists. (BREAK F-0521)
   const limits: LimitSpec[] = [];
   const assets: KidoAgentBlueprint["assets"] = [];
+  const floor = ctx["limits.swap_floor"] as { minOutPerIn: string; assetIn: string; assetOut: string } | undefined;
   if (financial) {
+    const held = new Set([spend, ...(allowed.includes("SWAP") && floor ? [floor.assetIn, floor.assetOut] : [])].filter(Boolean) as string[]);
     for (const c of chains) {
-      const sym = assetOn(c, spend, protocols, reg);
-      const entry = sym ? reg.assetsOn(c).find((a) => a.symbol === sym) : undefined;
-      if (!entry) continue;
-      assets.push({ symbol: entry.symbol, chain: c, ref: entry.ref, decimals: entry.decimals, testnetOnly: entry.testnetOnly });
+      for (const entry of reg.assetsOn(c).filter((a) => held.has(a.symbol))) assets.push({ symbol: entry.symbol, chain: c, ref: entry.ref, decimals: entry.decimals, testnetOnly: entry.testnetOnly });
       const w = ctx["limits.window"] as string | undefined, t = ctx["limits.total"] as string | undefined;
-      if (mode === "BOUNDED_AUTONOMOUS_FINANCE" && w && t && spend) {
+      if (mode === "BOUNDED_AUTONOMOUS_FINANCE" && w && t && spend && reg.assetsOn(c).some((a) => a.symbol === spend)) {
         const pa = (ctx["limits.per_action"] as string | undefined) ?? w;
-        limits.push({ chain: c, asset: entry.symbol, perAction: rescale(pa, spend, entry.symbol), perWindow: rescale(w, spend, entry.symbol), windowSeconds: 3600, total: rescale(t, spend, entry.symbol) });
+        limits.push({ chain: c, asset: spend, perAction: pa, perWindow: w, windowSeconds: KIDO_DEFAULTS.limitWindowSeconds, total: t });
       }
     }
   }
 
   const payees = financial ? ((ctx["payees"] as { label: string; chain: ChainId; address: string }[] | undefined) ?? []).filter((p) => chains.includes(p.chain)) : [];
-  const beneficiaries = financial && allowed.includes("REPAY") && ctx["beneficiary"] === "SELF" ? chains.filter((c) => c === "ethereum-sepolia").map((c) => ({ label: "self", chain: c, address: "SELF" })) : [];
+  const beneficiaries = financial && allowed.includes("REPAY") && ctx["beneficiary"] === "SELF" ? [...new Set(bindings.filter((b) => b.action === "REPAY").map((b) => b.chain))].map((c) => ({ label: "self", chain: c, address: "SELF" })) : [];
 
   const privateValues: PrivateValueSpec[] = ctx["privacy.required"] === true
     ? ((ctx["privacy.values"] as { id: string; kind: PrivateValueSpec["kind"]; description: string }[] | undefined) ?? []).map((v) => ({
@@ -81,8 +77,8 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
   const onUnavailable = ctx["data.oracle_failure"] === "FAIL_CLOSED" || ctx["data.oracle_failure"] === undefined ? "FAIL_CLOSED" : "NOTIFY_OWNER";
   if (cond) {
     const src = protocols[0] ?? "chain-rpc";
-    const chain = protocols[0] ? (reg.chainsFor(protocols[0])[0] ?? chains[0] ?? null) : (chains[0] ?? null);
-    dataSources.push({ id: `${src}-state`, providerId: src, chain, kind: cond.metric, minTrust: "RPC_DIRECT", maxAgeMs: 60_000, onUnavailable, privateValueRef: null });
+    const chain = (protocols[0] ? reg.chainsFor(protocols[0]).find((c) => chains.includes(c)) : undefined) ?? chains[0] ?? null;
+    dataSources.push({ id: `${src}-state`, providerId: src, chain, kind: cond.metric, minTrust: "RPC_DIRECT", maxAgeMs: KIDO_DEFAULTS.dataMaxAgeMs, onUnavailable, privateValueRef: null });
     const action: Action | null = kind === "LENDING_PROTECTION" && allowed.includes("REPAY") ? "REPAY" : kind === "REBALANCE" && allowed.includes("SWAP") ? "SWAP" : null;
     monitors.push({
       id: `${cond.metric.toLowerCase()}-watch`,
@@ -99,10 +95,13 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
   const specialists = [...new Set(allowed.map((a) => SPECIALIST_FOR[a]).filter(Boolean))] as string[];
   const recoveryMode = (ctx["recovery.partial"] as KidoAgentBlueprint["recovery"]["onPartialExecution"]) ?? null;
   if (recoveryMode === "WAKE_RECOVERY_AGENT") specialists.push("RecoveryAgent");
-  const packsFor = (role: string): string[] => {
-    const base = ["platform/kido", "platform/actions"];
-    const protoPacks = protocols.map((p) => reg.get(p)?.knowledgePack).filter(Boolean) as string[];
-    return [...base, ...(mode === "BOUNDED_AUTONOMOUS_FINANCE" ? ["platform/amane"] : []), ...(role === "BridgeAgent" ? ["transport/mock"] : protoPacks)];
+  const authorityProvider = mode === "BOUNDED_AUTONOMOUS_FINANCE" ? reg.providers.find((p) => p.kind === "authority") : undefined;
+  const transports = reg.providers.filter((p) => p.kind === "transport" && KIDO_DEFAULTS.transportStatuses.includes(p.status) && chains.every((c) => p.chains.includes(c)));
+  // Each specialist gets the packs of the providers that execute its own actions. (BREAK F-0533)
+  const packsFor = (role: string, owns: Action[]): string[] => {
+    const providers = role === "BridgeAgent" ? transports.map((t) => t.providerId) : [...new Set(bindings.filter((b) => owns.includes(b.action)).map((b) => b.providerId))];
+    const packs = providers.map((id) => reg.get(id)?.knowledgePack).filter(Boolean) as string[];
+    return [...new Set([...KIDO_DEFAULTS.basePacks, ...(authorityProvider ? [authorityProvider.knowledgePack] : []), ...packs])];
   };
 
   const bridgeAllowed = financial ? ((ctx["authority.bridge"] as boolean | undefined) ?? (chains.length <= 1 ? false : null)) : false;
@@ -123,7 +122,7 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
     },
     protocols: protocols.map((p) => {
       const m = reg.get(p)!;
-      return { providerId: p, chain: m.chains[0]!, capabilities: m.capabilities, version: m.version };
+      return { providerId: p, chain: m.chains.find((c) => chains.includes(c)) ?? m.chains[0]!, capabilities: m.capabilities, version: m.version };
     }),
     assets,
     dataSources,
@@ -138,30 +137,34 @@ export function compileBlueprint(base: KidoAgentBlueprint, reg: ProviderRegistry
       payees,
       beneficiaries,
       bridgeAllowed,
-      leaseLifetimeSeconds: Number(ctx["authority.lease_lifetime"] ?? 3600),
+      leaseLifetimeSeconds: Number(ctx["authority.lease_lifetime"] ?? byKey("authority.lease_lifetime")?.safeDefault?.(ctx) ?? KIDO_DEFAULTS.leaseLifetimeSeconds),
       swapFloors: (() => {
-        const f = ctx["limits.swap_floor"] as { minOutPerIn: string; assetIn: string; assetOut: string } | undefined;
+        const f = floor;
         if (!f || !allowed.includes("SWAP")) return [];
         return chains.filter((c) => reg.assetsOn(c).some((a) => a.symbol === f.assetIn) && reg.assetsOn(c).some((a) => a.symbol === f.assetOut)).map((c) => ({ chain: c, ...f }));
       })(),
     },
     monitors,
     triggers: monitors.map((m) => ({ id: `${m.id}-trigger`, kind: "MONITOR", monitor: m.id })),
-    actions: allowed.map((a) => ({ action: a, chain: chains[0]!, providerId: protocols[0] ?? "amane", deterministic: monitors.some((m) => m.action === a && m.response === "DETERMINISTIC_ACTION") })),
+    actions: allowed.flatMap((a) => {
+      const deterministic = monitors.some((m) => m.action === a && m.response === "DETERMINISTIC_ACTION");
+      const bs = bindings.filter((b) => b.action === a);
+      return bs.length ? bs.map((b) => ({ ...b, deterministic })) : chains.map((chain) => ({ action: a, chain, providerId: UNSERVED_PROVIDER, deterministic }));
+    }),
     reasoning: {
       model: "env",
       wakeConditions: ["EXPECTED_STATE_DIVERGED", "RESOURCE_SHORTFALL", "MULTIPLE_COMPLIANT_PATHS", "CONSTRAINT_CONFLICT", "PARTIAL_EXECUTION", "PROTOCOL_UNAVAILABLE", "NO_DETERMINISTIC_PLAN"],
-      maxModelCallsPerHour: 30,
+      maxModelCallsPerHour: KIDO_DEFAULTS.maxModelCallsPerHour,
     },
     agents: specialists.map((role) => ({
       role,
       owns: allowed.filter((a) => SPECIALIST_FOR[a] === role).concat(role === "RecoveryAgent" ? allowed : []),
       mayRequest: bridgeAllowed ? ["BRIDGE"] : [],
-      knowledgePacks: packsFor(role),
+      knowledgePacks: packsFor(role, role === "RecoveryAgent" ? allowed : allowed.filter((a) => SPECIALIST_FOR[a] === role)),
     })),
-    recovery: { onPartialExecution: recoveryMode, allowedRecoveryActions: recoveryMode === "WAKE_RECOVERY_AGENT" ? allowed : [], maxRecoveryAttempts: 1, onOracleUnavailable: onUnavailable === "FAIL_CLOSED" ? "FAIL_CLOSED" : "NOTIFY_OWNER" },
-    crossChain: bridgeAllowed ? { allowed: true, transports: ["mock"], maxAmountPerIntent: limits.map((l) => ({ asset: l.asset, amount: l.perAction })), recoveryDeadlineSeconds: 3600 } : undefined,
-    amane: mode === "BOUNDED_AUTONOMOUS_FINANCE" ? { manifestRef: "Aname/deployments/testnet.json", accountId: null, endpoints: chains.map((c) => ({ chain: c, account: null })), policyHash: null } : undefined,
+    recovery: { onPartialExecution: recoveryMode, allowedRecoveryActions: recoveryMode === "WAKE_RECOVERY_AGENT" ? allowed : [], maxRecoveryAttempts: KIDO_DEFAULTS.maxRecoveryAttempts, onOracleUnavailable: onUnavailable === "FAIL_CLOSED" ? "FAIL_CLOSED" : "NOTIFY_OWNER" },
+    crossChain: bridgeAllowed ? { allowed: true, transports: transports.map((t) => t.providerId), maxAmountPerIntent: limits.map((l) => ({ asset: l.asset, amount: l.perAction })), recoveryDeadlineSeconds: KIDO_DEFAULTS.crossChainRecoveryDeadlineSeconds } : undefined,
+    amane: authorityProvider ? { manifestRef: authorityProvider.deploymentManifestRef ?? "", accountId: null, endpoints: chains.map((c) => ({ chain: c, account: null })), policyHash: null } : undefined,
     simulationScenarios: scenarioList(mode, allowed, bridgeAllowed === true, privateValues.length > 0, isPublic === true),
     securityAssertions: [
       { id: "no-arbitrary-target", statement: "the agent never authorizes a raw target or calldata" },

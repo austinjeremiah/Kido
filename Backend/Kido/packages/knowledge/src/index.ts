@@ -32,7 +32,7 @@ export interface DriftIssue {
   pack: string;
   expected: string;
   found: string;
-  source: "registry" | "adapter";
+  source: "registry" | "adapter" | "deployment" | "missing";
   securityRelevant: boolean;
 }
 
@@ -42,24 +42,41 @@ export const DEFAULT_KNOWLEDGE_DIR = resolve(dirname(fileURLToPath(import.meta.u
  * Platform Knowledge System (bible §12): verified, versioned packs, loaded per role. Knowledge is
  * context for reasoning only; nothing here grants or implies authority.
  */
+/** Credential shapes that must never reach a model context. A pack containing one is quarantined. */
+const SECRET_PATTERNS: RegExp[] = [
+  /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}/,
+  /\bsuiprivkey1[0-9a-z]{20,}/,
+  /\b(?:private|deployer|secret|signing)[ _-]?key\b\W{0,5}(?:0x)?[0-9a-fA-F]{64}\b/i,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+];
+
+export function containsSecret(text: string): boolean {
+  return SECRET_PATTERNS.some((re) => re.test(text));
+}
+
 export class KnowledgeBase {
-  private constructor(readonly packs: Map<string, KnowledgePack>) {}
+  private constructor(readonly packs: Map<string, KnowledgePack>, readonly quarantined: string[] = []) {}
 
   static load(dir: string = DEFAULT_KNOWLEDGE_DIR): KnowledgeBase {
     const packs = new Map<string, KnowledgePack>();
+    const quarantined: string[] = [];
     const walk = (d: string) => {
       for (const name of readdirSync(d)) {
         const p = join(d, name);
         if (statSync(p).isDirectory()) walk(p);
         else if (name === "manifest.json") {
-          const manifest = JSON.parse(readFileSync(p, "utf8")) as PackManifest;
+          const raw = readFileSync(p, "utf8");
+          const manifest = JSON.parse(raw) as PackManifest;
           const factsPath = join(d, "facts.md");
-          packs.set(manifest.pack, { id: manifest.pack, manifest, facts: existsSync(factsPath) ? readFileSync(factsPath, "utf8") : "" });
+          const facts = existsSync(factsPath) ? readFileSync(factsPath, "utf8") : "";
+          // Knowledge packs hold public information only; a credential-bearing pack is never served. (BREAK F-0532)
+          if (containsSecret(raw) || containsSecret(facts)) quarantined.push(manifest.pack);
+          else packs.set(manifest.pack, { id: manifest.pack, manifest, facts });
         }
       }
     };
     walk(dir);
-    return new KnowledgeBase(packs);
+    return new KnowledgeBase(packs, quarantined);
   }
 
   get(id: string): KnowledgePack | undefined {
@@ -85,6 +102,8 @@ export class KnowledgeBase {
       included.push(id);
     }
     if (missing.length) text += `\n\n=== MISSING KNOWLEDGE: ${missing.join(", ")} — treat as unknown ===`;
+    const q = missing.filter((id) => this.quarantined.includes(id));
+    if (q.length) text += `\n=== QUARANTINED (secret-like content): ${q.join(", ")} ===`;
     return { text: text.trim(), included, missing, truncated };
   }
 
@@ -92,11 +111,28 @@ export class KnowledgeBase {
   drift(registry: ProviderRegistry, adapterVersions: Record<string, string> = {}): DriftIssue[] {
     const out: DriftIssue[] = [];
     for (const p of registry.providers) {
-      const pack = this.packs.get(p.knowledgePack);
-      if (!pack || pack.manifest.providerId !== p.providerId) continue;
-      if (pack.manifest.version !== p.version) out.push({ pack: pack.id, expected: p.version, found: pack.manifest.version, source: "registry", securityRelevant: p.kind !== "identity" });
+      const securityRelevant = p.kind !== "identity";
       const a = adapterVersions[p.providerId];
-      if (a !== undefined && a !== p.version) out.push({ pack: pack.id, expected: p.version, found: a, source: "adapter", securityRelevant: true });
+      if (a !== undefined && a !== p.version) out.push({ pack: p.knowledgePack, expected: p.version, found: a, source: "adapter", securityRelevant: true });
+      const pack = this.packs.get(p.knowledgePack);
+      if (!pack) {
+        out.push({ pack: p.knowledgePack, expected: p.version, found: this.quarantined.includes(p.knowledgePack) ? "quarantined" : "missing", source: "missing", securityRelevant: false });
+        continue;
+      }
+      // Packs shared by several providers (platform packs) carry no provider id; a pack naming another provider is drift.
+      if (pack.manifest.providerId !== null && pack.manifest.providerId !== p.providerId) {
+        if (registry.get(pack.manifest.providerId)?.knowledgePack === pack.id) continue;
+        out.push({ pack: pack.id, expected: p.providerId, found: pack.manifest.providerId, source: "registry", securityRelevant });
+        continue;
+      }
+      if (pack.manifest.providerId === null && registry.providers.filter((x) => x.knowledgePack === pack.id).length > 1) continue;
+      if (pack.manifest.version !== p.version) out.push({ pack: pack.id, expected: p.version, found: pack.manifest.version, source: "registry", securityRelevant });
+      for (const [chain, entries] of Object.entries(pack.manifest.deployments ?? {})) {
+        const reg = (p.deployments as Record<string, Record<string, string>>)[chain] ?? {};
+        for (const [k, v] of Object.entries(entries)) {
+          if (reg[k]?.toLowerCase() !== v.toLowerCase()) out.push({ pack: pack.id, expected: `${chain}.${k}=${reg[k] ?? "absent"}`, found: v, source: "deployment", securityRelevant: true });
+        }
+      }
     }
     return out;
   }

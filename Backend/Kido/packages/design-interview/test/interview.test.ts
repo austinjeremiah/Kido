@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { applyResolutions, buildBlockers, ConfirmedRequirementError } from "@kido/blueprint";
 import { DesignInterview, RuleBasedInterviewModel, compileBlueprint, type Question } from "../src/index.js";
+import { ProviderRegistry } from "@kido/registry";
+const FACTS = new ProviderRegistry().gateFacts();
 
 const model = new RuleBasedInterviewModel();
 const PAYEE_SUI = `0x${"ab".repeat(32)}`;
@@ -26,7 +28,7 @@ describe("design interview", () => {
     const q = iv.next()!;
     expect(q.key).toBe("authority.mode");
     expect(q.text).not.toMatch(/maxPerEpoch|AuthorizationMode|provider|framework/i);
-    expect(buildBlockers(compileBlueprint(iv.resolutionsBlueprint())).length).toBeGreaterThan(0);
+    expect(buildBlockers(compileBlueprint(iv.resolutionsBlueprint()), FACTS).length).toBeGreaterThan(0);
     expect(iv.ctx["chains"]).toEqual(["ethereum-sepolia"]); // inferred from Aave, never asked
     expect(iv.ctx["protocols"]).toEqual(["aave-v3"]);
   });
@@ -50,7 +52,7 @@ describe("design interview", () => {
     expect(keys).not.toContain("chains");
     expect(keys).not.toContain("assets.spend"); // inferred: Aave on Sepolia only spends its listed USDC
     expect(asked.length).toBeLessThanOrEqual(14);
-    expect(buildBlockers(bp)).toEqual([]);
+    expect(buildBlockers(bp, FACTS)).toEqual([]);
     expect(bp.authority).toMatchObject({ mode: "BOUNDED_AUTONOMOUS_FINANCE", provider: "AMANE", allowedActions: ["REPAY"], forbiddenActions: ["BORROW", "WITHDRAW"] });
     expect(bp.authority.limits).toEqual([{ chain: "ethereum-sepolia", asset: "USDC", perAction: "250000000", perWindow: "500000000", windowSeconds: 3600, total: "2000000000" }]);
     expect(bp.authority.beneficiaries).toEqual([{ label: "self", chain: "ethereum-sepolia", address: "SELF" }]);
@@ -65,7 +67,7 @@ describe("design interview", () => {
     const { bp } = await drive("Watch my Aave position and alert me", { "authority.mode": "only watch and alert me", "identity.public": "not sure", "privacy.required": "no", "monitor.condition": "health factor below 1.3" });
     expect(bp.identity.public).toBe(false);
     expect(bp.identity.bindings).toEqual([]);
-    expect(buildBlockers(bp)).toEqual([]);
+    expect(buildBlockers(bp, FACTS)).toEqual([]);
   });
 
   it("a read-only agent is never asked about limits, payees or bridges", async () => {
@@ -106,7 +108,7 @@ describe("design interview", () => {
     ]);
     expect(bp.privacy.providers).toEqual([]);
     expect(bp.monitors[0]).toMatchObject({ threshold: null, thresholdPrivateRef: "risk-threshold" });
-    expect(buildBlockers(bp).map((b) => b.code)).toContain("KIDO_BLUEPRINT_PRIVACY_UNSATISFIED"); // until the privacy compiler selects a provider
+    expect(buildBlockers(bp, FACTS).map((b) => b.code)).toContain("KIDO_BLUEPRINT_PRIVACY_UNSATISFIED"); // until the privacy compiler selects a provider
   });
 
   it("cross-chain: asks about bridging and recovery, never assumes a bridge", async () => {
@@ -140,14 +142,14 @@ describe("design interview", () => {
     const r = await iv.answer("yes, it may withdraw collateral");
     expect(r.note).toMatch(/never receive withdrawal authority/);
     const bp = compileBlueprint(iv.resolutionsBlueprint());
-    expect(buildBlockers(bp).map((b) => b.code)).toContain("KIDO_BLUEPRINT_UNSATISFIABLE");
+    expect(buildBlockers(bp, FACTS).map((b) => b.code)).toContain("KIDO_BLUEPRINT_UNSATISFIABLE");
   });
 
   it("the interview always finishes: unknown critical items become explicit blockers", async () => {
     const iv = await DesignInterview.start("p", "s", "Build me an agent that protects my Aave position.", model, { maxQuestions: 2 });
     for (let q = iv.next(); q; q = (await iv.answer(q.key === "authority.mode" ? "act on its own within limits" : "no")).next);
     iv.finalizeResolutions();
-    const codes = buildBlockers(compileBlueprint(iv.resolutionsBlueprint()));
+    const codes = buildBlockers(compileBlueprint(iv.resolutionsBlueprint()), FACTS);
     expect(codes.filter((c) => c.code === "KIDO_BLUEPRINT_UNRESOLVED").map((c) => c.detail)).toEqual(expect.arrayContaining(["actions.allowed", "limits.window", "limits.total"]));
   });
 
@@ -197,6 +199,6 @@ describe("design interview", () => {
     expect(asked.map((q) => q.key)).toContain("authority.arbitrary_recipients");
     expect(bp.authority.payees).toEqual([{ label: "acme-supplies", chain: "sui-testnet", address: PAYEE_SUI }]);
     expect(bp.authority.limits[0]).toMatchObject({ chain: "sui-testnet", asset: "AMUSD", perWindow: "50000000" });
-    expect(buildBlockers(bp)).toEqual([]);
+    expect(buildBlockers(bp, FACTS)).toEqual([]);
   });
 });

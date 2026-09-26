@@ -5,7 +5,7 @@
   "displayName": "Wormhole",
   "version": "sdk 6.1.5",
   "researchDate": "2026-09-26",
-  "status": "VERIFIED_LIVE",
+  "status": "VERIFIED_DOCS",
   "statusNote": "core/token-bridge state verified live on both chains; no live transfer run yet (BE-WH-1)",
   "chains": [
     "ethereum-sepolia",

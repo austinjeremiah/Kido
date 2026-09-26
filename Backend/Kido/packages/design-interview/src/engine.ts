@@ -1,4 +1,4 @@
-import { applyResolutions, emptyBlueprint, type KidoAgentBlueprint, type RequirementResolution } from "@kido/blueprint";
+import { applyResolutions, emptyBlueprint, nextRevision, type KidoAgentBlueprint, type RequirementResolution } from "@kido/blueprint";
 import { CATALOG, byKey, type Choice, type Ctx, type RequirementDef } from "./catalog.js";
 import type { InterviewModel } from "./model.js";
 
@@ -27,6 +27,10 @@ export interface InterviewState {
   transcript: TranscriptEntry[];
   warnings: string[];
   finalized: boolean;
+  /** The resolutions revision an explicit edit replaced; the next revision commits to it. */
+  prior?: KidoAgentBlueprint | null;
+  /** Keys the user explicitly edited since `prior`. */
+  edited?: string[];
 }
 
 export interface InterviewOptions {
@@ -109,7 +113,15 @@ export class DesignInterview {
     if (!def) throw new Error(`unknown requirement ${key}`);
     const reading = await this.model.readAnswer(def, def.question(this.ctx), text, this.ctx);
     if (reading.kind === "UNCLEAR") return { accepted: false, note: reading.reason };
+    this.state.prior = this.resolutionsBlueprint();
+    this.state.edited = [key];
     delete this.state.resolutions[key];
+    // Anything derived from earlier answers is re-derived from the edited ones. (BREAK F-0525)
+    for (const [k, r] of Object.entries(this.state.resolutions)) {
+      const kind = r.provenance?.kind;
+      if (kind === "SAFE_DEFAULT" || (kind === "INFERRED" && k !== "objective.kind")) delete this.state.resolutions[k];
+    }
+    this.state.finalized = false;
     const note = this.resolve(def, reading.value, { kind: "USER_ANSWER", quote: reading.quote, turn: this.state.questionsAsked });
     this.state.transcript.push({ role: "user", text: `edit ${key}: ${text}`, key });
     this.runInference();
@@ -134,8 +146,12 @@ export class DesignInterview {
 
   /** Produces the blueprint revision carrying every resolution (compilation into fields happens in `compile`). */
   resolutionsBlueprint(): KidoAgentBlueprint {
-    const bp = emptyBlueprint(this.state.projectId, this.state.salt, this.state.objective);
-    return applyResolutions(bp, Object.values(this.state.resolutions).map((resolution) => ({ resolution })));
+    const all = Object.values(this.state.resolutions);
+    if (this.state.prior) {
+      // An edit is a new revision of the one it replaces (BREAK F-0523); only the edited keys may change confirmed values.
+      return nextRevision(this.state.prior, { requirements: [...all].sort((a, b) => a.key.localeCompare(b.key)) }, { allowConfirmedChange: this.state.edited ?? [] });
+    }
+    return applyResolutions(emptyBlueprint(this.state.projectId, this.state.salt, this.state.objective), all.map((resolution) => ({ resolution })));
   }
 
   unresolved(): { key: string; topic: string; critical: boolean }[] {
@@ -148,7 +164,8 @@ export class DesignInterview {
     this.state.resolutions[def.key] = {
       key: def.key,
       topic: def.topic,
-      class: def.class,
+      // The class records how the value was reached, so the gate can tell a user decision from a derived one.
+      class: provenance?.kind === "INFERRED" ? "INFERABLE" : provenance?.kind === "SAFE_DEFAULT" ? "SAFE_DEFAULT" : def.class,
       critical: def.critical,
       status: why ? "UNSATISFIABLE" : "RESOLVED",
       value: value as never,

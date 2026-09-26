@@ -143,7 +143,7 @@ export class Foundry {
     p.privacyPlan = privacyPlan;
     p.identityPlan = identityPlan;
     this.d.store.save(p);
-    return { blueprint: bp, blockers: buildBlockers(bp), privacyPlan, identityPlan };
+    return { blueprint: bp, blockers: buildBlockers(bp, this.registry.gateFacts()), privacyPlan, identityPlan };
   }
 
   private authority(bp: KidoAgentBlueprint): AuthorityResult | null {
@@ -177,7 +177,7 @@ export class Foundry {
   build(projectId: string): BuildArtifact {
     const p = this.d.store.load(projectId);
     const bp = this.requireBlueprint(p);
-    const blockers = buildBlockers(bp);
+    const blockers = buildBlockers(bp, this.registry.gateFacts());
     if (blockers.length) throw new LifecycleError("KIDO_LIFECYCLE_NOT_BUILDABLE", blockers.map((b) => `${b.code}:${b.detail}`).join(", "));
     if (!p.security || isStale(p.security, bp)) throw new LifecycleError("KIDO_LIFECYCLE_STALE_REVIEW", "run the security review for this revision");
     if (p.security.blocking) throw new LifecycleError("KIDO_LIFECYCLE_BLOCKING_FINDINGS", p.security.findings.filter((f) => f.blocking).map((f) => f.id).join(", "));
@@ -215,7 +215,7 @@ export class Foundry {
     return {
       projectId,
       revision: bp?.revision ?? null,
-      blockers: bp ? buildBlockers(bp) : [],
+      blockers: bp ? buildBlockers(bp, this.registry.gateFacts()) : [],
       unresolved: this.unresolved(projectId),
       security: fresh(p.security),
       simulation: fresh(p.simulation),

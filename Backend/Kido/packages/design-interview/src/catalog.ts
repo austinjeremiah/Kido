@@ -1,9 +1,13 @@
 import type { Action, ChainId, RequirementClass, Topic } from "@kido/blueprint";
+import { interviewChains, interviewRegistry } from "./registry.js";
+import { KIDO_DEFAULTS } from "./defaults.js";
+
+const humanDuration = (secs: number) => (secs % 3600 === 0 ? (secs === 3600 ? "one hour" : `${secs / 3600} hours`) : secs % 60 === 0 ? `${secs / 60} minutes` : `${secs} seconds`);
 
 export type AnswerType =
   | "authority_mode" | "yesno" | "chains" | "protocols" | "actions" | "autonomy" | "asset" | "amount"
   | "payees" | "threshold" | "identity_name" | "privacy_values" | "hidden_from" | "plaintext" | "disclosure"
-  | "recovery" | "objective_kind" | "swap_floor";
+  | "recovery" | "objective_kind" | "swap_floor" | "duration";
 
 export type ObjectiveKind = "LENDING_PROTECTION" | "REBALANCE" | "PAYMENTS" | "LIQUIDITY" | "TREASURY" | "MONITORING" | "RESEARCH" | "OTHER";
 
@@ -43,27 +47,20 @@ const privateValues = (c: Ctx) => ((c["privacy.values"] as unknown[] | undefined
 const watches = (c: Ctx) => ["LENDING_PROTECTION", "REBALANCE", "MONITORING", "LIQUIDITY"].includes(kind(c) ?? "");
 const assetSymbol = (c: Ctx) => (c["assets.spend"] as string | undefined) ?? "tokens";
 
-/** Which assets each protocol's actions can spend on testnet (from the registry's asset graph). */
-export const PROTOCOL_ASSETS: Record<string, string[]> = {
-  "aave-v3": ["USDC"],
-  "uniswap-v3": ["AMUSD"],
-  "cetus-clmm": ["AMUSD", "AMSUI"],
-  amane: ["AMUSD"],
+const reg = () => interviewRegistry();
+/** Protocols (execution providers other than the authority layer) that serve this kind of objective. */
+const protocolChoices = (c: Ctx): Choice[] => {
+  const lending = kind(c) === "LENDING_PROTECTION";
+  const cs = chains(c).length ? chains(c) : interviewChains().map((x) => x.chainId);
+  return reg().providers
+    .filter((p) => p.kind === "protocol" && (p.execution ?? []).length > 0 && p.chains.some((ch) => cs.includes(ch)))
+    .filter((p) => (lending ? p.capabilities.some((x) => x.startsWith("LENDING_")) : p.capabilities.some((x) => x.startsWith("DEX_"))))
+    .map((p) => ({ value: p.providerId, label: `${p.displayName} (${p.chains.map((ch) => interviewChains().find((x) => x.chainId === ch)?.label ?? ch).join(", ")})` }));
 };
-
-/** Semantic actions each protocol capability can be asked to perform. */
-export const PROTOCOL_ACTIONS: Record<string, Action[]> = {
-  "aave-v3": ["REPAY", "SUPPLY"],
-  "uniswap-v3": ["SWAP"],
-  "cetus-clmm": ["SWAP"],
-  amane: ["PAY"],
-};
-
-export const PROTOCOL_CHAINS: Record<string, ChainId> = {
-  "aave-v3": "ethereum-sepolia",
-  "uniswap-v3": "ethereum-sepolia",
-  "cetus-clmm": "sui-testnet",
-};
+/** Providers that perform payments for the selected chains. */
+const payProviders = (c: Ctx) => [...new Set(chains(c).flatMap((ch) => reg().executors("PAY", ch).map((p) => p.providerId)))];
+const spendable = (c: Ctx, protos: string[]) => [...new Set(protos.flatMap((p) => reg().assetsFor(p).filter((a) => !chains(c).length || chains(c).includes(a.chain)).map((a) => a.symbol)))];
+export const ACTION_LABEL: Record<string, string> = { REPAY: "Repay your debt", SUPPLY: "Add collateral", SWAP: "Swap tokens", PAY: "Pay approved recipients", BRIDGE: "Move funds across chains" };
 
 export const CATALOG: RequirementDef[] = [
   {
@@ -125,7 +122,7 @@ export const CATALOG: RequirementDef[] = [
     bucket: 1,
     answerType: "yesno",
     appliesWhen: (c) => financial(c) && chains(c).length > 1,
-    question: () => ({ text: "May it move funds between Ethereum and Sui through a bridge, or should each chain only use the funds already there?" }),
+    question: (c) => ({ text: `May it move funds between ${chains(c).map((ch) => interviewChains().find((x) => x.chainId === ch)?.label ?? ch).join(" and ")} through a bridge, or should each chain only use the funds already there?` }),
   },
   {
     key: "chains",
@@ -138,14 +135,13 @@ export const CATALOG: RequirementDef[] = [
     question: () => ({
       text: "Which blockchain should it operate on?",
       choices: [
-        { value: "ethereum-sepolia", label: "Ethereum" },
-        { value: "sui-testnet", label: "Sui" },
-        { value: "both", label: "Both Ethereum and Sui" },
+        ...interviewChains().map((x) => ({ value: x.chainId, label: x.label })),
+        ...(interviewChains().length > 1 ? [{ value: "both", label: `All of ${interviewChains().map((x) => x.label).join(" and ")}` }] : []),
       ],
     }),
     infer: (c) => {
       const p = (c["protocols"] as string[] | undefined) ?? [];
-      const cs = [...new Set(p.map((x) => PROTOCOL_CHAINS[x]).filter(Boolean))] as ChainId[];
+      const cs = [...new Set(p.flatMap((x) => reg().chainsFor(x)))];
       return cs.length > 0 ? { value: cs, rule: "protocol exists only on these chains", from: ["protocols"] } : undefined;
     },
   },
@@ -157,15 +153,7 @@ export const CATALOG: RequirementDef[] = [
     bucket: 3,
     answerType: "protocols",
     appliesWhen: (c) => ["LENDING_PROTECTION", "REBALANCE", "LIQUIDITY"].includes(kind(c) ?? "") || acts(c).some((a) => a === "SWAP" || a === "REPAY"),
-    question: (c) => {
-      const lending = kind(c) === "LENDING_PROTECTION";
-      const onSui = chains(c).includes("sui-testnet"), onEth = chains(c).includes("ethereum-sepolia") || chains(c).length === 0;
-      const choices: Choice[] = [];
-      if (lending && onEth) choices.push({ value: "aave-v3", label: "Aave (Ethereum)" });
-      if (!lending && onEth) choices.push({ value: "uniswap-v3", label: "Uniswap (Ethereum)" });
-      if (onSui) choices.push({ value: "cetus-clmm", label: "Cetus (Sui)" });
-      return { text: lending ? "Which lending protocol is your position on?" : "Which exchange should it use?", choices };
-    },
+    question: (c) => ({ text: kind(c) === "LENDING_PROTECTION" ? "Which lending protocol is your position on?" : "Which exchange should it use?", choices: protocolChoices(c) }),
   },
   {
     key: "actions.allowed",
@@ -178,10 +166,9 @@ export const CATALOG: RequirementDef[] = [
     unsatisfiable: (v) => ((v as string[]).some((a) => a === "BORROW" || a === "WITHDRAW") ? "agents are never granted borrowing or withdrawal; remove those actions" : undefined),
     question: (c) => {
       const protos = (c["protocols"] as string[] | undefined) ?? [];
-      const options = new Set<Action>(protos.flatMap((p) => PROTOCOL_ACTIONS[p] ?? []));
-      if (kind(c) === "PAYMENTS" || options.size === 0) options.add("PAY");
-      const label: Record<string, string> = { REPAY: "Repay your debt", SUPPLY: "Add collateral", SWAP: "Swap tokens", PAY: "Pay approved recipients", BRIDGE: "Move funds across chains" };
-      return { text: "Which actions may it take?", choices: [...options].map((a) => ({ value: a, label: label[a] ?? a })) };
+      const options = new Set<string>(protos.flatMap((p) => reg().actionsOf(p)));
+      if ((kind(c) === "PAYMENTS" || options.size === 0) && payProviders(c).length) options.add("PAY");
+      return { text: "Which actions may it take?", choices: [...options].map((a) => ({ value: a, label: ACTION_LABEL[a] ?? a })) };
     },
   },
   {
@@ -231,12 +218,12 @@ export const CATALOG: RequirementDef[] = [
     answerType: "asset",
     appliesWhen: financial,
     question: (c) => {
-      const opts = [...new Set(((c["protocols"] as string[] | undefined) ?? ["amane"]).flatMap((p) => PROTOCOL_ASSETS[p] ?? []))];
+      const opts = spendable(c, (c["protocols"] as string[] | undefined) ?? payProviders(c));
       return { text: "Which token may it spend?", choices: opts.map((o) => ({ value: o, label: o })) };
     },
     infer: (c) => {
-      const protos = (c["protocols"] as string[] | undefined) ?? (acts(c).includes("PAY") ? ["amane"] : []);
-      const opts = [...new Set(protos.flatMap((p) => PROTOCOL_ASSETS[p] ?? []))];
+      const protos = (c["protocols"] as string[] | undefined) ?? (acts(c).includes("PAY") ? payProviders(c) : []);
+      const opts = spendable(c, protos);
       return opts.length === 1 ? { value: opts[0], rule: "the only spendable asset for the selected protocol on testnet", from: ["protocols"] } : undefined;
     },
   },
@@ -248,7 +235,7 @@ export const CATALOG: RequirementDef[] = [
     bucket: 4,
     answerType: "amount",
     appliesWhen: bounded,
-    question: (c) => ({ text: `If this agent were compromised for one hour, what is the most ${assetSymbol(c)} you would be comfortable letting it use?` }),
+    question: (c) => ({ text: `If this agent were compromised for ${humanDuration(KIDO_DEFAULTS.limitWindowSeconds)}, what is the most ${assetSymbol(c)} you would be comfortable letting it use?` }),
   },
   {
     key: "limits.total",
@@ -282,7 +269,12 @@ export const CATALOG: RequirementDef[] = [
     bucket: 4,
     answerType: "swap_floor",
     appliesWhen: (c) => bounded(c) && acts(c).includes("SWAP"),
-    question: () => ({ text: "What is the worst exchange rate you would accept for a swap? For example: at least 0.95 AMSUI for each AMUSD." }),
+    question: (c) => {
+      const spend = c["assets.spend"] as string | undefined;
+      const other = spendable(c, (c["protocols"] as string[] | undefined) ?? []).find((s) => s !== spend);
+      const eg = spend && other ? ` For example: at least 0.95 ${other} for each ${spend}.` : " For example: at least 0.95 of the token you receive for each token you sell.";
+      return { text: `What is the worst exchange rate you would accept for a swap?${eg}` };
+    },
   },
   {
     key: "authority.lease_lifetime",
@@ -290,10 +282,10 @@ export const CATALOG: RequirementDef[] = [
     class: "SAFE_DEFAULT",
     critical: false,
     bucket: 9,
-    answerType: "amount",
+    answerType: "duration",
     appliesWhen: bounded,
-    question: () => ({ text: "Its authority will expire after one hour and be renewed within your limits. Keep that?" }),
-    safeDefault: () => 3600,
+    question: () => ({ text: `Its authority will expire after ${humanDuration(KIDO_DEFAULTS.leaseLifetimeSeconds)} and be renewed within your limits. Keep that?` }),
+    safeDefault: () => KIDO_DEFAULTS.leaseLifetimeSeconds,
   },
   {
     key: "monitor.condition",

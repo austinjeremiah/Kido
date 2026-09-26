@@ -19,6 +19,7 @@ const DEFAULTS: Record<string, string> = {
   "assets.spend": "AMUSD",
   "limits.window": "100",
   "limits.total": "400",
+  "limits.swap_floor": "at least 0.95 AMSUI for each AMUSD",
   "identity.public": "no",
   "identity.name": "acme agent",
   "privacy.required": "no",

@@ -77,10 +77,14 @@ export function compilePrivacy(bp: KidoAgentBlueprint, reg: ProviderRegistry): P
       continue;
     }
     const chains: (ChainId | null)[] = caps.length === 1 && caps[0] === "SECRET_STORAGE" ? [null] : bp.chains;
+    if (bp.chains.length === 0) {
+      values.push({ valueId: v.id, chain: null, requiredCapabilities: caps, selected: [], status: "UNSATISFIABLE", reasons: ["no chain chosen yet"], trust: [], plaintextBoundary: v.plaintextBoundary, allowedDisclosure: v.allowedDisclosure });
+      continue;
+    }
     for (const chain of chains) {
-      const c = chain ?? bp.chains[0] ?? "ethereum-sepolia";
-      const live = reg.select({ kind: "privacy", chain: c, capabilities: caps, acceptStatus: ["VERIFIED_LIVE"] });
-      const plan = live.uncovered.length === 0 ? live : reg.select({ kind: "privacy", chain: c, capabilities: caps, acceptStatus: PLANNING });
+      const c = chain ?? bp.chains[0]!;
+      const live = reg.select({ kind: "privacy", chain: c, capabilities: caps, acceptStatus: ["VERIFIED_LIVE"], hiddenFrom: v.hiddenFrom });
+      const plan = live.uncovered.length === 0 ? live : reg.select({ kind: "privacy", chain: c, capabilities: caps, acceptStatus: PLANNING, hiddenFrom: v.hiddenFrom });
       const reasons = plan.rejected.map((r) => `${r.providerId}: ${r.reason}`);
       let status: ValueStatus;
       if (plan.uncovered.length > 0) {

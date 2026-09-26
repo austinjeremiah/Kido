@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { buildBlockers } from "@kido/blueprint";
 import { CATALOG, DesignInterview, parseActions, parseAmount, parseByType, parseChains, parsePayees, parsePlaintext, parseThreshold, parseYesNo, ruleBasedCandidates } from "../src/index.js";
 import { EVM_A, EVM_B, drive, model } from "./break-helpers.js";
+import { ProviderRegistry } from "@kido/registry";
+const FACTS = new ProviderRegistry().gateFacts();
 
 const choicesOf = (key: string) => CATALOG.find((d) => d.key === key)!.question({}).choices;
-const codes = (bp: Parameters<typeof buildBlockers>[0]) => buildBlockers(bp).map((b) => b.code);
+const codes = (bp: Parameters<typeof buildBlockers>[0]) => buildBlockers(bp, FACTS).map((b) => b.code);
 
 describe("BREAK: yes/no parser", () => {
   it("break_F0500_yesno_refusal_read_as_yes", () => {
