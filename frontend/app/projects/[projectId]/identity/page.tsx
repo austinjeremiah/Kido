@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Identity / ENS (spec §27).
+ * Identity (spec §27).
  *
  * Agent identity, namespace, lifecycle and revocation — kept separate from
  * financial permissions.

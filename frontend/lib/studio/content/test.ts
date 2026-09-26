@@ -19,7 +19,7 @@ export const ATTACK_CATEGORIES: { id: AttackCategory; label: string }[] = [
   { id: 'prompt-agent-compromise', label: 'Prompt / agent compromise' },
   { id: 'transaction-mutation', label: 'Transaction mutation' },
   { id: 'replay-expiry', label: 'Replay / expiry' },
-  { id: 'identity-ens', label: 'Identity / ENS' },
+  { id: 'identity-ens', label: 'Identity' },
   { id: 'data-oracle', label: 'Data / oracle' },
   { id: 'policy', label: 'Policy' },
   { id: 'cre-runtime', label: 'CRE / runtime' },

@@ -1114,20 +1114,22 @@ body.cl-resizing-v, body.cl-resizing-v * { cursor: row-resize !important; user-s
    Deliberately kept as its own block: if the canvas should go cream instead,
    it is these six values and nothing else. */
 .cl-graph {
-  /* Neutral, with a hair of warmth rather than the blue cast the first pass
-     had — #1d1d22 put blue five points above red and green, which on a large
-     flat field reads as navy however dark it is. */
-  --cl-canvas: #21201e;
-  --cl-canvas-dot: rgba(254, 241, 208, 0.14);
+  /* True grey: red, green and blue equal, to the digit.
+     #1d1d22 put blue five points high and read as navy; #21201e put red three
+     points high and, under a cream dot grid, read as olive. On a field this
+     large any imbalance at all becomes the colour of the page, and the dots
+     tint whatever is under them — so the dots are neutral now too. */
+  --cl-canvas: #202020;
+  --cl-canvas-dot: rgba(255, 255, 255, 0.13);
 
   /* Nodes darker than the ground, and lifted off it by a border rather than by
      a fill that barely differs from it. */
-  --cl-panel: #0d0d0c;
-  --cl-panel-2: #151513;
-  --cl-raised: #2a2926;
+  --cl-panel: #0d0d0d;
+  --cl-panel-2: #151515;
+  --cl-raised: #2b2b2b;
 
-  --cl-line: rgba(254, 241, 208, 0.2);
-  --cl-line-strong: rgba(254, 241, 208, 0.4);
+  --cl-line: rgba(255, 255, 255, 0.18);
+  --cl-line-strong: rgba(255, 255, 255, 0.34);
 }
 
 /* --- principals ------------------------------------------------------------

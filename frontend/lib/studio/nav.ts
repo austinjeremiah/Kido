@@ -126,7 +126,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { id: 'runtime', label: 'Runtime', segment: 'runtime', icon: 'server', pageKind: 'runtime' },
       { id: 'control-plane', label: 'Control Plane', segment: 'control-plane', icon: 'activity', pageKind: 'control-plane' },
       { id: 'cre', label: 'Chainlink CRE', segment: 'cre', icon: 'radio', pageKind: 'cre' },
-      { id: 'identity', label: 'Identity / ENS', segment: 'identity', icon: 'fingerprint', pageKind: 'identity' },
+      { id: 'identity', label: 'Identity', segment: 'identity', icon: 'fingerprint', pageKind: 'identity' },
     ],
   },
   {
@@ -451,7 +451,7 @@ export const PAGE_META: Record<string, PageMeta> = {
   },
   identity: {
     segment: 'identity',
-    title: 'Identity / ENS',
+    title: 'Identity',
     tabTitle: 'Identity',
     purpose: 'Who the agent is on-chain, and how to revoke it. Not what it may spend.',
     pageKind: 'identity',

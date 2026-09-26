@@ -58,7 +58,7 @@ export function CommandPalette({
       { id: 'go-runtime', label: 'Go to Runtime', hint: 'Operate', run: () => go('runtime') },
       { id: 'go-control-plane', label: 'Go to Control Plane', hint: 'Operate', run: () => go('control-plane') },
       { id: 'go-cre', label: 'Go to Chainlink CRE', hint: 'Operate', run: () => go('cre') },
-      { id: 'go-identity', label: 'Go to Identity / ENS', hint: 'Operate', run: () => go('identity') },
+      { id: 'go-identity', label: 'Go to Identity', hint: 'Operate', run: () => go('identity') },
       { id: 'go-reports', label: 'Go to Safety Reports', hint: 'Output', run: () => go('reports') },
       { id: 'go-settings', label: 'Go to Settings', hint: 'Workspace', run: () => go('settings') },
       { id: 'focus-agent', label: 'Focus Agent Sidebar', hint: '⌘⇧A', run: focusAgentInput },
