@@ -66,6 +66,8 @@ export interface NavGroup {
 export interface RailView {
   id: RailViewId;
   label: string;
+  /** What the rail prints under the icon: one word, one line. */
+  short: string;
   icon: IconName;
   /** Explorer groups shown when this rail entry is active. */
   groupIds: string[];
@@ -142,15 +144,21 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+/*
+ * `short` is what the rail prints under the icon. The full label stays the
+ * accessible name and the tooltip, because "Build" alone is ambiguous in a
+ * product where Build is also a pipeline stage — but "Project / Build" cannot
+ * sit on one line under a 20px icon, and wrapping it makes the rail ragged.
+ */
 export const RAIL_VIEWS: RailView[] = [
-  { id: 'project', label: 'Project / Build', icon: 'layout-grid', groupIds: ['project'] },
-  { id: 'design', label: 'Design', icon: 'pencil-ruler', groupIds: ['design'] },
-  { id: 'test', label: 'Test', icon: 'flask-conical', groupIds: ['test'] },
-  { id: 'code', label: 'Code', icon: 'file-code', groupIds: ['implement'] },
-  { id: 'deploy', label: 'Deploy', icon: 'rocket', groupIds: ['deploy'] },
-  { id: 'operate', label: 'Operate', icon: 'activity', groupIds: ['operate'] },
-  { id: 'integrations', label: 'Integrations', icon: 'plug', groupIds: ['implement'] },
-  { id: 'reports', label: 'Reports', icon: 'file-text', groupIds: ['output'] },
+  { id: 'project', label: 'Project / Build', short: 'Build', icon: 'layout-grid', groupIds: ['project'] },
+  { id: 'design', label: 'Design', short: 'Design', icon: 'pencil-ruler', groupIds: ['design'] },
+  { id: 'test', label: 'Test', short: 'Test', icon: 'flask-conical', groupIds: ['test'] },
+  { id: 'code', label: 'Code', short: 'Code', icon: 'file-code', groupIds: ['implement'] },
+  { id: 'deploy', label: 'Deploy', short: 'Deploy', icon: 'rocket', groupIds: ['deploy'] },
+  { id: 'operate', label: 'Operate', short: 'Operate', icon: 'activity', groupIds: ['operate'] },
+  { id: 'integrations', label: 'Integrations', short: 'Integrate', icon: 'plug', groupIds: ['implement'] },
+  { id: 'reports', label: 'Reports', short: 'Reports', icon: 'file-text', groupIds: ['output'] },
 ];
 
 /**
@@ -161,6 +169,7 @@ export const RAIL_VIEWS: RailView[] = [
 export const SETTINGS_RAIL_VIEW: RailView = {
   id: 'settings',
   label: 'Settings',
+  short: 'Settings',
   icon: 'settings',
   groupIds: ['workspace'],
 };

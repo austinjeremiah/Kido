@@ -61,7 +61,8 @@ export function ActivityRail({
             if (!explorerOpen) toggleExplorer();
           }}
         >
-          <Icon name={view.icon} size={20} />
+          <Icon name={view.icon} size={19} />
+          <span className="cl-rail-label">{view.short}</span>
           {railHasAttention(view.id) ? <span className="cl-rail-dot" /> : null}
         </button>
       ))}
@@ -69,7 +70,8 @@ export function ActivityRail({
       <span className="cl-rail-spacer" />
 
       <button type="button" className="cl-rail-btn" title="Help / docs" aria-label="Help and documentation">
-        <CircleHelp size={20} strokeWidth={1.6} aria-hidden />
+        <CircleHelp size={19} strokeWidth={1.6} aria-hidden />
+        <span className="cl-rail-label">Help</span>
       </button>
       {/* The only Settings entry. It sets the rail as well as navigating, so
           the explorer shows the workspace group like any other rail view. */}
@@ -86,7 +88,8 @@ export function ActivityRail({
           router.push(`/projects/${projectId}/settings`);
         }}
       >
-        <Settings size={20} strokeWidth={1.6} aria-hidden />
+        <Settings size={19} strokeWidth={1.6} aria-hidden />
+        <span className="cl-rail-label">Settings</span>
       </button>
     </nav>
   );

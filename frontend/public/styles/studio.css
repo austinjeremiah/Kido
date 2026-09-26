@@ -65,7 +65,8 @@ html:has(.cl-studio) { font-size: 16px; }
 
   /* --- metrics (doc §3.1) ------------------------------------------------ */
   --cl-titlebar-h: 44px;
-  --cl-rail-w: 56px;
+  /* Wide enough for the longest label the rail prints, not for an icon. */
+  --cl-rail-w: 74px;
   --cl-statusbar-h: 26px;
   --cl-tabbar-h: 38px;
 
@@ -350,15 +351,30 @@ html:has(.cl-studio) { font-size: 16px; }
   background: var(--cl-chrome);
   border-right: 1px solid var(--cl-line-chrome);
 }
+/* Icon plus a word. A rail of eight unlabelled glyphs is a memory test, and
+   the tooltip that carried the name only appeared after a second of hovering
+   the right one — which is no use to someone scanning for where to go. */
 .cl-rail-btn {
   position: relative;
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  color: rgba(254, 241, 208, 0.78);
+  width: 100%;
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 2px;
+  color: rgba(254, 241, 208, 0.7);
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease;
+}
+
+.cl-rail-label {
+  font-family: var(--medium), Arial, sans-serif;
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
 }
 .cl-rail-btn:hover { color: var(--cl-ink-inv); background: rgba(254, 241, 208, 0.08); }
 .cl-rail-btn[data-active="true"] { color: var(--cl-ink-inv); }
@@ -371,7 +387,7 @@ html:has(.cl-studio) { font-size: 16px; }
 }
 .cl-rail-btn .cl-rail-dot {
   position: absolute;
-  top: 7px; right: 7px;
+  top: 6px; right: 14px;
   width: 6px; height: 6px;
   border-radius: 50%;
   background: var(--cl-accent);
