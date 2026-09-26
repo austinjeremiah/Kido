@@ -27,7 +27,7 @@ contract PolicyTest is AmaneBase {
         RootPolicy memory p = _policy(1);
         p.accountId = keccak256("other");
         bytes[] memory sigs = _both(this.hPolicy(p));
-        _reject("AMANE_POLICY_WRONG_ACCOUNT");
+        _reject(Codes.POLICY_WRONG_ACCOUNT);
         acct.installPolicy(p, sigs);
     }
 
@@ -35,7 +35,7 @@ contract PolicyTest is AmaneBase {
         RootPolicy memory p = _policy(1);
         p.endpoints[0].account = a32(address(0xdead));
         bytes[] memory sigs = _both(this.hPolicy(p));
-        _reject("AMANE_POLICY_WRONG_ENDPOINT");
+        _reject(Codes.POLICY_WRONG_ENDPOINT);
         acct.installPolicy(p, sigs);
     }
 
@@ -43,11 +43,11 @@ contract PolicyTest is AmaneBase {
         _install(_policy(1));
         RootPolicy memory p = _policy(1);
         bytes[] memory sigs = _both(this.hPolicy(p));
-        _reject("AMANE_POLICY_VERSION_MISMATCH");
+        _reject(Codes.POLICY_VERSION_MISMATCH);
         acct.installPolicy(p, sigs);
         p = _policy(3);
         sigs = _both(this.hPolicy(p));
-        _reject("AMANE_POLICY_VERSION_MISMATCH");
+        _reject(Codes.POLICY_VERSION_MISMATCH);
         acct.installPolicy(p, sigs);
     }
 
@@ -55,20 +55,20 @@ contract PolicyTest is AmaneBase {
         RootPolicy memory p = _policy(1);
         bytes[] memory one = new bytes[](1);
         one[0] = _sign(pkA, this.hPolicy(p));
-        _reject("AMANE_CONTROLLER_THRESHOLD");
+        _reject(Codes.CONTROLLER_THRESHOLD);
         acct.installPolicy(p, one);
 
         bytes[] memory dup = new bytes[](2);
         dup[0] = one[0];
         dup[1] = one[0];
-        _reject("AMANE_CONTROLLER_UNSORTED");
+        _reject(Codes.CONTROLLER_UNSORTED);
         acct.installPolicy(p, dup);
 
         bytes[] memory withAttacker = new bytes[](2);
         (uint256 x, uint256 y) = ctrlA < attacker ? (pkA, pkAttacker) : (pkAttacker, pkA);
         withAttacker[0] = _sign(x, this.hPolicy(p));
         withAttacker[1] = _sign(y, this.hPolicy(p));
-        _reject("AMANE_CONTROLLER_NOT_AUTHORIZED");
+        _reject(Codes.CONTROLLER_NOT_AUTHORIZED);
         acct.installPolicy(p, withAttacker);
     }
 
@@ -83,7 +83,7 @@ contract PolicyTest is AmaneBase {
         UnpauseAccount memory ua = _unpauseMsg(pa.pauseId);
         bytes[] memory one = new bytes[](1);
         one[0] = _sign(pkA, this.hUnpause(ua));
-        _reject("AMANE_CONTROLLER_THRESHOLD");
+        _reject(Codes.CONTROLLER_THRESHOLD);
         acct.unpause(ua, one);
         acct.unpause(ua, _both(this.hUnpause(ua)));
         assertFalse(acct.paused());
@@ -97,7 +97,7 @@ contract PolicyTest is AmaneBase {
         acct.pause(pa, sig);
         UnpauseAccount memory ua = _unpauseMsg(pa.pauseId);
         acct.unpause(ua, _both(this.hUnpause(ua)));
-        _reject("AMANE_REPLAY_PAUSE_EPOCH");
+        _reject(Codes.REPLAY_PAUSE_EPOCH);
         acct.pause(pa, sig);
     }
 
@@ -109,7 +109,7 @@ contract PolicyTest is AmaneBase {
         bytes[] memory withheld = _both(this.hUnpause(ua));
         PauseAccount memory p2 = _pauseMsg(keccak256("incident-2"));
         acct.pause(p2, _sign(pkA, this.hPause(p2)));
-        _reject("AMANE_REPLAY_PAUSE_EPOCH");
+        _reject(Codes.REPLAY_PAUSE_EPOCH);
         acct.unpause(ua, withheld);
         assertTrue(acct.paused());
     }
@@ -121,7 +121,7 @@ contract PolicyTest is AmaneBase {
         UnpauseAccount memory ua = _unpauseMsg(p1.pauseId);
         bytes[] memory sigs = _both(this.hUnpause(ua));
         vm.warp(ua.deadline + 1);
-        _reject("AMANE_ACTION_EXPIRED");
+        _reject(Codes.ACTION_EXPIRED);
         acct.unpause(ua, sigs);
     }
 
@@ -129,14 +129,14 @@ contract PolicyTest is AmaneBase {
         _ready();
         PauseAccount memory pa = PauseAccount(ACCOUNT_ID, type(uint64).max, keccak256("x"), uint64(block.timestamp + 60));
         bytes memory sig = _sign(pkB, this.hPause(pa));
-        _reject("AMANE_REPLAY_PAUSE_EPOCH");
+        _reject(Codes.REPLAY_PAUSE_EPOCH);
         acct.pause(pa, sig);
     }
 
     function test_pause_by_non_controller_rejected() public {
         PauseAccount memory pa = _pauseMsg(keccak256("x"));
         bytes memory sig = _sign(pkAttacker, this.hPause(pa));
-        _reject("AMANE_CONTROLLER_NOT_AUTHORIZED");
+        _reject(Codes.CONTROLLER_NOT_AUTHORIZED);
         acct.pause(pa, sig);
     }
 
@@ -145,7 +145,7 @@ contract PolicyTest is AmaneBase {
         RootPolicy memory p = _policy(2);
         p.parentPolicyHash = keccak256("abandoned draft lineage");
         bytes[] memory sigs = _both(this.hPolicy(p));
-        _reject("AMANE_POLICY_PARENT_MISMATCH");
+        _reject(Codes.POLICY_PARENT_MISMATCH);
         acct.installPolicy(p, sigs);
     }
 
@@ -153,7 +153,7 @@ contract PolicyTest is AmaneBase {
         RootPolicy memory p = _policy(1);
         bytes[] memory sigs = _both(this.hPolicy(p));
         vm.warp(p.activateBefore + 1);
-        _reject("AMANE_POLICY_ACTIVATION_EXPIRED");
+        _reject(Codes.POLICY_ACTIVATION_EXPIRED);
         acct.installPolicy(p, sigs);
     }
 
@@ -161,7 +161,7 @@ contract PolicyTest is AmaneBase {
         RootPolicy memory p = _policy(1);
         p.endpoints[0].swapFloors[0].minOutNumerator = 0;
         bytes[] memory sigs = _both(this.hPolicy(p));
-        _reject("AMANE_POLICY_BAD_FLOOR");
+        _reject(Codes.POLICY_BAD_FLOOR);
         acct.installPolicy(p, sigs);
     }
 
@@ -169,7 +169,7 @@ contract PolicyTest is AmaneBase {
         RootPolicy memory p = _policy(1);
         p.endpoints[0].assets[1] = p.endpoints[0].assets[0];
         bytes[] memory sigs = _both(this.hPolicy(p));
-        _reject("AMANE_POLICY_DUPLICATE_ENTRY");
+        _reject(Codes.POLICY_DUPLICATE_ENTRY);
         acct.installPolicy(p, sigs);
     }
 
@@ -177,7 +177,7 @@ contract PolicyTest is AmaneBase {
         RootPolicy memory p = _policy(1);
         p.leaseIssuers[0].issuer = ctrlA;
         bytes[] memory sigs = _both(this.hPolicy(p));
-        _reject("AMANE_POLICY_ISSUER_IS_CONTROLLER");
+        _reject(Codes.POLICY_ISSUER_IS_CONTROLLER);
         acct.installPolicy(p, sigs);
     }
 }
@@ -196,44 +196,44 @@ contract LeaseTest is AmaneBase {
     function test_AM_LEASE_002_action_not_in_root() public {
         AgentLease memory l = _lease(ctrlA);
         l.allowedActions |= uint32(1 << 3);
-        _activateReject(l, pkA, "AMANE_LEASE_ACTION_NOT_IN_ROOT");
+        _activateReject(l, pkA, Codes.LEASE_ACTION_NOT_IN_ROOT);
     }
 
     function test_AM_LEASE_003_adapter_not_in_root() public {
         AgentLease memory l = _lease(ctrlA);
         l.endpoints[0].adapters[0] = keccak256("unknown");
-        _activateReject(l, pkA, "AMANE_LEASE_ADAPTER_NOT_IN_ROOT");
+        _activateReject(l, pkA, Codes.LEASE_ADAPTER_NOT_IN_ROOT);
     }
 
     function test_AM_LEASE_004_asset_not_in_root() public {
         AgentLease memory l = _lease(ctrlA);
         l.endpoints[0].assets[0].assetId = a32(address(0xbeef));
-        _activateReject(l, pkA, "AMANE_LEASE_ASSET_NOT_IN_ROOT");
+        _activateReject(l, pkA, Codes.LEASE_ASSET_NOT_IN_ROOT);
     }
 
     function test_AM_LEASE_005_006_007_caps_above_root() public {
         AgentLease memory l = _lease(ctrlA);
         l.endpoints[0].assets[0].maxPerAction = 100_000001;
-        _activateReject(l, pkA, "AMANE_LEASE_CAP_EXCEEDS_ROOT");
+        _activateReject(l, pkA, Codes.LEASE_CAP_EXCEEDS_ROOT);
         l = _lease(ctrlA);
         l.endpoints[0].assets[0].maxPerEpoch = 200_000001;
-        _activateReject(l, pkA, "AMANE_LEASE_CAP_EXCEEDS_ROOT");
+        _activateReject(l, pkA, Codes.LEASE_CAP_EXCEEDS_ROOT);
         l = _lease(ctrlA);
         l.endpoints[0].assets[0].maxTotal = 500_000001;
-        _activateReject(l, pkA, "AMANE_LEASE_CAP_EXCEEDS_ROOT");
+        _activateReject(l, pkA, Codes.LEASE_CAP_EXCEEDS_ROOT);
     }
 
     function test_AM_LEASE_008_lifetime_beyond_root() public {
         AgentLease memory l = _lease(ctrlA);
         l.expiresAt = l.validAfter + 86_401;
-        _activateReject(l, pkA, "AMANE_LEASE_LIFETIME_EXCEEDED");
+        _activateReject(l, pkA, Codes.LEASE_LIFETIME_EXCEEDED);
     }
 
     function test_AM_LEASE_009_action_signed_by_wrong_agent() public {
         _activate(_lease(ctrlA), pkA);
         ActionIntent memory a = _pay(1, 1_000000);
         bytes memory sig = _sign(pkAttacker, this.hAction(a));
-        _reject("AMANE_ACTION_WRONG_AGENT");
+        _reject(Codes.ACTION_WRONG_AGENT);
         acct.executeAction(a, sig);
     }
 
@@ -243,7 +243,7 @@ contract LeaseTest is AmaneBase {
         bytes memory sig = _sign(pkB, this.hRevoke(r));
         vm.prank(attacker);
         acct.revokeLease(r, sig);
-        _execReject(_pay(1, 1_000000), "AMANE_LEASE_NOT_ACTIVE");
+        _execReject(_pay(1, 1_000000), Codes.LEASE_NOT_ACTIVE);
     }
 
     function test_revoke_before_activation_kills_signed_lease() public {
@@ -251,63 +251,63 @@ contract LeaseTest is AmaneBase {
         bytes memory leaseSig = _sign(pkA, this.hLease(l));
         RevokeLease memory r = RevokeLease(ACCOUNT_ID, leaseId);
         acct.revokeLease(r, _sign(pkA, this.hRevoke(r)));
-        _reject("AMANE_REPLAY_LEASE_ID");
+        _reject(Codes.REPLAY_LEASE_ID);
         acct.activateLease(l, leaseSig);
     }
 
     function test_AM_LEASE_011_unlisted_issuer() public {
         AgentLease memory l = _lease(attacker);
-        _activateReject(l, pkAttacker, "AMANE_LEASE_ISSUER_NOT_AUTHORIZED");
+        _activateReject(l, pkAttacker, Codes.LEASE_ISSUER_NOT_AUTHORIZED);
     }
 
     function test_AM_LEASE_011_issuer_field_does_not_match_signer() public {
         AgentLease memory l = _lease(ctrlA);
-        _activateReject(l, pkAttacker, "AMANE_LEASE_ISSUER_NOT_AUTHORIZED");
+        _activateReject(l, pkAttacker, Codes.LEASE_ISSUER_NOT_AUTHORIZED);
     }
 
     function test_AM_LEASE_012_issuer_caps() public {
         AgentLease memory l = _lease(issuer);
         l.endpoints[0].assets[0].maxTotal = 100_000001;
-        _activateReject(l, pkIssuer, "AMANE_LEASE_CAP_EXCEEDS_ISSUER");
+        _activateReject(l, pkIssuer, Codes.LEASE_CAP_EXCEEDS_ISSUER);
 
         l = _lease(issuer);
         l.expiresAt = l.validAfter + 3601;
-        _activateReject(l, pkIssuer, "AMANE_LEASE_LIFETIME_EXCEEDED");
+        _activateReject(l, pkIssuer, Codes.LEASE_LIFETIME_EXCEEDED);
 
         l = _lease(issuer);
         l.agent = attacker;
-        _activateReject(l, pkIssuer, "AMANE_LEASE_AGENT_NOT_ALLOWED");
+        _activateReject(l, pkIssuer, Codes.LEASE_AGENT_NOT_ALLOWED);
 
         _activate(_lease(issuer), pkIssuer);
     }
 
     function test_AM_LEASE_013_agent_cannot_sign_own_lease() public {
         AgentLease memory l = _lease(agent);
-        _activateReject(l, pkAgent, "AMANE_LEASE_AGENT_IS_ISSUER");
+        _activateReject(l, pkAgent, Codes.LEASE_AGENT_IS_ISSUER);
     }
 
     function test_lease_activation_deadline() public {
         AgentLease memory l = _lease(ctrlA);
         vm.warp(l.activateBefore + 1);
-        _activateReject(l, pkA, "AMANE_LEASE_ACTIVATION_EXPIRED");
+        _activateReject(l, pkA, Codes.LEASE_ACTIVATION_EXPIRED);
     }
 
     function test_lease_id_cannot_be_reactivated() public {
         AgentLease memory l = _lease(ctrlA);
         _activate(l, pkA);
-        _activateReject(l, pkA, "AMANE_REPLAY_LEASE_ID");
+        _activateReject(l, pkA, Codes.REPLAY_LEASE_ID);
     }
 
     function test_AM_REPLAY_001_lease_without_this_endpoint() public {
         AgentLease memory l = _lease(ctrlA);
         l.endpoints[0].account = a32(address(0xdead));
-        _activateReject(l, pkA, "AMANE_LEASE_WRONG_ENDPOINT");
+        _activateReject(l, pkA, Codes.LEASE_WRONG_ENDPOINT);
     }
 
     function test_F0205_issuer_cannot_pre_revoke_foreign_lease() public {
         RevokeLease memory r = RevokeLease(ACCOUNT_ID, leaseId);
         bytes memory sig = _sign(pkIssuer, this.hRevoke(r));
-        _reject("AMANE_CONTROLLER_NOT_AUTHORIZED");
+        _reject(Codes.CONTROLLER_NOT_AUTHORIZED);
         acct.revokeLease(r, sig);
     }
 
@@ -321,7 +321,7 @@ contract LeaseTest is AmaneBase {
     function test_lease_policy_version_mismatch() public {
         AgentLease memory l = _lease(ctrlA);
         l.policyVersion = 2;
-        _activateReject(l, pkA, "AMANE_POLICY_VERSION_MISMATCH");
+        _activateReject(l, pkA, Codes.POLICY_VERSION_MISMATCH);
     }
 }
 
@@ -341,39 +341,39 @@ contract ActionTest is AmaneBase {
     function test_AM_ACT_002_kind_outside_lease() public {
         ActionIntent memory a = _pay(1, 1_000000);
         a.actionKind = 3;
-        _execReject(a, "AMANE_ACTION_KIND_NOT_ALLOWED");
+        _execReject(a, Codes.ACTION_KIND_NOT_ALLOWED);
     }
 
     function test_AM_ACT_003_wrong_adapter() public {
         ActionIntent memory a = _pay(1, 1_000000);
         a.adapterId = keccak256("x");
-        _execReject(a, "AMANE_ACTION_ADAPTER_NOT_ALLOWED");
+        _execReject(a, Codes.ACTION_ADAPTER_NOT_ALLOWED);
         a = _pay(1, 1_000000);
         a.adapterId = swapId;
-        _execReject(a, "AMANE_ACTION_ADAPTER_NAME_MISMATCH");
+        _execReject(a, Codes.ACTION_ADAPTER_NAME_MISMATCH);
     }
 
     function test_AM_ACT_004_wrong_input_asset() public {
         ActionIntent memory a = _pay(1, 1_000000);
         a.assetIn = a32(address(0xbeef));
         a.assetOut = a.assetIn;
-        _execReject(a, "AMANE_ACTION_ASSET_NOT_ALLOWED");
+        _execReject(a, Codes.ACTION_ASSET_NOT_ALLOWED);
     }
 
     function test_AM_ACT_005_wrong_output_asset() public {
         ActionIntent memory a = _swap(1, 1_000000, 0);
         a.assetOut = a32(address(0xbeef));
-        _execReject(a, "AMANE_ACTION_ASSET_NOT_ALLOWED");
+        _execReject(a, Codes.ACTION_ASSET_NOT_ALLOWED);
     }
 
     function test_AM_ACT_006_per_action_cap() public {
-        _execReject(_pay(1, 25_000001), "AMANE_BUDGET_PER_ACTION");
+        _execReject(_pay(1, 25_000001), Codes.BUDGET_PER_ACTION);
     }
 
     function test_AM_ACT_007_epoch_cap() public {
         _exec(_pay(1, 25_000000));
         _exec(_pay(2, 25_000000));
-        _execReject(_pay(3, 1), "AMANE_BUDGET_EPOCH");
+        _execReject(_pay(3, 1), Codes.BUDGET_EPOCH);
     }
 
     function test_AM_ACT_008_total_cap() public {
@@ -387,13 +387,13 @@ contract ActionTest is AmaneBase {
             _exec(_pay(++n, 25_000000));
             vm.warp(block.timestamp + 3600);
         }
-        _execReject(_pay(++n, 1), "AMANE_BUDGET_TOTAL");
+        _execReject(_pay(++n, 1), Codes.BUDGET_TOTAL);
     }
 
     function test_AM_ACT_009_after_deadline() public {
         ActionIntent memory a = _pay(1, 1_000000);
         vm.warp(a.deadline + 1);
-        _execReject(a, "AMANE_ACTION_EXPIRED");
+        _execReject(a, Codes.ACTION_EXPIRED);
     }
 
     function test_AM_ACT_010_before_lease_valid() public {
@@ -404,21 +404,21 @@ contract ActionTest is AmaneBase {
         _activate(l, pkA);
         ActionIntent memory a = _pay(1, 1_000000);
         a.leaseId = l.leaseId;
-        _execReject(a, "AMANE_LEASE_NOT_YET_VALID");
+        _execReject(a, Codes.LEASE_NOT_YET_VALID);
     }
 
     function test_expired_lease() public {
         ActionIntent memory a = _pay(1, 1_000000);
         vm.warp(T0 + 3601);
         a.deadline = uint64(block.timestamp + 10);
-        _execReject(a, "AMANE_LEASE_EXPIRED");
+        _execReject(a, Codes.LEASE_EXPIRED);
     }
 
     function test_AM_ACT_011_012_replay_same_nonce() public {
         ActionIntent memory a = _pay(1, 1_000000);
         bytes memory sig = _agentSig(a);
         acct.executeAction(a, sig);
-        _reject("AMANE_REPLAY_NONCE");
+        _reject(Codes.REPLAY_NONCE);
         acct.executeAction(a, sig);
     }
 
@@ -426,7 +426,7 @@ contract ActionTest is AmaneBase {
         ActionIntent memory a = _pay(1, 1_000000);
         bytes memory sig = _agentSig(a);
         a.planStep = 1;
-        _reject("AMANE_ACTION_WRONG_AGENT");
+        _reject(Codes.ACTION_WRONG_AGENT);
         acct.executeAction(a, sig);
     }
 
@@ -439,33 +439,33 @@ contract ActionTest is AmaneBase {
     function test_AM_RECIP_002_swap_output_redirect_rejected() public {
         ActionIntent memory a = _swap(1, 1_000000, 0);
         a.recipient = a32(executor);
-        _execReject(a, "AMANE_ACTION_RECIPIENT_NOT_ALLOWED");
+        _execReject(a, Codes.ACTION_RECIPIENT_NOT_ALLOWED);
     }
 
     function test_AM_RECIP_003_arbitrary_pay_recipient() public {
         ActionIntent memory a = _pay(1, 1_000000);
         a.recipient = a32(attacker);
-        _execReject(a, "AMANE_ACTION_RECIPIENT_NOT_ALLOWED");
+        _execReject(a, Codes.ACTION_RECIPIENT_NOT_ALLOWED);
     }
 
     function test_pay_label_must_match_root() public {
         ActionIntent memory a = _pay(1, 1_000000);
         a.recipientLabel = "Merchant";
-        _execReject(a, "AMANE_ACTION_RECIPIENT_NOT_ALLOWED");
+        _execReject(a, Codes.ACTION_RECIPIENT_NOT_ALLOWED);
     }
 
     function test_AM_NAME_001_adapter_name_version_mismatch() public {
         ActionIntent memory a = _pay(1, 1_000000);
         a.adapterName = "Transfer Pay v2";
-        _execReject(a, "AMANE_ACTION_ADAPTER_NAME_MISMATCH");
+        _execReject(a, Codes.ACTION_ADAPTER_NAME_MISMATCH);
         a = _pay(1, 1_000000);
         a.adapterVersion = 2;
-        _execReject(a, "AMANE_ACTION_ADAPTER_NAME_MISMATCH");
+        _execReject(a, Codes.ACTION_ADAPTER_NAME_MISMATCH);
     }
 
     function test_AM_PRICE_001_agent_may_demand_better_price() public {
         _exec(_swap(1, 1_000000, 999_000000));
-        _execReject(_swap(2, 1_000000, 1_000_000001), "AMANE_ACTION_BELOW_MIN_OUT");
+        _execReject(_swap(2, 1_000000, 1_000_000001), Codes.ACTION_BELOW_MIN_OUT);
     }
 
     function test_AM_PRICE_002_004_floor_enforced_against_bad_pool() public {
@@ -483,7 +483,7 @@ contract ActionTest is AmaneBase {
         a.policyVersion = 2;
         a.leaseId = l.leaseId;
         a.adapterId = badId;
-        _execReject(a, "AMANE_ACTION_BELOW_MIN_OUT");
+        _execReject(a, Codes.ACTION_BELOW_MIN_OUT);
     }
 
     function test_swap_without_floor_fails_closed() public {
@@ -497,28 +497,28 @@ contract ActionTest is AmaneBase {
         ActionIntent memory a = _swap(1, 1_000000, 0);
         a.policyVersion = 2;
         a.leaseId = l.leaseId;
-        _execReject(a, "AMANE_ACTION_NO_PRICE_FLOOR");
+        _execReject(a, Codes.ACTION_NO_PRICE_FLOOR);
     }
 
     function test_AM_PAUSE_001_paused_account_rejects_agent() public {
         PauseAccount memory pa = _pauseMsg(keccak256("incident"));
         acct.pause(pa, _sign(pkA, this.hPause(pa)));
-        _execReject(_pay(1, 1_000000), "AMANE_ACTION_ACCOUNT_PAUSED");
+        _execReject(_pay(1, 1_000000), Codes.ACTION_ACCOUNT_PAUSED);
     }
 
     function test_AM_REPLAY_002_action_for_other_account() public {
         ActionIntent memory a = _pay(1, 1_000000);
         a.account = SUI_ACCOUNT;
-        _execReject(a, "AMANE_ACTION_WRONG_ENDPOINT");
+        _execReject(a, Codes.ACTION_WRONG_ENDPOINT);
         a = _pay(1, 1_000000);
         a.chainRef = SUI_CHAIN_REF;
-        _execReject(a, "AMANE_ACTION_WRONG_ENDPOINT");
+        _execReject(a, Codes.ACTION_WRONG_ENDPOINT);
     }
 
     function test_new_policy_version_invalidates_old_leases() public {
         _install(_policy(2));
         ActionIntent memory a = _pay(1, 1_000000);
-        _execReject(a, "AMANE_POLICY_VERSION_MISMATCH");
+        _execReject(a, Codes.POLICY_VERSION_MISMATCH);
     }
 
     function test_issuer_counters_bound_all_issuer_leases() public {
@@ -538,7 +538,7 @@ contract ActionTest is AmaneBase {
         }
         ActionIntent memory over = _pay(++n, 1);
         over.leaseId = keccak256(abi.encode("issuer-lease", uint256(2)));
-        _execReject(over, "AMANE_BUDGET_EPOCH");
+        _execReject(over, Codes.BUDGET_EPOCH);
     }
 
     function test_AM_BUDGET_002_epoch_boundary_no_double_window() public {
@@ -550,22 +550,22 @@ contract ActionTest is AmaneBase {
         vm.warp(boundary - 1);
         _exec(_pay(1, 25_000000));
         _exec(_pay(2, 25_000000));
-        _execReject(_pay(3, 1), "AMANE_BUDGET_EPOCH");
+        _execReject(_pay(3, 1), Codes.BUDGET_EPOCH);
         vm.warp(boundary);
-        _execReject(_pay(3, 1_000000), "AMANE_BUDGET_EPOCH");
+        _execReject(_pay(3, 1_000000), Codes.BUDGET_EPOCH);
         vm.warp(boundary - 1 + 1800);
         _exec(_pay(3, 25_000000));
-        _execReject(_pay(4, 1_000000), "AMANE_BUDGET_EPOCH");
+        _execReject(_pay(4, 1_000000), Codes.BUDGET_EPOCH);
         vm.warp(boundary - 1 + 1800 + 3600);
         _exec(_pay(4, 25_000000));
-        _execReject(_pay(5, 1), "AMANE_BUDGET_TOTAL");
+        _execReject(_pay(5, 1), Codes.BUDGET_TOTAL);
     }
 
     function test_AM_OWNER_001_agent_cannot_withdraw() public {
         Withdraw memory w = Withdraw(ACCOUNT_ID, acct.chainRef(), a32(address(acct)), a32(address(usd)), 1, a32(recovery), 0, uint64(block.timestamp + 60));
         bytes[] memory sigs = new bytes[](1);
         sigs[0] = _sign(pkAgent, this.hWithdraw(w));
-        _reject("AMANE_CONTROLLER_NOT_AUTHORIZED");
+        _reject(Codes.CONTROLLER_NOT_AUTHORIZED);
         acct.withdraw(w, sigs);
     }
 
@@ -574,14 +574,14 @@ contract ActionTest is AmaneBase {
         acct.withdraw(w, _both(this.hWithdraw(w)));
         assertEq(usd.balanceOf(recovery), 7);
         bytes[] memory again = _both(this.hWithdraw(w));
-        _reject("AMANE_REPLAY_OP_NONCE");
+        _reject(Codes.REPLAY_OP_NONCE);
         acct.withdraw(w, again);
     }
 
     function test_AM_OWNER_003_recovery_to_unapproved_destination() public {
         Withdraw memory w = Withdraw(ACCOUNT_ID, acct.chainRef(), a32(address(acct)), a32(address(usd)), 7, a32(attacker), 0, uint64(block.timestamp + 60));
         bytes[] memory sigs = _both(this.hWithdraw(w));
-        _reject("AMANE_OWNER_DESTINATION_NOT_ALLOWED");
+        _reject(Codes.OWNER_DESTINATION_NOT_ALLOWED);
         acct.withdraw(w, sigs);
     }
 
@@ -605,7 +605,7 @@ contract ActionTest is AmaneBase {
         ActionIntent memory a = _pay(1, amount);
         bytes memory sig = _agentSig(a);
         if (amount > 25_000000) {
-            _reject("AMANE_BUDGET_PER_ACTION");
+            _reject(Codes.BUDGET_PER_ACTION);
             acct.executeAction(a, sig);
         } else {
             acct.executeAction(a, sig);
@@ -625,7 +625,7 @@ contract AdapterTest is AmaneBase {
         _activate(l, pkA);
         ActionIntent memory a = _pay(1, 1_000000);
         a.adapterId = ghost;
-        _execReject(a, "AMANE_ADAPTER_UNKNOWN");
+        _execReject(a, Codes.ADAPTER_UNKNOWN);
     }
 
     function test_AM_ADAPTER_002_registration_is_immutable() public {
@@ -647,7 +647,7 @@ contract AdapterTest is AmaneBase {
         bytes32 id2 = registry.register(address(new TransferPayAdapter()));
         ActionIntent memory a = _pay(1, 1_000000);
         a.adapterId = id2;
-        _execReject(a, "AMANE_ACTION_ADAPTER_NOT_ALLOWED");
+        _execReject(a, Codes.ACTION_ADAPTER_NOT_ALLOWED);
     }
 
     function test_AM_PAUSE_002_executor_cannot_call_adapter_to_move_account_funds() public {
@@ -670,7 +670,7 @@ contract AdapterTest is AmaneBase {
         _activate(l, pkA);
         ActionIntent memory a = _pay(1, 1_000000);
         a.adapterId = evilId;
-        _execReject(a, "AMANE_ACTION_UNDER_DELIVERED");
+        _execReject(a, Codes.ACTION_UNDER_DELIVERED);
     }
 
     function test_malicious_swap_adapter_cannot_steal_input() public {
@@ -684,7 +684,7 @@ contract AdapterTest is AmaneBase {
         _activate(l, pkA);
         ActionIntent memory a = _swap(1, 1_000000, 0);
         a.adapterId = evilId;
-        _execReject(a, "AMANE_ACTION_BELOW_MIN_OUT");
+        _execReject(a, Codes.ACTION_BELOW_MIN_OUT);
     }
 
     function test_AM_EVM_001_reentrancy_during_adapter_call() public {
@@ -702,7 +702,7 @@ contract AdapterTest is AmaneBase {
         store.set(abi.encodeCall(AmaneAccount.executeAction, (inner, _agentSig(inner))));
         ActionIntent memory outer = _pay(1, 1_000000);
         outer.adapterId = reId;
-        _execReject(outer, "AMANE_ACTION_REENTRANT");
+        _execReject(outer, Codes.ACTION_REENTRANT);
         assertFalse(acct.nonceUsed(leaseId, 1));
     }
 

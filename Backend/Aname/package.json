@@ -5,8 +5,13 @@
   "description": "Amane - bounded financial authority for agents across EVM and Sui (testnet prototype, not audited)",
   "license": "MIT",
   "type": "module",
-  "engines": { "node": ">=22" },
-  "workspaces": ["packages/core"],
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/core",
+    "packages/sdk"
+  ],
   "scripts": {
     "test": "npm run test --workspaces && npm run test:evm && npm run test:sui",
     "test:evm": "cd evm && forge test",

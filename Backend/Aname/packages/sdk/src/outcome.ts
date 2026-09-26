@@ -1,0 +1,31 @@
+import { BaseError, ContractFunctionRevertedError } from 'viem';
+import { amaneCodeName } from '@amane/core';
+
+export type Chain = 'ethereum-sepolia' | 'sui-testnet';
+
+/// A policy rejection is a successful deterministic security outcome; an RPC or gas failure is an
+/// operational failure. The two are never collapsed into one "denied" state.
+export type AmaneOutcome =
+  | { kind: 'EXECUTED'; chain: Chain; tx: string; block?: string }
+  | { kind: 'REJECTED_BY_AMANE'; chain: Chain; code: string; tx?: string }
+  | { kind: 'OPERATIONAL_FAILURE'; chain: Chain; message: string; tx?: string };
+
+export function suiAbortName(code: number | string): string | undefined {
+  return amaneCodeName(code);
+}
+
+const EVM_SIG_ERRORS: Record<string, string> = {
+  BadSignatureLength: 'AMANE_CONTROLLER_BAD_SIGNATURE_LENGTH',
+  BadV: 'AMANE_CONTROLLER_BAD_V',
+  HighS: 'AMANE_CONTROLLER_HIGH_S',
+  ZeroRS: 'AMANE_CONTROLLER_ZERO_RS',
+  RecoverFailed: 'AMANE_CONTROLLER_BAD_SIGNATURE',
+};
+
+export function evmRejection(err: unknown): string | undefined {
+  if (!(err instanceof BaseError)) return undefined;
+  const revert = err.walk((e) => e instanceof ContractFunctionRevertedError);
+  if (!(revert instanceof ContractFunctionRevertedError) || !revert.data) return undefined;
+  if (revert.data.errorName === 'AmaneRejected') return amaneCodeName(revert.data.args?.[0] as number) ?? `AMANE_CODE_${String(revert.data.args?.[0])}`;
+  return EVM_SIG_ERRORS[revert.data.errorName];
+}

@@ -32,6 +32,8 @@ export type AmaneRejectCode =
   | 'AMANE_ACTION_ZERO_AMOUNT'
   | 'AMANE_BUDGET_PER_ACTION'
   | 'AMANE_ACTION_NO_PRICE_FLOOR'
+  | 'AMANE_LEASE_NOT_YET_VALID'
+  | 'AMANE_LEASE_EXPIRED'
   | 'AMANE_POLICY_WRONG_ENDPOINT'
   | 'AMANE_POLICY_BAD_PRICE_MODE'
   | 'AMANE_POLICY_BAD_EPOCH'
@@ -180,6 +182,8 @@ export function assertActionIsSubset(policy: RootPolicy, lease: AgentLease, inte
   if (!eq32(intent.chainRef, ctx.chainRef) || !eq32(intent.account, ctx.account)) fail('AMANE_ACTION_WRONG_ENDPOINT');
   if (intent.policyVersion !== policy.policyVersion) fail('AMANE_POLICY_VERSION_MISMATCH');
   if (!eq32(intent.leaseId, lease.leaseId)) fail('AMANE_ACTION_WRONG_LEASE');
+  if (ctx.now < lease.validAfter) fail('AMANE_LEASE_NOT_YET_VALID');
+  if (ctx.now > lease.expiresAt) fail('AMANE_LEASE_EXPIRED');
   if (ctx.now > intent.deadline) fail('AMANE_ACTION_EXPIRED');
   if (!maskIncludes(lease.allowedActions, intent.actionKind)) fail('AMANE_ACTION_KIND_NOT_ALLOWED');
   if (intent.amountIn === 0n) fail('AMANE_ACTION_ZERO_AMOUNT');
@@ -201,16 +205,14 @@ export function assertActionIsSubset(policy: RootPolicy, lease: AgentLease, inte
     if (!eq32(intent.recipient, ZERO32)) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'swap output returns to the account');
     const floor =
       root.swapFloors.find((f) => eq32(f.assetIn, intent.assetIn) && eq32(f.assetOut, intent.assetOut)) ?? fail('AMANE_ACTION_NO_PRICE_FLOOR');
-    const required = (intent.amountIn * floor.minOutNumerator + floor.minOutDenominator - 1n) / floor.minOutDenominator;
+    const product = intent.amountIn * floor.minOutNumerator + floor.minOutDenominator - 1n;
+    if (product >= 1n << 256n) fail('AMANE_ACTION_NO_PRICE_FLOOR', 'floor arithmetic overflows uint256 on-chain');
+    const required = product / floor.minOutDenominator;
     if (required > effectiveMinOut) effectiveMinOut = required;
   } else if (intent.actionKind === ActionKind.PAY) {
     if (!eq32(intent.assetOut, intent.assetIn)) fail('AMANE_ACTION_ASSET_NOT_ALLOWED', 'PAY assetOut must equal assetIn');
     if (!le.recipients.some((r) => eq32(r, intent.recipient))) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
     const r = root.recipients.find((x) => eq32(x.recipientId, intent.recipient)) ?? fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
-    if (r.label !== intent.recipientLabel) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'label mismatch');
-  } else if (intent.actionKind === ActionKind.REPAY) {
-    if (!le.beneficiaries.some((r) => eq32(r, intent.recipient))) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'beneficiary');
-    const r = root.beneficiaries.find((x) => eq32(x.recipientId, intent.recipient)) ?? fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED');
     if (r.label !== intent.recipientLabel) fail('AMANE_ACTION_RECIPIENT_NOT_ALLOWED', 'label mismatch');
   } else {
     fail('AMANE_ACTION_KIND_NOT_ALLOWED', 'no v1 enforcement rule for this action kind');

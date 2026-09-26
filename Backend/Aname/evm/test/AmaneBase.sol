@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {Test} from "forge-std/Test.sol";
 import "../src/AmaneTypes.sol";
+import {Codes} from "../src/AmaneCodes.sol";
 import {AmaneAccount} from "../src/AmaneAccount.sol";
 import {AdapterRegistry} from "../src/AdapterRegistry.sol";
 import {AmaneTestToken} from "../src/AmaneTestToken.sol";
@@ -228,14 +229,14 @@ abstract contract AmaneBase is Test {
         return acct.executeAction(a, sig);
     }
 
-    function _execReject(ActionIntent memory a, string memory code) internal {
+    function _execReject(ActionIntent memory a, uint16 code) internal {
         bytes memory sig = _agentSig(a);
         _reject(code);
         vm.prank(executor);
         acct.executeAction(a, sig);
     }
 
-    function _activateReject(AgentLease memory l, uint256 pk, string memory code) internal {
+    function _activateReject(AgentLease memory l, uint256 pk, uint16 code) internal {
         bytes memory sig = _sign(pk, this.hLease(l));
         _reject(code);
         acct.activateLease(l, sig);
@@ -254,7 +255,7 @@ abstract contract AmaneBase is Test {
         return UnpauseAccount(ACCOUNT_ID, acct.chainRef(), a32(address(acct)), acct.pauseEpoch(), pauseId, uint64(block.timestamp + 60));
     }
 
-    function _reject(string memory code) internal {
+    function _reject(uint16 code) internal {
         vm.expectRevert(abi.encodeWithSelector(AmaneAccount.AmaneRejected.selector, code));
     }
 }

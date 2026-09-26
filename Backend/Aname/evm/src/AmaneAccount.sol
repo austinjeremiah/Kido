@@ -18,6 +18,7 @@ import {
     Withdraw
 } from "./AmaneTypes.sol";
 import {AdapterRegistry, IAmaneAdapter} from "./AdapterRegistry.sol";
+import {Codes} from "./AmaneCodes.sol";
 
 interface IERC20Minimal {
     function balanceOf(address) external view returns (uint256);
@@ -90,6 +91,7 @@ contract AmaneAccount {
     bool public paused;
     uint64 public pauseEpoch;
     bytes32 public lastPauseId;
+    mapping(bytes32 => bool) public pauseIdUsed;
     uint64 public opNonce;
 
     uint64 public policyVersion;
@@ -138,10 +140,10 @@ contract AmaneAccount {
     );
     event Withdrawn(bytes32 indexed assetId, uint256 amount, address destination, uint64 opNonce);
 
-    error AmaneRejected(string code);
+    error AmaneRejected(uint16 code);
 
     modifier nonReentrant() {
-        if (locked != 1) revert AmaneRejected("AMANE_ACTION_REENTRANT");
+        if (locked != 1) revert AmaneRejected(Codes.ACTION_REENTRANT);
         locked = 2;
         _;
         locked = 1;
@@ -149,11 +151,11 @@ contract AmaneAccount {
 
     constructor(bytes32 accountId_, address[] memory controllers_, uint8 threshold_, AdapterRegistry registry_) {
         if (controllers_.length == 0 || threshold_ == 0 || threshold_ > controllers_.length) {
-            revert AmaneRejected("AMANE_CONTROLLER_BAD_THRESHOLD");
+            revert AmaneRejected(Codes.CONTROLLER_BAD_THRESHOLD);
         }
         for (uint256 i; i < controllers_.length; ++i) {
-            if (i > 0 && controllers_[i] <= controllers_[i - 1]) revert AmaneRejected("AMANE_CONTROLLER_UNSORTED");
-            if (controllers_[i] == address(0)) revert AmaneRejected("AMANE_CONTROLLER_ZERO");
+            if (i > 0 && controllers_[i] <= controllers_[i - 1]) revert AmaneRejected(Codes.CONTROLLER_UNSORTED);
+            if (controllers_[i] == address(0)) revert AmaneRejected(Codes.CONTROLLER_ZERO);
             isController[controllers_[i]] = true;
         }
         controllerList = controllers_;
@@ -174,51 +176,51 @@ contract AmaneAccount {
     // ---------------------------------------------------------------- root controller paths
 
     function installPolicy(RootPolicy calldata p, bytes[] calldata sigs) external nonReentrant {
-        if (p.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
-        if (p.policyVersion != policyVersion + 1) revert AmaneRejected("AMANE_POLICY_VERSION_MISMATCH");
-        if (p.priceMode != PRICE_MODE_TESTNET_FIXED) revert AmaneRejected("AMANE_POLICY_BAD_PRICE_MODE");
-        if (p.parentPolicyHash != policyHash) revert AmaneRejected("AMANE_POLICY_PARENT_MISMATCH");
-        if (block.timestamp > p.activateBefore) revert AmaneRejected("AMANE_POLICY_ACTIVATION_EXPIRED");
+        if (p.accountId != accountId) revert AmaneRejected(Codes.POLICY_WRONG_ACCOUNT);
+        if (p.policyVersion != policyVersion + 1) revert AmaneRejected(Codes.POLICY_VERSION_MISMATCH);
+        if (p.priceMode != PRICE_MODE_TESTNET_FIXED) revert AmaneRejected(Codes.POLICY_BAD_PRICE_MODE);
+        if (p.parentPolicyHash != policyHash) revert AmaneRejected(Codes.POLICY_PARENT_MISMATCH);
+        if (block.timestamp > p.activateBefore) revert AmaneRejected(Codes.POLICY_ACTIVATION_EXPIRED);
         bytes32 h = p.hash();
         _requireThreshold(AmaneHash.digest(h), sigs);
 
         PolicyEndpoint calldata e = p.endpoints[_ownPolicyEndpoint(p)];
-        if (e.epochSeconds == 0) revert AmaneRejected("AMANE_POLICY_BAD_EPOCH");
+        if (e.epochSeconds == 0) revert AmaneRejected(Codes.POLICY_BAD_EPOCH);
         uint64 v = p.policyVersion;
 
         for (uint256 i; i < e.adapters.length; ++i) {
             AdapterPolicy storage a = rootAdapters[v][e.adapters[i].adapterId];
-            if (a.allowed) revert AmaneRejected("AMANE_POLICY_DUPLICATE_ENTRY");
+            if (a.allowed) revert AmaneRejected(Codes.POLICY_DUPLICATE_ENTRY);
             a.allowed = true;
             a.nameHash = keccak256(bytes(e.adapters[i].adapterName));
             a.version = e.adapters[i].adapterVersion;
         }
         for (uint256 i; i < e.assets.length; ++i) {
             Limit storage l = rootAssets[v][e.assets[i].assetId];
-            if (l.allowed) revert AmaneRejected("AMANE_POLICY_DUPLICATE_ENTRY");
+            if (l.allowed) revert AmaneRejected(Codes.POLICY_DUPLICATE_ENTRY);
             _storeLimit(l, e.assets[i]);
         }
         for (uint256 i; i < e.recipients.length; ++i) {
             bytes32 id = e.recipients[i].recipientId;
-            if (rootRecipientLabel[v][id] != 0) revert AmaneRejected("AMANE_POLICY_DUPLICATE_ENTRY");
+            if (rootRecipientLabel[v][id] != 0) revert AmaneRejected(Codes.POLICY_DUPLICATE_ENTRY);
             rootRecipientLabel[v][id] = keccak256(bytes(e.recipients[i].label));
         }
         for (uint256 i; i < e.beneficiaries.length; ++i) {
             bytes32 id = e.beneficiaries[i].recipientId;
-            if (rootBeneficiaryLabel[v][id] != 0) revert AmaneRejected("AMANE_POLICY_DUPLICATE_ENTRY");
+            if (rootBeneficiaryLabel[v][id] != 0) revert AmaneRejected(Codes.POLICY_DUPLICATE_ENTRY);
             rootBeneficiaryLabel[v][id] = keccak256(bytes(e.beneficiaries[i].label));
         }
         for (uint256 i; i < e.recoveryDestinations.length; ++i) {
             bytes32 id = e.recoveryDestinations[i].recipientId;
-            if (recoveryDestination[v][id]) revert AmaneRejected("AMANE_POLICY_DUPLICATE_ENTRY");
+            if (recoveryDestination[v][id]) revert AmaneRejected(Codes.POLICY_DUPLICATE_ENTRY);
             recoveryDestination[v][id] = true;
         }
         for (uint256 i; i < e.swapFloors.length; ++i) {
             if (e.swapFloors[i].minOutDenominator == 0 || e.swapFloors[i].minOutNumerator == 0) {
-                revert AmaneRejected("AMANE_POLICY_BAD_FLOOR");
+                revert AmaneRejected(Codes.POLICY_BAD_FLOOR);
             }
             Floor storage f = swapFloor[v][keccak256(abi.encode(e.swapFloors[i].assetIn, e.swapFloors[i].assetOut))];
-            if (f.den != 0) revert AmaneRejected("AMANE_POLICY_DUPLICATE_ENTRY");
+            if (f.den != 0) revert AmaneRejected(Codes.POLICY_DUPLICATE_ENTRY);
             f.num = e.swapFloors[i].minOutNumerator;
             f.den = e.swapFloors[i].minOutDenominator;
         }
@@ -239,11 +241,15 @@ contract AmaneAccount {
     /// which only a threshold unpause advances, so controllers cannot exhaust it and old pause
     /// signatures die after the next unpause.
     function pause(PauseAccount calldata x, bytes calldata sig) external {
-        if (x.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
-        if (x.pauseEpoch != pauseEpoch) revert AmaneRejected("AMANE_REPLAY_PAUSE_EPOCH");
-        if (block.timestamp > x.deadline) revert AmaneRejected("AMANE_ACTION_EXPIRED");
+        if (x.accountId != accountId) revert AmaneRejected(Codes.POLICY_WRONG_ACCOUNT);
+        if (x.pauseEpoch != pauseEpoch) revert AmaneRejected(Codes.REPLAY_PAUSE_EPOCH);
+        if (block.timestamp > x.deadline) revert AmaneRejected(Codes.ACTION_EXPIRED);
         address signer = AmaneSig.recover(AmaneHash.digest(x.hash()), sig);
-        if (!isController[signer]) revert AmaneRejected("AMANE_CONTROLLER_NOT_AUTHORIZED");
+        if (!isController[signer]) revert AmaneRejected(Codes.CONTROLLER_NOT_AUTHORIZED);
+        // Single-use ids: replaying an earlier pause must not restore it as `lastPauseId`, or a
+        // withheld unpause for that earlier pause would lift the current one.
+        if (pauseIdUsed[x.pauseId]) revert AmaneRejected(Codes.REPLAY_PAUSE_EPOCH);
+        pauseIdUsed[x.pauseId] = true;
         paused = true;
         lastPauseId = x.pauseId;
         emit Paused(x.pauseEpoch, x.pauseId, signer);
@@ -252,12 +258,12 @@ contract AmaneAccount {
     /// An unpause lifts only the exact pause its signers saw: any later pause changes
     /// `lastPauseId` and invalidates a withheld unpause.
     function unpause(UnpauseAccount calldata x, bytes[] calldata sigs) external nonReentrant {
-        if (x.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
-        if (x.chainRef != chainRef || x.account != self32()) revert AmaneRejected("AMANE_CHAIN_WRONG_ENDPOINT");
+        if (x.accountId != accountId) revert AmaneRejected(Codes.POLICY_WRONG_ACCOUNT);
+        if (x.chainRef != chainRef || x.account != self32()) revert AmaneRejected(Codes.ACTION_WRONG_ENDPOINT);
         if (!paused || x.pauseEpoch != pauseEpoch || x.pauseId != lastPauseId) {
-            revert AmaneRejected("AMANE_REPLAY_PAUSE_EPOCH");
+            revert AmaneRejected(Codes.REPLAY_PAUSE_EPOCH);
         }
-        if (block.timestamp > x.deadline) revert AmaneRejected("AMANE_ACTION_EXPIRED");
+        if (block.timestamp > x.deadline) revert AmaneRejected(Codes.ACTION_EXPIRED);
         _requireThreshold(AmaneHash.digest(x.hash()), sigs);
         paused = false;
         pauseEpoch = x.pauseEpoch + 1;
@@ -265,21 +271,21 @@ contract AmaneAccount {
     }
 
     function revokeLease(RevokeLease calldata x, bytes calldata sig) external {
-        if (x.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
+        if (x.accountId != accountId) revert AmaneRejected(Codes.POLICY_WRONG_ACCOUNT);
         address signer = AmaneSig.recover(AmaneHash.digest(x.hash()), sig);
         Lease storage l = leases[x.leaseId];
         bool allowed = isController[signer] || (l.status == LEASE_ACTIVE && l.issuer == signer);
-        if (!allowed) revert AmaneRejected("AMANE_CONTROLLER_NOT_AUTHORIZED");
+        if (!allowed) revert AmaneRejected(Codes.CONTROLLER_NOT_AUTHORIZED);
         l.status = LEASE_REVOKED;
         emit LeaseRevoked(x.leaseId, signer);
     }
 
     function withdraw(Withdraw calldata x, bytes[] calldata sigs) external nonReentrant {
-        if (x.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
-        if (x.chainRef != chainRef || x.account != self32()) revert AmaneRejected("AMANE_CHAIN_WRONG_ENDPOINT");
-        if (x.opNonce != opNonce) revert AmaneRejected("AMANE_REPLAY_OP_NONCE");
-        if (block.timestamp > x.deadline) revert AmaneRejected("AMANE_ACTION_EXPIRED");
-        if (!recoveryDestination[policyVersion][x.destination]) revert AmaneRejected("AMANE_OWNER_DESTINATION_NOT_ALLOWED");
+        if (x.accountId != accountId) revert AmaneRejected(Codes.POLICY_WRONG_ACCOUNT);
+        if (x.chainRef != chainRef || x.account != self32()) revert AmaneRejected(Codes.ACTION_WRONG_ENDPOINT);
+        if (x.opNonce != opNonce) revert AmaneRejected(Codes.REPLAY_OP_NONCE);
+        if (block.timestamp > x.deadline) revert AmaneRejected(Codes.ACTION_EXPIRED);
+        if (!recoveryDestination[policyVersion][x.destination]) revert AmaneRejected(Codes.OWNER_DESTINATION_NOT_ALLOWED);
         _requireThreshold(AmaneHash.digest(x.hash()), sigs);
         opNonce = x.opNonce + 1;
         address to = _asAddress(x.destination);
@@ -290,60 +296,60 @@ contract AmaneAccount {
     // ---------------------------------------------------------------- lease issuance
 
     function activateLease(AgentLease calldata l, bytes calldata sig) external nonReentrant {
-        if (l.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
+        if (l.accountId != accountId) revert AmaneRejected(Codes.POLICY_WRONG_ACCOUNT);
         uint64 v = policyVersion;
-        if (v == 0 || l.policyVersion != v) revert AmaneRejected("AMANE_POLICY_VERSION_MISMATCH");
-        if (l.authMode != AUTH_MODE_AGENT_SIGNED) revert AmaneRejected("AMANE_LEASE_BAD_AUTH_MODE");
-        if (l.expiresAt <= l.validAfter) revert AmaneRejected("AMANE_LEASE_BAD_WINDOW");
-        if (block.timestamp > l.activateBefore) revert AmaneRejected("AMANE_LEASE_ACTIVATION_EXPIRED");
+        if (v == 0 || l.policyVersion != v) revert AmaneRejected(Codes.POLICY_VERSION_MISMATCH);
+        if (l.authMode != AUTH_MODE_AGENT_SIGNED) revert AmaneRejected(Codes.LEASE_BAD_AUTH_MODE);
+        if (l.expiresAt <= l.validAfter) revert AmaneRejected(Codes.LEASE_BAD_WINDOW);
+        if (block.timestamp > l.activateBefore) revert AmaneRejected(Codes.LEASE_ACTIVATION_EXPIRED);
         uint64 lifetime = l.expiresAt - l.validAfter;
-        if (lifetime > maxLeaseLifetime) revert AmaneRejected("AMANE_LEASE_LIFETIME_EXCEEDED");
-        if (l.allowedActions & ~allowedActions != 0) revert AmaneRejected("AMANE_LEASE_ACTION_NOT_IN_ROOT");
-        if (leases[l.leaseId].status != LEASE_NONE) revert AmaneRejected("AMANE_REPLAY_LEASE_ID");
+        if (lifetime > maxLeaseLifetime) revert AmaneRejected(Codes.LEASE_LIFETIME_EXCEEDED);
+        if (l.allowedActions & ~allowedActions != 0) revert AmaneRejected(Codes.LEASE_ACTION_NOT_IN_ROOT);
+        if (leases[l.leaseId].status != LEASE_NONE) revert AmaneRejected(Codes.REPLAY_LEASE_ID);
 
         address signer = AmaneSig.recover(AmaneHash.digest(l.hash()), sig);
-        if (signer != l.issuer) revert AmaneRejected("AMANE_LEASE_ISSUER_NOT_AUTHORIZED");
-        if (l.agent == l.issuer || isController[l.agent]) revert AmaneRejected("AMANE_LEASE_AGENT_IS_ISSUER");
+        if (signer != l.issuer) revert AmaneRejected(Codes.LEASE_ISSUER_NOT_AUTHORIZED);
+        if (l.agent == l.issuer || isController[l.agent]) revert AmaneRejected(Codes.LEASE_AGENT_IS_ISSUER);
         bool byController = isController[signer];
         IssuerPolicy memory ip = issuers[v][signer];
         if (!byController) {
-            if (!ip.allowed) revert AmaneRejected("AMANE_LEASE_ISSUER_NOT_AUTHORIZED");
-            if (lifetime > ip.maxLeaseLifetime) revert AmaneRejected("AMANE_LEASE_LIFETIME_EXCEEDED");
-            if (!issuerAgents[v][signer][l.agent]) revert AmaneRejected("AMANE_LEASE_AGENT_NOT_ALLOWED");
+            if (!ip.allowed) revert AmaneRejected(Codes.LEASE_ISSUER_NOT_AUTHORIZED);
+            if (lifetime > ip.maxLeaseLifetime) revert AmaneRejected(Codes.LEASE_LIFETIME_EXCEEDED);
+            if (!issuerAgents[v][signer][l.agent]) revert AmaneRejected(Codes.LEASE_AGENT_NOT_ALLOWED);
         }
 
         LeaseEndpoint calldata e = l.endpoints[_ownLeaseEndpoint(l)];
         bytes32 id = l.leaseId;
         for (uint256 i; i < e.adapters.length; ++i) {
-            if (!rootAdapters[v][e.adapters[i]].allowed) revert AmaneRejected("AMANE_LEASE_ADAPTER_NOT_IN_ROOT");
-            if (leaseAdapters[id][e.adapters[i]]) revert AmaneRejected("AMANE_LEASE_DUPLICATE_ENTRY");
+            if (!rootAdapters[v][e.adapters[i]].allowed) revert AmaneRejected(Codes.LEASE_ADAPTER_NOT_IN_ROOT);
+            if (leaseAdapters[id][e.adapters[i]]) revert AmaneRejected(Codes.LEASE_DUPLICATE_ENTRY);
             leaseAdapters[id][e.adapters[i]] = true;
         }
         for (uint256 i; i < e.assets.length; ++i) {
             AssetLimit calldata a = e.assets[i];
             Limit storage r = rootAssets[v][a.assetId];
-            if (!r.allowed) revert AmaneRejected("AMANE_LEASE_ASSET_NOT_IN_ROOT");
+            if (!r.allowed) revert AmaneRejected(Codes.LEASE_ASSET_NOT_IN_ROOT);
             if (a.maxPerAction > r.perAction || a.maxPerEpoch > r.perEpoch || a.maxTotal > r.total) {
-                revert AmaneRejected("AMANE_LEASE_CAP_EXCEEDS_ROOT");
+                revert AmaneRejected(Codes.LEASE_CAP_EXCEEDS_ROOT);
             }
             if (!byController) {
                 Limit storage c = issuerLimits[v][signer][a.assetId];
                 if (a.maxPerAction > c.perAction || a.maxPerEpoch > c.perEpoch || a.maxTotal > c.total) {
-                    revert AmaneRejected("AMANE_LEASE_CAP_EXCEEDS_ISSUER");
+                    revert AmaneRejected(Codes.LEASE_CAP_EXCEEDS_ISSUER);
                 }
             }
             Limit storage dst = leaseAssets[id][a.assetId];
-            if (dst.allowed) revert AmaneRejected("AMANE_LEASE_DUPLICATE_ENTRY");
+            if (dst.allowed) revert AmaneRejected(Codes.LEASE_DUPLICATE_ENTRY);
             _storeLimit(dst, a);
         }
         for (uint256 i; i < e.recipients.length; ++i) {
-            if (rootRecipientLabel[v][e.recipients[i]] == 0) revert AmaneRejected("AMANE_LEASE_RECIPIENT_NOT_IN_ROOT");
-            if (leaseRecipients[id][e.recipients[i]]) revert AmaneRejected("AMANE_LEASE_DUPLICATE_ENTRY");
+            if (rootRecipientLabel[v][e.recipients[i]] == 0) revert AmaneRejected(Codes.LEASE_RECIPIENT_NOT_IN_ROOT);
+            if (leaseRecipients[id][e.recipients[i]]) revert AmaneRejected(Codes.LEASE_DUPLICATE_ENTRY);
             leaseRecipients[id][e.recipients[i]] = true;
         }
         for (uint256 i; i < e.beneficiaries.length; ++i) {
-            if (rootBeneficiaryLabel[v][e.beneficiaries[i]] == 0) revert AmaneRejected("AMANE_LEASE_BENEFICIARY_NOT_IN_ROOT");
-            if (leaseBeneficiaries[id][e.beneficiaries[i]]) revert AmaneRejected("AMANE_LEASE_DUPLICATE_ENTRY");
+            if (rootBeneficiaryLabel[v][e.beneficiaries[i]] == 0) revert AmaneRejected(Codes.LEASE_BENEFICIARY_NOT_IN_ROOT);
+            if (leaseBeneficiaries[id][e.beneficiaries[i]]) revert AmaneRejected(Codes.LEASE_DUPLICATE_ENTRY);
             leaseBeneficiaries[id][e.beneficiaries[i]] = true;
         }
 
@@ -363,49 +369,43 @@ contract AmaneAccount {
     // ---------------------------------------------------------------- agent action path
 
     function executeAction(ActionIntent calldata a, bytes calldata agentSig) external nonReentrant returns (uint256 amountOut) {
-        if (paused) revert AmaneRejected("AMANE_ACTION_ACCOUNT_PAUSED");
-        if (a.accountId != accountId) revert AmaneRejected("AMANE_POLICY_WRONG_ACCOUNT");
-        if (a.chainRef != chainRef || a.account != self32()) revert AmaneRejected("AMANE_ACTION_WRONG_ENDPOINT");
+        if (paused) revert AmaneRejected(Codes.ACTION_ACCOUNT_PAUSED);
+        if (a.accountId != accountId) revert AmaneRejected(Codes.POLICY_WRONG_ACCOUNT);
+        if (a.chainRef != chainRef || a.account != self32()) revert AmaneRejected(Codes.ACTION_WRONG_ENDPOINT);
         Lease memory l = leases[a.leaseId];
-        if (l.status != LEASE_ACTIVE) revert AmaneRejected("AMANE_LEASE_NOT_ACTIVE");
+        if (l.status != LEASE_ACTIVE) revert AmaneRejected(Codes.LEASE_NOT_ACTIVE);
         uint64 v = policyVersion;
-        if (a.policyVersion != v || l.policyVersion != v) revert AmaneRejected("AMANE_POLICY_VERSION_MISMATCH");
-        if (block.timestamp < l.validAfter) revert AmaneRejected("AMANE_LEASE_NOT_YET_VALID");
-        if (block.timestamp > l.expiresAt) revert AmaneRejected("AMANE_LEASE_EXPIRED");
-        if (block.timestamp > a.deadline) revert AmaneRejected("AMANE_ACTION_EXPIRED");
+        if (a.policyVersion != v || l.policyVersion != v) revert AmaneRejected(Codes.POLICY_VERSION_MISMATCH);
+        if (block.timestamp < l.validAfter) revert AmaneRejected(Codes.LEASE_NOT_YET_VALID);
+        if (block.timestamp > l.expiresAt) revert AmaneRejected(Codes.LEASE_EXPIRED);
+        if (block.timestamp > a.deadline) revert AmaneRejected(Codes.ACTION_EXPIRED);
 
         if (AmaneSig.recover(AmaneHash.digest(a.hash()), agentSig) != l.agent) {
-            revert AmaneRejected("AMANE_ACTION_WRONG_AGENT");
+            revert AmaneRejected(Codes.ACTION_WRONG_AGENT);
         }
-        if (nonceUsed[a.leaseId][a.nonce]) revert AmaneRejected("AMANE_REPLAY_NONCE");
+        if (nonceUsed[a.leaseId][a.nonce]) revert AmaneRejected(Codes.REPLAY_NONCE);
         nonceUsed[a.leaseId][a.nonce] = true;
 
         if (a.actionKind >= 32 || (l.allowedActions >> a.actionKind) & 1 == 0 || (allowedActions >> a.actionKind) & 1 == 0) {
-            revert AmaneRejected("AMANE_ACTION_KIND_NOT_ALLOWED");
+            revert AmaneRejected(Codes.ACTION_KIND_NOT_ALLOWED);
         }
         AdapterRegistry.Entry memory entry = _checkAdapter(a, v);
 
-        if (a.amountIn == 0) revert AmaneRejected("AMANE_ACTION_ZERO_AMOUNT");
+        if (a.amountIn == 0) revert AmaneRejected(Codes.ACTION_ZERO_AMOUNT);
         _debitAll(a.leaseId, l, v, a.assetIn, a.amountIn);
 
         address tokenIn = _asAddress(a.assetIn);
         if (a.actionKind == ActionKinds.SWAP) {
             amountOut = _swap(a, v, entry.adapter, tokenIn);
         } else if (a.actionKind == ActionKinds.PAY) {
-            if (a.assetOut != a.assetIn) revert AmaneRejected("AMANE_ACTION_ASSET_NOT_ALLOWED");
-            if (!leaseRecipients[a.leaseId][a.recipient]) revert AmaneRejected("AMANE_ACTION_RECIPIENT_NOT_ALLOWED");
+            if (a.assetOut != a.assetIn) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
+            if (!leaseRecipients[a.leaseId][a.recipient]) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
             if (rootRecipientLabel[v][a.recipient] != keccak256(bytes(a.recipientLabel))) {
-                revert AmaneRejected("AMANE_ACTION_RECIPIENT_NOT_ALLOWED");
+                revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
             }
             amountOut = _deliver(a, entry.adapter, tokenIn);
-        } else if (a.actionKind == ActionKinds.REPAY) {
-            if (!leaseBeneficiaries[a.leaseId][a.recipient]) revert AmaneRejected("AMANE_ACTION_RECIPIENT_NOT_ALLOWED");
-            if (rootBeneficiaryLabel[v][a.recipient] != keccak256(bytes(a.recipientLabel))) {
-                revert AmaneRejected("AMANE_ACTION_RECIPIENT_NOT_ALLOWED");
-            }
-            amountOut = _spendOnly(a, entry.adapter, tokenIn);
         } else {
-            revert AmaneRejected("AMANE_ACTION_KIND_NOT_ALLOWED");
+            revert AmaneRejected(Codes.ACTION_KIND_NOT_ALLOWED);
         }
 
         emit ActionExecuted(a.leaseId, a.nonce, a.adapterId, a.actionKind, a.amountIn, amountOut, a.planHash, a.planStep);
@@ -428,24 +428,24 @@ contract AmaneAccount {
     // ---------------------------------------------------------------- internals
 
     function _checkAdapter(ActionIntent calldata a, uint64 v) private view returns (AdapterRegistry.Entry memory entry) {
-        if (!leaseAdapters[a.leaseId][a.adapterId]) revert AmaneRejected("AMANE_ACTION_ADAPTER_NOT_ALLOWED");
+        if (!leaseAdapters[a.leaseId][a.adapterId]) revert AmaneRejected(Codes.ACTION_ADAPTER_NOT_ALLOWED);
         AdapterPolicy memory ap = rootAdapters[v][a.adapterId];
-        if (!ap.allowed) revert AmaneRejected("AMANE_ACTION_ADAPTER_NOT_ALLOWED");
+        if (!ap.allowed) revert AmaneRejected(Codes.ACTION_ADAPTER_NOT_ALLOWED);
         if (ap.nameHash != keccak256(bytes(a.adapterName)) || ap.version != a.adapterVersion) {
-            revert AmaneRejected("AMANE_ACTION_ADAPTER_NAME_MISMATCH");
+            revert AmaneRejected(Codes.ACTION_ADAPTER_NAME_MISMATCH);
         }
         entry = registry.get(a.adapterId);
-        if (entry.adapter == address(0)) revert AmaneRejected("AMANE_ADAPTER_UNKNOWN");
+        if (entry.adapter == address(0)) revert AmaneRejected(Codes.ADAPTER_UNKNOWN);
         if (entry.nameHash != ap.nameHash || entry.adapterVersion != ap.version) {
-            revert AmaneRejected("AMANE_ACTION_ADAPTER_NAME_MISMATCH");
+            revert AmaneRejected(Codes.ACTION_ADAPTER_NAME_MISMATCH);
         }
-        if (entry.actionKind != a.actionKind) revert AmaneRejected("AMANE_ADAPTER_KIND_MISMATCH");
-        if (entry.adapter.codehash != entry.codeHash) revert AmaneRejected("AMANE_ADAPTER_CODE_CHANGED");
+        if (entry.actionKind != a.actionKind) revert AmaneRejected(Codes.ADAPTER_KIND_MISMATCH);
+        if (entry.adapter.codehash != entry.codeHash) revert AmaneRejected(Codes.ADAPTER_CODE_CHANGED);
     }
 
     function _debitAll(bytes32 leaseId, Lease memory l, uint64 v, bytes32 assetId, uint256 amount) private {
         Limit memory ll = leaseAssets[leaseId][assetId];
-        if (!ll.allowed) revert AmaneRejected("AMANE_ACTION_ASSET_NOT_ALLOWED");
+        if (!ll.allowed) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
         _debit(leaseSpend[leaseId][assetId], ll, amount);
         _debit(rootSpend[v][assetId], rootAssets[v][assetId], amount);
         if (!l.byController) {
@@ -454,11 +454,11 @@ contract AmaneAccount {
     }
 
     function _debit(Spend storage s, Limit memory lim, uint256 amount) private {
-        if (amount > lim.perAction) revert AmaneRejected("AMANE_BUDGET_PER_ACTION");
+        if (amount > lim.perAction) revert AmaneRejected(Codes.BUDGET_PER_ACTION);
         uint256 level = _level(s, lim.perEpoch);
-        if (amount > level) revert AmaneRejected("AMANE_BUDGET_EPOCH");
+        if (amount > level) revert AmaneRejected(Codes.BUDGET_EPOCH);
         uint256 t = s.totalSpent + amount;
-        if (t > lim.total) revert AmaneRejected("AMANE_BUDGET_TOTAL");
+        if (t > lim.total) revert AmaneRejected(Codes.BUDGET_TOTAL);
         s.initialized = true;
         s.updatedAt = uint64(block.timestamp);
         s.level = level - amount;
@@ -467,17 +467,20 @@ contract AmaneAccount {
 
     function _level(Spend memory s, uint256 capacity) private view returns (uint256) {
         if (!s.initialized) return capacity;
-        uint256 refill = capacity * (block.timestamp - s.updatedAt) / epochSeconds;
-        uint256 level = s.level + refill;
-        return level > capacity ? capacity : level;
+        uint256 elapsed = block.timestamp - s.updatedAt;
+        if (elapsed >= epochSeconds) return capacity;
+        // elapsed < epochSeconds, so neither product can overflow even for capacity near 2^256.
+        uint256 refill = (capacity / epochSeconds) * elapsed + (capacity % epochSeconds) * elapsed / epochSeconds;
+        uint256 room = capacity - s.level;
+        return refill >= room ? capacity : s.level + refill;
     }
 
     function _swap(ActionIntent calldata a, uint64 v, address adapter, address tokenIn) private returns (uint256 out) {
-        if (a.assetOut == a.assetIn) revert AmaneRejected("AMANE_ACTION_ASSET_NOT_ALLOWED");
-        if (!leaseAssets[a.leaseId][a.assetOut].allowed) revert AmaneRejected("AMANE_ACTION_ASSET_NOT_ALLOWED");
-        if (a.recipient != bytes32(0)) revert AmaneRejected("AMANE_ACTION_RECIPIENT_NOT_ALLOWED");
+        if (a.assetOut == a.assetIn) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
+        if (!leaseAssets[a.leaseId][a.assetOut].allowed) revert AmaneRejected(Codes.ACTION_ASSET_NOT_ALLOWED);
+        if (a.recipient != bytes32(0)) revert AmaneRejected(Codes.ACTION_RECIPIENT_NOT_ALLOWED);
         Floor memory f = swapFloor[v][keccak256(abi.encode(a.assetIn, a.assetOut))];
-        if (f.den == 0) revert AmaneRejected("AMANE_ACTION_NO_PRICE_FLOOR");
+        if (f.den == 0) revert AmaneRejected(Codes.ACTION_NO_PRICE_FLOOR);
         uint256 required = (a.amountIn * f.num + f.den - 1) / f.den;
         uint256 minOut = a.minAmountOut > required ? a.minAmountOut : required;
 
@@ -488,9 +491,9 @@ contract AmaneAccount {
         IAmaneAdapter(adapter).execute(tokenIn, tokenOut, a.amountIn, minOut, address(this));
         uint256 inAfter = IERC20Minimal(tokenIn).balanceOf(address(this));
         uint256 outAfter = IERC20Minimal(tokenOut).balanceOf(address(this));
-        if (inBefore - inAfter > a.amountIn) revert AmaneRejected("AMANE_ACTION_OVERSPENT");
+        if (inBefore - inAfter > a.amountIn) revert AmaneRejected(Codes.ACTION_OVERSPENT);
         out = outAfter - outBefore;
-        if (out < minOut) revert AmaneRejected("AMANE_ACTION_BELOW_MIN_OUT");
+        if (out < minOut) revert AmaneRejected(Codes.ACTION_BELOW_MIN_OUT);
     }
 
     function _deliver(ActionIntent calldata a, address adapter, address tokenIn) private returns (uint256 delivered) {
@@ -500,18 +503,10 @@ contract AmaneAccount {
         _safeTransfer(tokenIn, adapter, a.amountIn);
         IAmaneAdapter(adapter).execute(tokenIn, tokenIn, a.amountIn, a.amountIn, to);
         if (inBefore - IERC20Minimal(tokenIn).balanceOf(address(this)) > a.amountIn) {
-            revert AmaneRejected("AMANE_ACTION_OVERSPENT");
+            revert AmaneRejected(Codes.ACTION_OVERSPENT);
         }
         delivered = IERC20Minimal(tokenIn).balanceOf(to) - toBefore;
-        if (delivered < a.amountIn) revert AmaneRejected("AMANE_ACTION_UNDER_DELIVERED");
-    }
-
-    function _spendOnly(ActionIntent calldata a, address adapter, address tokenIn) private returns (uint256 spent) {
-        uint256 inBefore = IERC20Minimal(tokenIn).balanceOf(address(this));
-        _safeTransfer(tokenIn, adapter, a.amountIn);
-        IAmaneAdapter(adapter).execute(tokenIn, tokenIn, a.amountIn, a.minAmountOut, _asAddress(a.recipient));
-        spent = inBefore - IERC20Minimal(tokenIn).balanceOf(address(this));
-        if (spent > a.amountIn) revert AmaneRejected("AMANE_ACTION_OVERSPENT");
+        if (delivered < a.amountIn) revert AmaneRejected(Codes.ACTION_UNDER_DELIVERED);
     }
 
     function _ownPolicyEndpoint(RootPolicy calldata p) private view returns (uint256 idx) {
@@ -519,12 +514,12 @@ contract AmaneAccount {
         bool found;
         for (uint256 i; i < p.endpoints.length; ++i) {
             if (p.endpoints[i].chainRef == chainRef && p.endpoints[i].account == me) {
-                if (found) revert AmaneRejected("AMANE_POLICY_DUPLICATE_ENTRY");
+                if (found) revert AmaneRejected(Codes.POLICY_DUPLICATE_ENTRY);
                 idx = i;
                 found = true;
             }
         }
-        if (!found) revert AmaneRejected("AMANE_POLICY_WRONG_ENDPOINT");
+        if (!found) revert AmaneRejected(Codes.POLICY_WRONG_ENDPOINT);
     }
 
     function _ownLeaseEndpoint(AgentLease calldata l) private view returns (uint256 idx) {
@@ -532,18 +527,18 @@ contract AmaneAccount {
         bool found;
         for (uint256 i; i < l.endpoints.length; ++i) {
             if (l.endpoints[i].chainRef == chainRef && l.endpoints[i].account == me) {
-                if (found) revert AmaneRejected("AMANE_LEASE_DUPLICATE_ENTRY");
+                if (found) revert AmaneRejected(Codes.LEASE_DUPLICATE_ENTRY);
                 idx = i;
                 found = true;
             }
         }
-        if (!found) revert AmaneRejected("AMANE_LEASE_WRONG_ENDPOINT");
+        if (!found) revert AmaneRejected(Codes.LEASE_WRONG_ENDPOINT);
     }
 
     function _storeIssuer(uint64 v, LeaseIssuer calldata x) private {
         IssuerPolicy storage ip = issuers[v][x.issuer];
-        if (ip.allowed) revert AmaneRejected("AMANE_POLICY_DUPLICATE_ENTRY");
-        if (isController[x.issuer]) revert AmaneRejected("AMANE_POLICY_ISSUER_IS_CONTROLLER");
+        if (ip.allowed) revert AmaneRejected(Codes.POLICY_DUPLICATE_ENTRY);
+        if (isController[x.issuer]) revert AmaneRejected(Codes.POLICY_ISSUER_IS_CONTROLLER);
         ip.allowed = true;
         ip.maxLeaseLifetime = x.maxLeaseLifetime;
         for (uint256 i; i < x.allowedAgents.length; ++i) {
@@ -552,7 +547,7 @@ contract AmaneAccount {
         for (uint256 i; i < x.limits.length; ++i) {
             if (x.limits[i].chainRef != chainRef) continue;
             Limit storage l = issuerLimits[v][x.issuer][x.limits[i].assetId];
-            if (l.allowed) revert AmaneRejected("AMANE_POLICY_DUPLICATE_ENTRY");
+            if (l.allowed) revert AmaneRejected(Codes.POLICY_DUPLICATE_ENTRY);
             l.allowed = true;
             l.perAction = x.limits[i].maxPerAction;
             l.perEpoch = x.limits[i].maxPerEpoch;
@@ -572,24 +567,24 @@ contract AmaneAccount {
         uint256 count;
         for (uint256 i; i < sigs.length; ++i) {
             address s = AmaneSig.recover(digest, sigs[i]);
-            if (s <= last) revert AmaneRejected("AMANE_CONTROLLER_UNSORTED");
-            if (!isController[s]) revert AmaneRejected("AMANE_CONTROLLER_NOT_AUTHORIZED");
+            if (s <= last) revert AmaneRejected(Codes.CONTROLLER_UNSORTED);
+            if (!isController[s]) revert AmaneRejected(Codes.CONTROLLER_NOT_AUTHORIZED);
             last = s;
             ++count;
         }
-        if (count < threshold) revert AmaneRejected("AMANE_CONTROLLER_THRESHOLD");
+        if (count < threshold) revert AmaneRejected(Codes.CONTROLLER_THRESHOLD);
     }
 
     function _asAddress(bytes32 word) private pure returns (address) {
-        if (uint256(word) >> 160 != 0) revert AmaneRejected("AMANE_CHAIN_NOT_AN_ADDRESS");
+        if (uint256(word) >> 160 != 0) revert AmaneRejected(Codes.CHAIN_NOT_AN_ADDRESS);
         return address(uint160(uint256(word)));
     }
 
     function _safeTransfer(address token, address to, uint256 amount) private {
-        if (token.code.length == 0) revert AmaneRejected("AMANE_ASSET_NOT_A_TOKEN");
+        if (token.code.length == 0) revert AmaneRejected(Codes.ASSET_NOT_A_TOKEN);
         (bool ok, bytes memory ret) = token.call(abi.encodeWithSelector(0xa9059cbb, to, amount));
         if (!ok || (ret.length != 0 && (ret.length != 32 || abi.decode(ret, (uint256)) != 1))) {
-            revert AmaneRejected("AMANE_ASSET_TRANSFER_FAILED");
+            revert AmaneRejected(Codes.ASSET_TRANSFER_FAILED);
         }
     }
 }

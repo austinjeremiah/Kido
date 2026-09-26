@@ -166,6 +166,7 @@ public struct Account has key {
     paused: bool,
     pause_epoch: u64,
     last_pause_id: vector<u8>,
+    pause_ids: Table<vector<u8>, bool>,
     op_nonce: u64,
     policy: Option<StoredPolicy>,
     leases: Table<vector<u8>, Lease>,
@@ -241,6 +242,7 @@ public fun create(
         paused: false,
         pause_epoch: 0,
         last_pause_id: vector[],
+        pause_ids: table::new(ctx),
         op_nonce: 0,
         policy: option::none(),
         leases: table::new(ctx),
@@ -360,8 +362,13 @@ public fun pause(self: &mut Account, x: PauseAccount, sig: vector<u8>, clock: &C
     assert!(now_seconds(clock) <= eip712::pa_deadline(&x), EActionExpired);
     let signer = eip712::recover_signer(eip712::hash_pause_account(&x), &sig);
     assert!(self.controllers.contains(&signer), EControllerNotAuthorized);
+    // Single-use ids: replaying an earlier pause must not restore it as `last_pause_id`, or a
+    // withheld unpause for that earlier pause would lift the current one.
+    let pause_id = *eip712::pa_pause_id(&x);
+    assert!(!self.pause_ids.contains(pause_id), EReplayPauseEpoch);
+    self.pause_ids.add(pause_id, true);
     self.paused = true;
-    self.last_pause_id = *eip712::pa_pause_id(&x);
+    self.last_pause_id = pause_id;
     event::emit(AccountPaused { object: object::id(self), pause_epoch: self.pause_epoch, pause_id: self.last_pause_id, by: signer });
 }
 
@@ -691,9 +698,15 @@ fun debit(self: &mut Account, key: vector<u8>, lim: Limit, amount: u256, now: u6
     assert!(amount <= lim.per_action, EBudgetPerAction);
     let (level, total) = if (self.spend.contains(key)) {
         let s = self.spend[key];
-        let refill = lim.per_epoch * ((now - s.updated_at) as u256) / (period as u256);
-        let l = s.level + refill;
-        (if (l > lim.per_epoch) lim.per_epoch else l, s.total_spent)
+        let elapsed = (now - s.updated_at) as u256;
+        let p = period as u256;
+        let level = if (elapsed >= p) lim.per_epoch
+        else {
+            // elapsed < period, so neither product can overflow even for caps near 2^256.
+            let refill = (lim.per_epoch / p) * elapsed + (lim.per_epoch % p) * elapsed / p;
+            if (refill >= lim.per_epoch - s.level) lim.per_epoch else s.level + refill
+        };
+        (level, s.total_spent)
     } else (lim.per_epoch, 0);
     assert!(amount <= level, EBudgetEpoch);
     let t = total + amount;
