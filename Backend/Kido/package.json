@@ -10,6 +10,7 @@
   },
   "workspaces": [
     "packages/blueprint",
+    "packages/registry",
     "packages/amane-bridge",
     "packages/kido-runtime",
     "packages/kido-agents",
