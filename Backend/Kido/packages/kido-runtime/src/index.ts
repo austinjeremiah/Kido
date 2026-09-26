@@ -16,3 +16,4 @@ export * from "./recovery.js";
 export * from "./agent.js";
 export * from "./monitors/allocation.js";
 export * from "./responders/rebalance.js";
+export * from "./crosschain.js";
