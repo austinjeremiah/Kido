@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Hex } from 'viem';
+import { hexBytes, moveExpr, snake } from './move-emit.js';
 import type { PrivateKeyAccount } from 'viem/accounts';
 import {
   AMANE_TYPES,
@@ -210,25 +211,6 @@ mkdirSync(resolve(root, 'evm/test/generated'), { recursive: true });
 writeFileSync(resolve(root, 'evm/test/generated/Golden.sol'), sol);
 
 // ---------------------------------------------------------------- Move emitter
-
-const snake = (s: string) => s.replace(/[A-Z]/g, (c, i) => (i ? '_' : '') + c.toLowerCase());
-const hexBytes = (h: string) => `x"${h.replace(/^0x/, '').toLowerCase()}"`;
-const utf8Hex = (s: string) => `x"${Buffer.from(s, 'utf8').toString('hex')}"`;
-
-function moveExpr(type: string, value: unknown): string {
-  if (type.endsWith('[]')) {
-    const inner = type.slice(0, -2);
-    const arr = value as unknown[];
-    const elemType = TYPES[inner] ? `eip712::${inner}` : 'vector<u8>';
-    return `vector<${elemType}>[${arr.map((x) => moveExpr(inner, x)).join(', ')}]`;
-  }
-  const fields = TYPES[type];
-  if (fields) return `eip712::${snake(type)}(${fields.map((f) => moveExpr(f.type, (value as Record<string, unknown>)[f.name])).join(', ')})`;
-  if (type === 'string') return utf8Hex(value as string);
-  if (type === 'bytes32' || type === 'address') return hexBytes(value as string);
-  const suffix = type === 'uint8' ? 'u8' : type === 'uint32' ? 'u32' : type === 'uint64' ? 'u64' : 'u256';
-  return `${(value as bigint | number).toString()}${suffix}`;
-}
 
 const moveCases = vectors
   .map((v) => {

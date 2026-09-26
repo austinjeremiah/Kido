@@ -490,7 +490,7 @@ fun word_u64(x: u64): vector<u8> { word_u256(x as u256) }
 
 fun word_address(a: &vector<u8>): vector<u8> {
     let mut w = vector[];
-    let mut i = 0;
+    let mut i = 0u64;
     while (i < 12) {
         w.push_back(0);
         i = i + 1;
